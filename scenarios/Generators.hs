@@ -109,14 +109,18 @@ build scenario = Built
           }
       | pick <- maybe [] pure scenario.reviewer
       ]
-    externalEvents =
-      [ ExternalVerdictRecorded ExternalVerdict
-          { event     = EventId 0
-          , revision  = latest.revision
-          , kind      = kind
-          , reference = "upstream/1"
-          }
-      | Just kind <- [scenario.externalVerdict]
+    -- a rejection of the head is followed by the closure arc records with
+    -- it: the change is abandoned, with the decision as its reason
+    externalEvents = concat
+      [ [ ExternalVerdictRecorded ExternalVerdict
+            { event     = EventId 0
+            , revision  = latest.revision
+            , kind      = kind
+            , reference = "upstream/1"
+            }
+        | Just kind <- [scenario.externalVerdict]
+        ]
+      , [ ChangeClosed ClosedAbandoned | scenario.externalVerdict == Just ExternalRejected ]
       ]
     findingEvents
       | scenario.blockingFinding
