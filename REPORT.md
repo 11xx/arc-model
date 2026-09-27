@@ -5,7 +5,7 @@ unsettled. The suite that produces the evidence below is run with:
 
 ```sh
 cd spec/arc-model
-cabal v2-test --test-show-details=direct --test-options="--seed 20260907 --tests 300"
+cabal v2-test spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
 ```
 
 ## Structural type invariants
@@ -42,8 +42,8 @@ counterexample can be generated for them.
   `AuthorizedByWaiver`, and `AuthorizedByVerdictUnderWaiver` are distinct, so
   "a waiver authorized this" cannot be confused with "a waiver was recorded".
 - **Obligation, outcome, and history are separate types.**
-  `CoverageAfterIntegration` carries `coverageRead`, `coverageVerdict`,
-  `coverageApproved`, `coverageOpenFindings`, and `coverageAuthorization`
+  `CoverageAfterIntegration` carries `read`, `verdict`, `approved`,
+  `openFindings`, and `authorization`
   independently. `historicalAuthorization` is a projection of the newest
   `IntegrationRecord`; no function writes over a recorded basis.
 - **Reference integrity under shrinking.** A scenario's references are
@@ -164,7 +164,7 @@ still choose differently. Each is a deliberate choice, not an oversight.
   its findings open. A repair after that audit starts a fresh obligation in
   the model. Whether the fulfilled read should survive a repair is a policy
   question the model does not answer.
-- **Approval beside a later negative audit.** `coverageApproved` reports
+- **Approval beside a later negative audit.** `approved` reports
   whether an independent approving answer exists. An independent approval on
   the shipped patchset makes it true even after a negative audit; the audit's
   verdict remains its own field. Whether a later negative audit should
@@ -208,5 +208,5 @@ a claim about them:
 - **Review-map advisories.** `reviewer-behind-final-patchset`,
   `no-independent-reviewer`, and the other advisories are not modelled; they
   never block, and the model's job is the blocking decision.
-- **Dependency status.** `obsBlockedBy` names blockers; how a chain's
+- **Dependency status.** `Observations.blockedBy` names blockers; how a chain's
   readiness is computed is not modelled.
