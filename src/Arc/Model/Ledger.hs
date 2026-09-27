@@ -8,6 +8,7 @@ module Arc.Model.Ledger
     , module Arc.Model.Ledger.Claim
     , module Arc.Model.Ledger.Debt
     , module Arc.Model.Ledger.Disposition
+    , module Arc.Model.Ledger.ExternalVerdict
     , module Arc.Model.Ledger.Finding
     , module Arc.Model.Ledger.Integration
     , module Arc.Model.Ledger.Patchset
@@ -22,6 +23,7 @@ import Arc.Model.Ledger.Audit
 import Arc.Model.Ledger.Claim
 import Arc.Model.Ledger.Debt
 import Arc.Model.Ledger.Disposition
+import Arc.Model.Ledger.ExternalVerdict
 import Arc.Model.Ledger.Finding
 import Arc.Model.Ledger.Integration
 import Arc.Model.Ledger.Patchset
@@ -35,6 +37,7 @@ data Closure = ClosedAbandoned
 
 data Event = PatchsetRecorded Patchset
            | VerdictRecorded Verdict
+           | ExternalVerdictRecorded ExternalVerdict
            | FindingRecorded Finding
            | FindingDisposed Disposition
            | VerificationRecorded Verification

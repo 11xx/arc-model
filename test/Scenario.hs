@@ -20,7 +20,7 @@ module Scenario
     , shrinkScenario
     ) where
 
-import Arc.Model ( DebtKind(..), Policy(..), VerdictKind(..) )
+import Arc.Model ( DebtKind(..), ExternalKind(..), Policy(..), VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 
 import Test.QuickCheck
@@ -32,53 +32,61 @@ data ActorPick = ActorIndependent
                | ActorAssumed
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
--- | How the required gate's evidence relates to the declaration and tree in
--- force.
-data GateMode = GateCovered
-              | GateOtherTree
-              | GateShapeMoved
-              | GateUnreadable
-              | GateOmitted
+-- | How the required gate's evidence relates to the declaration, tree, and
+-- environment in force. The declared gate always names a probe.
+data GateMode = EvidenceCovered
+              | EvidenceFailing
+              | EvidenceOtherTree
+              | EvidenceShapeMoved
+              | EvidenceOtherEnvironment
+              | EvidenceUnrecordedEnvironment
+              | EvidenceProbeFailed
+              | EvidenceRecordUnreadable
+              | EvidenceOmitted
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 data Scenario = Scenario
-  { patchsets        :: !Int
-  , verdictOnFirst   :: !Bool
-  , reviewer         :: !(Maybe ActorPick)
-  , verdict          :: !VerdictKind
-  , provisional      :: !Bool
-  , extraContributor :: !Bool
-  , debt             :: !(Maybe (Int, Maybe DebtKind))
-  , gateMode         :: !GateMode
-  , blockingFinding  :: !Bool
-  , resolveFinding   :: !Bool
-  , headMoved        :: !Bool
-  , policy           :: !Policy
-  , targetAfter      :: !Bool
-  , policyAfter      :: !Bool
-  , audit            :: !(Maybe (VerdictKind, Bool))
-  , episodeExpired   :: !Bool
+  { patchsets         :: !Int
+  , verdictOnFirst    :: !Bool
+  , reviewer          :: !(Maybe ActorPick)
+  , verdict           :: !VerdictKind
+  , provisional       :: !Bool
+  , extraContributor  :: !Bool
+  , externalVerdict   :: !(Maybe ExternalKind)   -- ^ An upstream decision about the latest head.
+  , debt              :: !(Maybe (Int, Maybe DebtKind))
+  , gateMode          :: !GateMode
+  , blockingFinding   :: !Bool
+  , resolveFinding    :: !Bool
+  , headMoved         :: !Bool
+  , policy            :: !Policy
+  , targetAfter       :: !Bool
+  , policyAfter       :: !Bool
+  , authorityWithheld :: !Bool                   -- ^ The store lacks integration authority when it executes.
+  , audit             :: !(Maybe (VerdictKind, Bool))
+  , episodeExpired    :: !Bool
   }
   deriving stock (Eq, Ord, Show)
 
 defaultScenario :: Scenario
 defaultScenario = Scenario
-  { patchsets        = 1
-  , verdictOnFirst   = False
-  , reviewer         = Just ActorIndependent
-  , verdict          = Approved
-  , provisional      = False
-  , extraContributor = False
-  , debt             = Nothing
-  , gateMode         = GateCovered
-  , blockingFinding  = False
-  , resolveFinding   = False
-  , headMoved        = False
-  , policy           = dangerPolicy
-  , targetAfter      = False
-  , policyAfter      = False
-  , audit            = Nothing
-  , episodeExpired   = False
+  { patchsets         = 1
+  , verdictOnFirst    = False
+  , reviewer          = Just ActorIndependent
+  , verdict           = Approved
+  , provisional       = False
+  , extraContributor  = False
+  , externalVerdict   = Nothing
+  , debt              = Nothing
+  , gateMode          = EvidenceCovered
+  , blockingFinding   = False
+  , resolveFinding    = False
+  , headMoved         = False
+  , policy            = dangerPolicy
+  , targetAfter       = False
+  , policyAfter       = False
+  , authorityWithheld = False
+  , audit             = Nothing
+  , episodeExpired    = False
   }
 
 dangerPolicy :: Policy
@@ -103,22 +111,24 @@ requireDeclaredPolicy = dangerPolicy { Policy.requireDeclaredActor = True }
 -- | A generator that reaches every feature the suite claims to exercise.
 genAnyScenario :: Gen Scenario
 genAnyScenario = do
-  patchsets        <- choose (1, 3)
-  verdictOnFirst   <- frequency [(2, pure False), (1, pure True)]
-  reviewer         <- frequency [(1, pure Nothing), (3, Just <$> arbitrary), (2, pure (Just ActorIndependent))]
-  verdict          <- elements [Approved, Approved, ChangesRequested, CommentOnly]
-  provisional      <- frequency [(4, pure False), (1, pure True)]
-  extraContributor <- arbitrary
-  debt             <- frequency [(2, pure Nothing), (2, debtFor patchsets)]
-  gateMode         <- arbitrary
-  blockingFinding  <- frequency [(3, pure False), (1, pure True)]
-  resolveFinding   <- frequency [(4, pure False), (1, pure True)]
-  headMoved        <- frequency [(4, pure False), (1, pure True)]
-  policy           <- elements [dangerPolicy, dangerPolicy, openPolicy, requireDeclaredPolicy]
-  targetAfter      <- frequency [(4, pure False), (1, pure True)]
-  policyAfter      <- frequency [(4, pure False), (1, pure True)]
-  audit            <- frequency [(2, pure Nothing), (1, Just <$> ((,) <$> elements [Approved, ChangesRequested] <*> arbitrary))]
-  episodeExpired   <- arbitrary
+  patchsets         <- choose (1, 3)
+  verdictOnFirst    <- frequency [(2, pure False), (1, pure True)]
+  reviewer          <- frequency [(1, pure Nothing), (3, Just <$> arbitrary), (2, pure (Just ActorIndependent))]
+  verdict           <- elements [Approved, Approved, ChangesRequested, CommentOnly]
+  provisional       <- frequency [(4, pure False), (1, pure True)]
+  extraContributor  <- arbitrary
+  externalVerdict   <- frequency [(3, pure Nothing), (2, pure (Just ExternalApproved)), (1, pure (Just ExternalChangesRequested)), (1, pure (Just ExternalRejected))]
+  debt              <- frequency [(2, pure Nothing), (2, debtFor patchsets)]
+  gateMode          <- frequency ((8, pure EvidenceCovered) : [ (1, pure mode) | mode <- [minBound .. maxBound], mode /= EvidenceCovered ])
+  blockingFinding   <- frequency [(3, pure False), (1, pure True)]
+  resolveFinding    <- frequency [(4, pure False), (1, pure True)]
+  headMoved         <- frequency [(4, pure False), (1, pure True)]
+  policy            <- elements [dangerPolicy, dangerPolicy, openPolicy, requireDeclaredPolicy]
+  targetAfter       <- frequency [(4, pure False), (1, pure True)]
+  policyAfter       <- frequency [(4, pure False), (1, pure True)]
+  authorityWithheld <- frequency [(5, pure False), (1, pure True)]
+  audit             <- frequency [(2, pure Nothing), (1, Just <$> ((,) <$> elements [Approved, ChangesRequested] <*> arbitrary))]
+  episodeExpired    <- arbitrary
   pure Scenario {..}
 
 debtFor :: Int -> Gen (Maybe (Int, Maybe DebtKind))
@@ -137,6 +147,7 @@ genIntegratable = do
   count            <- choose (1, 3)
   withApproval     <- frequency [(3, pure True), (1, pure False)]
   extraContributor <- arbitrary
+  externalVerdict  <- frequency [(3, pure Nothing), (1, pure (Just ExternalApproved))]
   debt             <- frequency [(2, pure Nothing), (2, debtFor count)]
   provisional      <- frequency [(4, pure False), (1, pure True)]
   episodeExpired   <- arbitrary
@@ -145,6 +156,7 @@ genIntegratable = do
     { patchsets        = count
     , reviewer         = if withApproval then Just ActorIndependent else Nothing
     , extraContributor = extraContributor
+    , externalVerdict  = externalVerdict
     , debt             = if withApproval then debt else Just (count, Nothing)
     , provisional      = provisional
     , episodeExpired   = episodeExpired
@@ -176,22 +188,24 @@ shrinkScenario scenario =
   ]
   where
     candidates = concat
-      [ [ scenario { patchsets = count }        | count <- [1 .. scenario.patchsets - 1] ]
-      , [ scenario { verdictOnFirst = False }   | scenario.verdictOnFirst ]
-      , [ scenario { reviewer = Nothing }       | scenario.reviewer /= Nothing ]
-      , [ scenario { verdict = Approved }       | scenario.verdict /= Approved ]
-      , [ scenario { provisional = False }      | scenario.provisional ]
-      , [ scenario { extraContributor = False } | scenario.extraContributor ]
-      , [ scenario { debt = Nothing }           | scenario.debt /= Nothing ]
-      , [ scenario { gateMode = mode }          | mode <- [minBound .. scenario.gateMode], mode /= scenario.gateMode ]
-      , [ scenario { blockingFinding = False }  | scenario.blockingFinding ]
-      , [ scenario { resolveFinding = False }   | scenario.resolveFinding ]
-      , [ scenario { headMoved = False }        | scenario.headMoved ]
-      , [ scenario { policy = openPolicy }      | scenario.policy /= openPolicy ]
-      , [ scenario { targetAfter = False }      | scenario.targetAfter ]
-      , [ scenario { policyAfter = False }      | scenario.policyAfter ]
-      , [ scenario { audit = Nothing }          | scenario.audit /= Nothing ]
-      , [ scenario { episodeExpired = False }   | scenario.episodeExpired ]
+      [ [ scenario { patchsets = count }         | count <- [1 .. scenario.patchsets - 1] ]
+      , [ scenario { verdictOnFirst = False }    | scenario.verdictOnFirst ]
+      , [ scenario { reviewer = Nothing }        | scenario.reviewer /= Nothing ]
+      , [ scenario { verdict = Approved }        | scenario.verdict /= Approved ]
+      , [ scenario { provisional = False }       | scenario.provisional ]
+      , [ scenario { extraContributor = False }  | scenario.extraContributor ]
+      , [ scenario { externalVerdict = Nothing } | scenario.externalVerdict /= Nothing ]
+      , [ scenario { debt = Nothing }            | scenario.debt /= Nothing ]
+      , [ scenario { gateMode = mode }           | mode <- [minBound .. scenario.gateMode], mode /= scenario.gateMode ]
+      , [ scenario { blockingFinding = False }   | scenario.blockingFinding ]
+      , [ scenario { resolveFinding = False }    | scenario.resolveFinding ]
+      , [ scenario { headMoved = False }         | scenario.headMoved ]
+      , [ scenario { policy = openPolicy }       | scenario.policy /= openPolicy ]
+      , [ scenario { targetAfter = False }       | scenario.targetAfter ]
+      , [ scenario { policyAfter = False }       | scenario.policyAfter ]
+      , [ scenario { authorityWithheld = False } | scenario.authorityWithheld ]
+      , [ scenario { audit = Nothing }           | scenario.audit /= Nothing ]
+      , [ scenario { episodeExpired = False }    | scenario.episodeExpired ]
       ]
     referencedPatchsets current = case current.debt of
       Nothing         -> []

@@ -13,10 +13,14 @@ import Arc.Model.Identifiers
 import Arc.Model.Policy ( Policy )
 
 
--- | What a recorded merge actually rested on, read from the ledger.
+{- | What a recorded merge actually rested on, read from the ledger. An
+external approval is named only when no local authorization stood: arc can
+verify the revision it covers and nothing about who gave it.
+-}
 data Authorization = AuthorizedByVerdict EventId
                    | AuthorizedByWaiver DebtId
                    | AuthorizedByVerdictUnderWaiver EventId DebtId
+                   | AuthorizedByExternalVerdict EventId
   deriving stock (Eq, Ord, Show)
 
 -- | The debt declarations an authorization named.
@@ -25,6 +29,7 @@ authorizationDebts = \case
   AuthorizedByVerdict _                 -> []
   AuthorizedByWaiver debt               -> [debt]
   AuthorizedByVerdictUnderWaiver _ debt -> [debt]
+  AuthorizedByExternalVerdict _         -> []
 
 data IntegrationRecord = IntegrationRecord
   { event            :: !EventId

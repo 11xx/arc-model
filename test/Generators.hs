@@ -26,6 +26,7 @@ import Arc.Model
 import Arc.Model.Ledger.Audit qualified as Audit
 import Arc.Model.Ledger.Debt qualified as Debt
 import Arc.Model.Ledger.Disposition qualified as Disposition
+import Arc.Model.Ledger.ExternalVerdict qualified as ExternalVerdict
 import Arc.Model.Ledger.Finding qualified as Finding
 import Arc.Model.Ledger.Integration qualified as Integration
 import Arc.Model.Ledger.Verdict qualified as Verdict
@@ -45,6 +46,24 @@ otherActor  = ActorId "other"
 
 scenarioChange :: ChangeId
 scenarioChange = ChangeId "demo"
+
+buildGate :: GateName
+buildGate = GateName "build"
+
+buildDeclaration :: Declaration
+buildDeclaration = Declaration
+  { declarationId  = DeclarationId "build"
+  , command        = "cargo build"
+  , timeoutSeconds = 60
+  , environment    = Just probe
+  }
+
+probe :: ProbeCommand
+probe = ProbeCommand "probe"
+
+hereEnvironment, elsewhereEnvironment :: EnvironmentId
+hereEnvironment      = EnvironmentId "env-here"
+elsewhereEnvironment = EnvironmentId "env-elsewhere"
 
 -- | What one scenario yields: the ledger, the observations, and the
 -- decisions those two produce.
@@ -90,6 +109,15 @@ build scenario = Built
           }
       | pick <- maybe [] pure scenario.reviewer
       ]
+    externalEvents =
+      [ ExternalVerdictRecorded ExternalVerdict
+          { event     = EventId 0
+          , revision  = latest.revision
+          , kind      = kind
+          , reference = "upstream/1"
+          }
+      | Just kind <- [scenario.externalVerdict]
+      ]
     findingEvents
       | scenario.blockingFinding
           = FindingRecorded Finding
@@ -120,26 +148,31 @@ build scenario = Built
       | (index, kind) <- maybe [] pure scenario.debt
       ]
     verificationEvents = case scenario.gateMode of
-      GateOmitted -> []
+      EvidenceOmitted -> []
       mode        ->
         [ VerificationRecorded Verification
             { event       = EventId 0
-            , gate        = GateName "build"
-            , declaration = DeclarationId "build"
+            , gate        = buildGate
+            , declaration = buildDeclaration.declarationId
             , shape       = shapeFor mode
             , tree        = treeFor mode
-            , result      = GatePass
+            , result      = if mode == EvidenceFailing then GateFail else GatePass
             , execution   = RanLocally
             , answers     = Just (FailureLabel "known-failure")
-            , readable    = mode /= GateUnreadable
+            , readable    = mode /= EvidenceRecordUnreadable
+            , environment = environmentFor mode
             }
         ]
     shapeFor = \case
-      GateShapeMoved -> DeclarationShape "cargo build --locked" 60
-      _unchanged     -> DeclarationShape "cargo build" 60
+      EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60
+      _unchanged     -> declarationShape buildDeclaration
     treeFor = \case
-      GateOtherTree -> TreeId "tree-elsewhere"
+      EvidenceOtherTree -> TreeId "tree-elsewhere"
       _here         -> latest.tree
+    environmentFor = \case
+      EvidenceOtherEnvironment      -> Just elsewhereEnvironment
+      EvidenceUnrecordedEnvironment -> Nothing
+      _here                     -> Just hereEnvironment
     claimEvents = concat
       [ [ ClaimStarted (Claim (ClaimId 1) authorActor False)
         , ClaimExpired (ClaimId 1)
@@ -149,15 +182,17 @@ build scenario = Built
     events = assignIds
       ( map PatchsetRecorded (NE.toList patchsets)
       <> verdictEvents
+      <> externalEvents
       <> findingEvents
       <> debtEvents
       <> verificationEvents
       <> claimEvents
       )
-    observations = observationsForOf patchsets scenario.headMoved scenario.policy
+    observations = observationsForOf patchsets scenario
     executionObs = observations
-      { Observations.target = if scenario.targetAfter then Revision "target-2" else observations.target
-      , Observations.policy = if scenario.policyAfter then flipPolicy observations.policy else observations.policy
+      { Observations.target    = if scenario.targetAfter then Revision "target-2" else observations.target
+      , Observations.policy    = if scenario.policyAfter then flipPolicy observations.policy else observations.policy
+      , Observations.authority = if scenario.authorityWithheld then AuthorityWithheld else AuthorityHeld
       }
     state    = replay scenarioChange events
     decision = decide observations state
@@ -208,31 +243,31 @@ patchsetsFor scenario = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
       | otherwise                 = Set.singleton authorActor
 
 observationsFor :: Scenario -> Observations
-observationsFor scenario = observationsForOf (patchsetsFor scenario) scenario.headMoved scenario.policy
+observationsFor scenario = observationsForOf (patchsetsFor scenario) scenario
 
-observationsForOf :: NonEmpty Patchset -> Bool -> Policy -> Observations
-observationsForOf patchsets headMoved policy = Observations
+-- | The decision-time observations: the probe yields the local identity
+-- unless the scenario makes it fail, and authority is held; the execution
+-- observations move what the scenario says moves.
+observationsForOf :: NonEmpty Patchset -> Scenario -> Observations
+observationsForOf patchsets scenario = Observations
   { change          = scenarioChange
-  , head            = if headMoved then Revision "rev-moved" else latest.revision
+  , head            = if scenario.headMoved then Revision "rev-moved" else latest.revision
   , targetBranch    = TargetBranch "main"
   , target          = Revision "target-1"
   , evaluatedTree   = latest.tree
-  , declarations    = [Declaration (DeclarationId "build") "cargo build" 60]
-  , requiredGates   = [(GateName "build", DeclarationId "build")]
-  , policy          = policy
+  , declarations    = [buildDeclaration]
+  , requiredGates   = [(buildGate, buildDeclaration.declarationId)]
+  , environments    = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
+  , policy          = scenario.policy
   , blockedBy       = []
   , invokerDeclared = True
+  , authority       = AuthorityHeld
   }
   where
     latest = NE.last patchsets
 
 executionObservations :: Scenario -> Observations
-executionObservations scenario = base
-  { Observations.target = if scenario.targetAfter then Revision "target-2" else base.target
-  , Observations.policy = if scenario.policyAfter then flipPolicy base.policy else base.policy
-  }
-  where
-    base = observationsFor scenario
+executionObservations scenario = (build scenario).executionObservation
 
 -- | The policy a moved observation lands on: whichever declared policy is
 -- not the one the decision rested on.
@@ -249,31 +284,39 @@ assignIds :: [Event] -> [Event]
 assignIds = zipWith withId [EventId 1 ..]
   where
     withId eventId = \case
-      VerdictRecorded value      -> VerdictRecorded value { Verdict.event = eventId }
-      FindingRecorded value      -> FindingRecorded value { Finding.event = eventId }
-      FindingDisposed value      -> FindingDisposed value { Disposition.event = eventId }
-      VerificationRecorded value -> VerificationRecorded value { Verification.event = eventId }
-      DebtDeclared value         -> DebtDeclared value { Debt.event = eventId }
-      AuditRecorded value        -> AuditRecorded value { Audit.event = eventId }
-      IntegrationRecorded value  -> IntegrationRecorded value { Integration.event = eventId }
-      unnumbered                 -> unnumbered
+      VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId }
+      ExternalVerdictRecorded value -> ExternalVerdictRecorded value { ExternalVerdict.event = eventId }
+      FindingRecorded value         -> FindingRecorded value { Finding.event = eventId }
+      FindingDisposed value         -> FindingDisposed value { Disposition.event = eventId }
+      VerificationRecorded value    -> VerificationRecorded value { Verification.event = eventId }
+      DebtDeclared value            -> DebtDeclared value { Debt.event = eventId }
+      AuditRecorded value           -> AuditRecorded value { Audit.event = eventId }
+      IntegrationRecorded value     -> IntegrationRecorded value { Integration.event = eventId }
+      unnumbered                    -> unnumbered
 
-{- | Histories an integration would permit: an independent approval, or a
-waiver bound to the latest patchset; covered gate evidence; no open
-finding, no moved head, no verdict bound to an older patchset.
+{- | Histories an integration would permit: an independent approval, a
+waiver bound to the latest patchset, or an external approval where no
+independent review is owed; covered gate evidence; no open finding, no
+moved head, no verdict bound to an older patchset, no external refusal,
+and the authority to act.
 -}
 isIntegratable :: Scenario -> Bool
 isIntegratable scenario
   = authorized
-  && scenario.gateMode == GateCovered
+  && scenario.gateMode == EvidenceCovered
   && not scenario.blockingFinding
   && not scenario.headMoved
   && not (scenario.verdictOnFirst && scenario.patchsets > 1)
+  && scenario.externalVerdict `elem` [Nothing, Just ExternalApproved]
+  && not scenario.authorityWithheld
   where
     authorized = case scenario.reviewer of
       Just ActorIndependent -> scenario.verdict == Approved
       Just _contributing    -> False
-      Nothing               -> scenario.debt /= Nothing
+      Nothing               -> scenario.debt /= Nothing || externallyApproved
+    externallyApproved
+      = scenario.externalVerdict == Just ExternalApproved
+      && not (scenario.policy.independentVerdictRequired && scenario.policy.forbidSelfApproval)
 
 -- | One invalidating transition applied to a valid history. Each mutation
 -- removes exactly one load-bearing fact.
@@ -291,37 +334,60 @@ debtBindsLatest scenario = case scenario.debt of
 
 mutations :: Scenario -> [Mutation]
 mutations scenario = concat
-  [ [ Mutation "gate-omitted" scenario { Scenario.gateMode = GateOmitted }                | scenario.gateMode == GateCovered ]
-  , [ Mutation "gate-elsewhere" scenario { Scenario.gateMode = GateOtherTree }            | scenario.gateMode == GateCovered ]
-  , [ Mutation "gate-declaration-changed" scenario { Scenario.gateMode = GateShapeMoved } | scenario.gateMode == GateCovered ]
-  , [ Mutation "gate-evidence-unreadable" scenario { Scenario.gateMode = GateUnreadable } | scenario.gateMode == GateCovered ]
-  , [ Mutation "head-moved" scenario { Scenario.headMoved = True }                        | not scenario.headMoved ]
-  , [ Mutation "target-moved" scenario { Scenario.targetAfter = True }                    | not scenario.targetAfter ]
-  , [ Mutation "policy-moved" scenario { Scenario.policyAfter = True }                    | not scenario.policyAfter ]
-  , [ Mutation "finding-opened" scenario { Scenario.blockingFinding = True }              | reviewed, not scenario.blockingFinding ]
-  , [ Mutation "verdict-refused" scenario { Scenario.verdict = ChangesRequested }         | reviewed, scenario.verdict == Approved ]
-  , [ Mutation "review-patchset-stale" scenario { Scenario.verdictOnFirst = True }        | reviewed, scenario.patchsets > 1, not (debtBindsLatest scenario) ]
+  [ [ Mutation "gate-omitted" scenario { Scenario.gateMode = EvidenceOmitted }                              | covered ]
+  , [ Mutation "gate-failed" scenario { Scenario.gateMode = EvidenceFailing }                                | covered ]
+  , [ Mutation "gate-elsewhere" scenario { Scenario.gateMode = EvidenceOtherTree }                          | covered ]
+  , [ Mutation "gate-declaration-changed" scenario { Scenario.gateMode = EvidenceShapeMoved }               | covered ]
+  , [ Mutation "gate-other-environment" scenario { Scenario.gateMode = EvidenceOtherEnvironment }           | covered ]
+  , [ Mutation "gate-environment-unrecorded" scenario { Scenario.gateMode = EvidenceUnrecordedEnvironment } | covered ]
+  , [ Mutation "gate-probe-failed" scenario { Scenario.gateMode = EvidenceProbeFailed }                     | covered ]
+  , [ Mutation "gate-evidence-unreadable" scenario { Scenario.gateMode = EvidenceRecordUnreadable }               | covered ]
+  , [ Mutation "head-moved" scenario { Scenario.headMoved = True }                                      | not scenario.headMoved ]
+  , [ Mutation "target-moved" scenario { Scenario.targetAfter = True }                                  | not scenario.targetAfter ]
+  , [ Mutation "policy-moved" scenario { Scenario.policyAfter = True }                                  | not scenario.policyAfter ]
+  , [ Mutation "authority-withheld" scenario { Scenario.authorityWithheld = True }                      | not scenario.authorityWithheld ]
+  , [ Mutation "external-verdict-refused" scenario { Scenario.externalVerdict = Just ExternalChangesRequested }
+    | scenario.externalVerdict /= Just ExternalChangesRequested
+    ]
+  , [ Mutation "finding-opened" scenario { Scenario.blockingFinding = True }                            | reviewed, not scenario.blockingFinding ]
+  , [ Mutation "verdict-refused" scenario { Scenario.verdict = ChangesRequested }                       | reviewed, scenario.verdict == Approved ]
+  , [ Mutation "review-patchset-stale" scenario { Scenario.verdictOnFirst = True }
+    | reviewed
+    , scenario.patchsets > 1
+    , not (debtBindsLatest scenario)
+    , scenario.externalVerdict == Nothing
+    ]
   , [ Mutation "reviewer-is-contributor" scenario { Scenario.reviewer = Just ActorContributor }
     | scenario.reviewer == Just ActorIndependent
     , scenario.policy.independentVerdictRequired
     , scenario.policy.forbidSelfApproval
     , not (debtBindsLatest scenario)
     ]
-  , [ Mutation "waiver-expired" scenario { Scenario.patchsets = scenario.patchsets + 1 }  | scenario.debt /= Nothing, scenario.reviewer == Nothing ]
+  , [ Mutation "waiver-expired" scenario { Scenario.patchsets = scenario.patchsets + 1 }
+    | scenario.debt /= Nothing
+    , scenario.reviewer == Nothing
+    , scenario.externalVerdict == Nothing
+    ]
   ]
   where
+    covered  = scenario.gateMode == EvidenceCovered
     reviewed = scenario.reviewer /= Nothing
 
 -- | The behaviours a generated scenario is expected to reach. A run that
 -- never reaches one is reported so the suite cannot pass on trivial inputs.
 data Feature = FeaturePermitted
              | FeatureWaived
+             | FeatureExternallyAuthorized
+             | FeatureExternalRefused
              | FeatureSelfApprovalRefused
              | FeatureGatesRefused
+             | FeatureGateFailed
+             | FeatureEnvironmentRefused
              | FeatureVerdictStands
              | FeatureHeadMoved
              | FeatureTargetMoved
              | FeaturePolicyMoved
+             | FeatureAuthorityWithheld
              | FeatureDebtUnused
              | FeatureUnknownObservation
              | FeatureAuditFulfilledRead
@@ -338,14 +404,19 @@ featureOf :: Scenario -> Built -> Feature -> Bool
 featureOf scenario built = \case
   FeaturePermitted                     -> isPermitted built.decision
   FeatureWaived                        -> permittedBy isWaiver
+  FeatureExternallyAuthorized          -> permittedBy isExternal
+  FeatureExternalRefused               -> refusedWith "external-verdict-stands"
   FeatureSelfApprovalRefused           -> refusedWith "self-approval"
   FeatureGatesRefused                  -> refusedWith "gates"
+  FeatureGateFailed                    -> gateRefusedBy isGateFailed
+  FeatureEnvironmentRefused            -> gateRefusedBy isEnvironmentRefusal
   FeatureVerdictStands                 -> refusedWith "verdict-stands"
   FeatureHeadMoved                     -> refusedWith "head-moved"
   FeatureTargetMoved                   -> movedFact isMovedTarget
   FeaturePolicyMoved                   -> movedFact isMovedPolicy
+  FeatureAuthorityWithheld             -> built.execution == Left RefusedAuthorityWithheld
   FeatureDebtUnused                    -> permittedBy isUnusedDebt
-  FeatureUnknownObservation            -> scenario.gateMode `elem` [GateOmitted, GateUnreadable]
+  FeatureUnknownObservation            -> scenario.gateMode `elem` [EvidenceOmitted, EvidenceRecordUnreadable]
   FeatureAuditFulfilledRead            -> coverage.read /= Nothing
   FeatureAuditNegativeNotApproved      -> coverage.verdict == Just ChangesRequested && not coverage.approved
   FeatureEpisodeExpired                -> any (.expired) built.finalState.claims
@@ -358,16 +429,30 @@ featureOf scenario built = \case
     refusedWith tag = case built.decision of
       Refused refusal -> refusalTag refusal == tag
       Permitted _     -> False
+    gateRefusedBy predicate = case built.decision of
+      Refused (RefusedGates refused) -> any predicate refused
+      _otherwise                     -> False
     movedFact predicate = case built.execution of
       Left (RefusedBasisMoved facts) -> any predicate facts
       _stood                         -> False
     isWaiver = \case
       AuthorizedByWaiver _               -> True
       AuthorizedByVerdictUnderWaiver _ _ -> True
-      AuthorizedByVerdict _              -> False
+      _unwaived                          -> False
+    isExternal = \case
+      AuthorizedByExternalVerdict _ -> True
+      _local                        -> False
     isUnusedDebt = \case
       AuthorizedByVerdict _ -> any ((== DebtId 1) . (.debtId)) built.state.debts
       _waived               -> False
+    isGateFailed = \case
+      GateFailed _ _ -> True
+      _other         -> False
+    isEnvironmentRefusal = \case
+      GateEvaluatedOtherEnvironment {} -> True
+      GateEnvironmentUnrecorded _      -> True
+      GateEnvironmentUnobserved _      -> True
+      _other                           -> False
     isMovedTarget = \case
       MovedTarget _ _ -> True
       _other          -> False

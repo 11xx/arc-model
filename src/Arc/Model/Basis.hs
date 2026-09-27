@@ -17,7 +17,7 @@ module Arc.Model.Basis
 
 import Arc.Model.Gate ( GateRefusal, gateRefusalText )
 import Arc.Model.Identifiers
-import Arc.Model.Ledger ( Authorization, Closure, VerdictKind )
+import Arc.Model.Ledger ( Authorization, Closure, ExternalKind, VerdictKind )
 import Arc.Model.Policy ( Policy )
 
 import Data.Set ( Set )
@@ -55,6 +55,9 @@ data MovedFact = MovedHead Revision Revision
                | MovedPatchset PatchsetId PatchsetId
   deriving stock (Eq, Ord, Show)
 
+{- | Why an integration is refused. The first fifteen are grounds a decision
+can stand on; the last two arise only when a permitted decision is executed.
+-}
 data Refusal = RefusedClosed Closure
              | RefusedIterating
              | RefusedNoPatchset
@@ -63,12 +66,14 @@ data Refusal = RefusedClosed Closure
              | RefusedBlockingFindings [FindingId]
              | RefusedContestedVerdict [EventId]
              | RefusedVerdictStands VerdictKind EventId
+             | RefusedExternalVerdictStands ExternalKind EventId
              | RefusedStaleApproval EventId PatchsetId
              | RefusedSelfApproval EventId ActorId (Set ActorId)
              | RefusedNoApproval
              | RefusedGates [GateRefusal]
              | RefusedHoldActive HoldId
              | RefusedUndeclaredActor
+             | RefusedAuthorityWithheld
              | RefusedBasisMoved [MovedFact]
   deriving stock (Eq, Ord, Show)
 
@@ -76,21 +81,23 @@ data Refusal = RefusedClosed Closure
 -- comparison.
 refusalTag :: Refusal -> String
 refusalTag = \case
-  RefusedClosed _           -> "closed"
-  RefusedIterating          -> "iterating"
-  RefusedNoPatchset         -> "no-patchset"
-  RefusedBlockedBy _        -> "blocked-by"
-  RefusedHeadMoved _ _      -> "head-moved"
-  RefusedBlockingFindings _ -> "blocking-findings"
-  RefusedContestedVerdict _ -> "contested-verdict"
-  RefusedVerdictStands _ _  -> "verdict-stands"
-  RefusedStaleApproval _ _  -> "stale-approval"
-  RefusedSelfApproval {}    -> "self-approval"
-  RefusedNoApproval         -> "no-approval"
-  RefusedGates _            -> "gates"
-  RefusedHoldActive _       -> "hold-active"
-  RefusedUndeclaredActor    -> "undeclared-actor"
-  RefusedBasisMoved _       -> "basis-moved"
+  RefusedClosed _                  -> "closed"
+  RefusedIterating                 -> "iterating"
+  RefusedNoPatchset                -> "no-patchset"
+  RefusedBlockedBy _               -> "blocked-by"
+  RefusedHeadMoved _ _             -> "head-moved"
+  RefusedBlockingFindings _        -> "blocking-findings"
+  RefusedContestedVerdict _        -> "contested-verdict"
+  RefusedVerdictStands _ _         -> "verdict-stands"
+  RefusedExternalVerdictStands _ _ -> "external-verdict-stands"
+  RefusedStaleApproval _ _         -> "stale-approval"
+  RefusedSelfApproval {}           -> "self-approval"
+  RefusedNoApproval                -> "no-approval"
+  RefusedGates _                   -> "gates"
+  RefusedHoldActive _              -> "hold-active"
+  RefusedUndeclaredActor           -> "undeclared-actor"
+  RefusedAuthorityWithheld         -> "authority-withheld"
+  RefusedBasisMoved _              -> "basis-moved"
 
 refusalText :: Refusal -> String
 refusalText = \case
@@ -102,6 +109,7 @@ refusalText = \case
   RefusedGates refusals     -> unwords (map gateRefusalText refusals)
   RefusedHoldActive hold    -> "hold " <> show hold <> " is active"
   RefusedUndeclaredActor    -> "the acting identity is not declared and policy requires one"
+  RefusedAuthorityWithheld  -> "this replica does not hold integration authority"
   RefusedBasisMoved moved   -> "the basis moved: " <> unwords (map movedText moved)
   RefusedHeadMoved observed recorded
     -> "head " <> show observed <> " is not the recorded patchset head " <> show recorded
@@ -111,6 +119,8 @@ refusalText = \case
     -> "the verdict chain is contested: " <> unwords (map show events)
   RefusedVerdictStands kind event
     -> "a " <> show kind <> " verdict at " <> show event <> " stands on the current patchset"
+  RefusedExternalVerdictStands kind event
+    -> "an external " <> show kind <> " decision at " <> show event <> " stands on the current head"
   RefusedStaleApproval event patchset
     -> "the approval at " <> show event <> " binds to " <> show patchset <> ", not the latest patchset"
   RefusedSelfApproval event actor contributors

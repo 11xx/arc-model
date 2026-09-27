@@ -14,6 +14,7 @@ module Arc.Model.State
     , activeVerdicts
     , verdictContested
     , governingVerdict
+    , externalVerdictAt
     , findingResolved
     , openBlockingFindings
     , openAuditFindings
@@ -32,6 +33,8 @@ import Arc.Model.Ledger.Debt ( Debt )
 import Arc.Model.Ledger.Debt qualified as Debt
 import Arc.Model.Ledger.Disposition ( Disposition )
 import Arc.Model.Ledger.Disposition qualified as Disposition
+import Arc.Model.Ledger.ExternalVerdict ( ExternalVerdict )
+import Arc.Model.Ledger.ExternalVerdict qualified as ExternalVerdict
 import Arc.Model.Ledger.Finding ( Finding )
 import Arc.Model.Ledger.Finding qualified as Finding
 import Arc.Model.Ledger.Integration ( Authorization, IntegrationRecord )
@@ -50,37 +53,39 @@ import Data.Set qualified as Set
 
 
 data ChangeState = ChangeState
-  { change        :: !ChangeId
-  , patchsets     :: ![Patchset]
-  , verdicts      :: ![Verdict]
-  , findings      :: ![Finding]
-  , dispositions  :: ![Disposition]
-  , verifications :: ![Verification]
-  , debts         :: ![Debt]
-  , audits        :: ![Audit]
-  , claims        :: ![Claim]
-  , holds         :: !(Set HoldId)
-  , integrations  :: ![IntegrationRecord]
-  , closed        :: !(Maybe Closure)
-  , iterating     :: !Bool
+  { change           :: !ChangeId
+  , patchsets        :: ![Patchset]
+  , verdicts         :: ![Verdict]
+  , externalVerdicts :: ![ExternalVerdict]
+  , findings         :: ![Finding]
+  , dispositions     :: ![Disposition]
+  , verifications    :: ![Verification]
+  , debts            :: ![Debt]
+  , audits           :: ![Audit]
+  , claims           :: ![Claim]
+  , holds            :: !(Set HoldId)
+  , integrations     :: ![IntegrationRecord]
+  , closed           :: !(Maybe Closure)
+  , iterating        :: !Bool
   }
   deriving stock (Eq, Ord, Show)
 
 emptyState :: ChangeId -> ChangeState
 emptyState change = ChangeState
-  { change        = change
-  , patchsets     = []
-  , verdicts      = []
-  , findings      = []
-  , dispositions  = []
-  , verifications = []
-  , debts         = []
-  , audits        = []
-  , claims        = []
-  , holds         = Set.empty
-  , integrations  = []
-  , closed        = Nothing
-  , iterating     = False
+  { change           = change
+  , patchsets        = []
+  , verdicts         = []
+  , externalVerdicts = []
+  , findings         = []
+  , dispositions     = []
+  , verifications    = []
+  , debts            = []
+  , audits           = []
+  , claims           = []
+  , holds            = Set.empty
+  , integrations     = []
+  , closed           = Nothing
+  , iterating        = False
   }
 
 -- | Fold events into state. Nothing here reads the clock, the filesystem, or
@@ -89,20 +94,21 @@ replay :: ChangeId -> [Event] -> ChangeState
 replay change = foldl' step (emptyState change)
   where
     step state = \case
-      PatchsetRecorded value     -> state { patchsets     = state.patchsets     <> [value] }
-      VerdictRecorded value      -> state { verdicts      = state.verdicts      <> [value] }
-      FindingRecorded value      -> state { findings      = state.findings      <> [value] }
-      FindingDisposed value      -> state { dispositions  = state.dispositions  <> [value] }
-      VerificationRecorded value -> state { verifications = state.verifications <> [value] }
-      DebtDeclared value         -> state { debts         = state.debts         <> [value] }
-      AuditRecorded value        -> state { audits        = state.audits        <> [value] }
-      ClaimStarted value         -> state { claims        = state.claims        <> [value] }
-      IntegrationRecorded value  -> state { integrations  = state.integrations  <> [value] }
-      ClaimExpired claim         -> state { claims        = map (expire claim) state.claims }
-      HoldSet hold               -> state { holds         = Set.insert hold state.holds }
-      HoldReleased hold          -> state { holds         = Set.delete hold state.holds }
-      ChangeClosed closure       -> state { closed        = Just closure }
-      IteratingChanged value     -> state { iterating     = value }
+      PatchsetRecorded value        -> state { patchsets        = state.patchsets        <> [value] }
+      VerdictRecorded value         -> state { verdicts         = state.verdicts         <> [value] }
+      ExternalVerdictRecorded value -> state { externalVerdicts = state.externalVerdicts <> [value] }
+      FindingRecorded value         -> state { findings         = state.findings         <> [value] }
+      FindingDisposed value         -> state { dispositions     = state.dispositions     <> [value] }
+      VerificationRecorded value    -> state { verifications    = state.verifications    <> [value] }
+      DebtDeclared value            -> state { debts            = state.debts            <> [value] }
+      AuditRecorded value           -> state { audits           = state.audits           <> [value] }
+      ClaimStarted value            -> state { claims           = state.claims           <> [value] }
+      IntegrationRecorded value     -> state { integrations     = state.integrations     <> [value] }
+      ClaimExpired claim            -> state { claims           = map (expire claim) state.claims }
+      HoldSet hold                  -> state { holds            = Set.insert hold state.holds }
+      HoldReleased hold             -> state { holds            = Set.delete hold state.holds }
+      ChangeClosed closure          -> state { closed           = Just closure }
+      IteratingChanged value        -> state { iterating        = value }
     expire claim value
       | value.claimId == claim = value { Claim.expired = True }
       | otherwise              = value
@@ -131,6 +137,11 @@ governingVerdict :: ChangeState -> Maybe Verdict
 governingVerdict state = case activeVerdicts state of
   [v]    -> Just v
   _other -> Nothing
+
+-- | The newest external decision about exactly this revision. A decision
+-- about any other revision says nothing here.
+externalVerdictAt :: ChangeState -> Revision -> Maybe ExternalVerdict
+externalVerdictAt state revision = newest [ e | e <- state.externalVerdicts, e.revision == revision ]
 
 findingResolved :: ChangeState -> FindingId -> Bool
 findingResolved state identifier = any (\d -> d.finding == identifier && d.resolved) state.dispositions

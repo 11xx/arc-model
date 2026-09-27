@@ -5,13 +5,14 @@ authorization, which gate reading.
 module Fixtures ( fixtureChecks ) where
 
 import Arc.Model
+import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Audit qualified as Audit
 import Generators
 import Mutants ( Behaviour(..), Mutant(..), allMutants )
 import Render
 import Scenario qualified
 
-import Data.Maybe ( listToMaybe )
+import Data.Maybe ( fromMaybe, listToMaybe )
 
 
 fixtureChecks :: [Check]
@@ -21,10 +22,14 @@ fixtureChecks = concat
   , underDebtThenNegativeAudit
   , repairFollowedByDeeperReview
   , unknownCoverage
+  , environmentCoverage
   , equalTreeDifferentContributors
+  , externalDecisions
   , retainedAcrossEpisodeExpiry
   , debtAuthorizedNothing
   , staleAndMovedBases
+  , authorityStandsDown
+  , everyGround
   , permissionIsNotEffect
   , auditRefusals
   , provisionalGates
@@ -93,6 +98,25 @@ repairFollowedByDeeperReview =
   where
     built = build defaultScenario { Scenario.patchsets = 2, Scenario.verdictOnFirst = True, Scenario.reviewer = Just ActorIndependent }
 
+-- the gate every scenario declares, read the way the decision reads it
+
+gateName :: GateName
+gateName = GateName "build"
+
+declaration :: Declaration
+declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe"))
+
+readingIn :: GateMode -> GateReading
+readingIn mode = readGate gateName declaration (TreeId "tree1") (hereIn built) built.state.verifications
+  where
+    built = build defaultScenario { Scenario.gateMode = mode }
+
+hereIn :: Built -> Observed EnvironmentId
+hereIn built = fromMaybe Omitted (lookup (ProbeCommand "probe") built.observation.environments)
+
+decisionIn :: GateMode -> Decision
+decisionIn mode = (build defaultScenario { Scenario.gateMode = mode }).decision
+
 -- | Omitted evidence is unknown: not false, not successful. Each way a gate
 -- can fail to answer is its own reading and its own refusal.
 unknownCoverage :: [Check]
@@ -101,28 +125,46 @@ unknownCoverage =
   , expectEq "fixture/unknown: coverage never evaluated" NeverEvaluated omitted.coverage
   , expectEq "fixture/unknown: availability not produced" NotProduced omitted.availability
   , expectEq "fixture/unknown: falsification omitted" Omitted omitted.falsified
-  , expectTrue "fixture/unknown: omitted never permits" "omitted evidence must not be permitted" (not (isPermitted (decisionIn GateOmitted)))
-  , expectEq "fixture/unknown: gate refusal" (Left (GateNeverEvaluated gateName)) (gateGreen gateName (Just declaration) tree [])
+  , expectTrue "fixture/unknown: omitted never permits" "omitted evidence must not be permitted" (not (isPermitted (decisionIn EvidenceOmitted)))
+  , expectEq "fixture/unknown: gate refusal" (Left (GateNeverEvaluated gateName)) (gateGreen gateName (Just declaration) (TreeId "tree1") Omitted [])
   , expectEq "fixture/elsewhere: result observed" (Observed GatePass) elsewhere.result
   , expectEq "fixture/elsewhere: coverage elsewhere" (EvaluatedOtherTree (TreeId "tree-elsewhere")) elsewhere.coverage
-  , expectRefusedWith "fixture/elsewhere: refused" "gates" (decisionIn GateOtherTree)
+  , expectRefusedWith "fixture/elsewhere: refused" "gates" (decisionIn EvidenceOtherTree)
   , expectEq "fixture/changed: declaration moved" (DeclarationMoved (DeclarationId "build")) changed.coverage
-  , expectRefusedWith "fixture/changed: refused" "gates" (decisionIn GateShapeMoved)
+  , expectRefusedWith "fixture/changed: refused" "gates" (decisionIn EvidenceShapeMoved)
   , expectEq "fixture/unreadable: availability unreadable" EvidenceUnreadable unreadable.availability
   , expectEq "fixture/unreadable: result omitted" Omitted unreadable.result
-  , expectRefusedWith "fixture/unreadable: refused" "gates" (decisionIn GateUnreadable)
+  , expectRefusedWith "fixture/unreadable: refused" "gates" (decisionIn EvidenceRecordUnreadable)
+  , expectEq "fixture/failed: result observed" (Observed GateFail) failed.result
+  , expectEq "fixture/failed: covered" (Covered (EventId 3)) failed.coverage
+  , expectRefusedWith "fixture/failed: refused" "gates" (decisionIn EvidenceFailing)
   ]
   where
-    gateName    = GateName "build"
-    declaration = Declaration (DeclarationId "build") "cargo build" 60
-    tree        = TreeId "tree1"
-    builtIn mode    = build defaultScenario { Scenario.gateMode = mode }
-    readingIn mode  = readGate gateName declaration tree (builtIn mode).state.verifications
-    decisionIn mode = (builtIn mode).decision
-    omitted    = readingIn GateOmitted
-    elsewhere  = readingIn GateOtherTree
-    changed    = readingIn GateShapeMoved
-    unreadable = readingIn GateUnreadable
+    omitted    = readingIn EvidenceOmitted
+    elsewhere  = readingIn EvidenceOtherTree
+    changed    = readingIn EvidenceShapeMoved
+    unreadable = readingIn EvidenceRecordUnreadable
+    failed     = readingIn EvidenceFailing
+
+{- | Evidence answers for the environment it was produced in. A gate that
+declares a probe takes only evidence carrying the identity the probe yields
+where the decision is made; one without a probe takes evidence from
+anywhere.
+-}
+environmentCoverage :: [Check]
+environmentCoverage =
+  [ expectEq "fixture/environment: other environment is not coverage" (EvaluatedOtherEnvironment (EnvironmentId "env-elsewhere") (EnvironmentId "env-here")) (readingIn EvidenceOtherEnvironment).coverage
+  , expectRefusedWith "fixture/environment: other environment refused" "gates" (decisionIn EvidenceOtherEnvironment)
+  , expectEq "fixture/environment: unrecorded identity" EnvironmentUnrecorded (readingIn EvidenceUnrecordedEnvironment).coverage
+  , expectRefusedWith "fixture/environment: unrecorded identity refused" "gates" (decisionIn EvidenceUnrecordedEnvironment)
+  , expectEq "fixture/environment: probe failed here" EnvironmentUnobserved (readingIn EvidenceProbeFailed).coverage
+  , expectRefusedWith "fixture/environment: probe failed refused" "gates" (decisionIn EvidenceProbeFailed)
+  , expectTrue "fixture/environment: no probe takes evidence from anywhere" "a gate without a probe must accept evidence recorded without an identity" unprobedGreen
+  ]
+  where
+    unprobed      = declaration { Declaration.environment = Nothing }
+    anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (TreeId "tree1") GatePass RanLocally Nothing True Nothing
+    unprobedGreen = either (const False) (const True) (gateGreen gateName (Just unprobed) (TreeId "tree1") Omitted [anywhere])
 
 -- | Equal trees with different contributor and obligation scopes decide
 -- differently. The tree alone says nothing.
@@ -140,6 +182,33 @@ equalTreeDifferentContributors =
     waivedContributorBuilt = build defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debt = Just (1, Nothing) }
     independentState       = (build defaultScenario { Scenario.reviewer = Just ActorIndependent, Scenario.debt = Just (1, Nothing) }).state
     patchsetTreeOf built   = (.tree) <$> latestPatchset built.state
+
+{- | A decision made outside arc: an approval authorizes only where no
+independent review is owed and never over a local refusal; a change request
+or rejection stands over any approval and is not waivable; when a local
+approval also stands, the basis names the verdict arc witnessed.
+-}
+externalDecisions :: [Check]
+externalDecisions =
+  [ expectPermittedWith "fixture/external: approval authorizes where no independent review is owed" (AuthorizedByExternalVerdict (EventId 2)) (decisionOf open)
+  , expectRefusedWith "fixture/external: approval is not independent review" "no-approval" (decisionOf danger)
+  , expectPermittedWith "fixture/external: a local approval is the one named" (AuthorizedByVerdict (EventId 2)) (decisionOf both)
+  , expectRefusedWith "fixture/external: a change request stands over a local approval" "external-verdict-stands" (decisionOf requested)
+  , expectRefusedWith "fixture/external: a change request is not waivable" "external-verdict-stands" (decisionOf requestedWaived)
+  , expectRefusedWith "fixture/external: a local refusal stands over an external approval" "verdict-stands" (decisionOf localRefusal)
+  , expectRefusedWith "fixture/external: a rejection stands" "external-verdict-stands" (decisionOf rejected)
+  , expectTrue "fixture/external: an external approval is no independent read" "coverage must not report a read arc cannot verify" (coverage.read == Nothing)
+  ]
+  where
+    decisionOf scenario = (build scenario).decision
+    open            = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
+    danger          = open { Scenario.policy = dangerPolicy }
+    both            = defaultScenario { Scenario.externalVerdict = Just ExternalApproved }
+    requested       = defaultScenario { Scenario.externalVerdict = Just ExternalChangesRequested }
+    requestedWaived = requested { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing) }
+    localRefusal    = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
+    rejected        = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalRejected, Scenario.policy = openPolicy }
+    coverage        = coverageAfterIntegration (build open).finalState
 
 -- | An expired liveness episode ends the claim, never the facts recorded
 -- while it ran.
@@ -183,6 +252,27 @@ staleAndMovedBases =
   where
     targetBuilt = build defaultScenario { Scenario.targetAfter = True }
     policyBuilt = build defaultScenario { Scenario.policyAfter = True }
+
+-- | Integration authority is asked of the store that acts, not of the
+-- history: the decision permits, and the execution stands down.
+authorityStandsDown :: [Check]
+authorityStandsDown =
+  [ expectTrue "fixture/authority: decision permits" "a check does not consult replica authority" (isPermitted built.decision)
+  , expectEq "fixture/authority: execution stands down" (Left RefusedAuthorityWithheld) built.execution
+  ]
+  where
+    built = build defaultScenario { Scenario.authorityWithheld = True }
+
+-- | A history refused on more than one ground reports every ground, in the
+-- model's priority order, and the decision is the first of them.
+everyGround :: [Check]
+everyGround =
+  [ expectEq "fixture/every-ground: both grounds reported" [RefusedBlockingFindings [FindingId 1], RefusedGates [GateFailed gateName (EventId 4)]] grounds
+  , expectRefusedWith "fixture/every-ground: the finding decides" "blocking-findings" built.decision
+  ]
+  where
+    built   = build defaultScenario { Scenario.blockingFinding = True, Scenario.gateMode = EvidenceFailing }
+    grounds = refusals built.observation built.state
 
 -- | A permitted action is not an effect. The basis becomes history only when
 -- the effect is recorded.
