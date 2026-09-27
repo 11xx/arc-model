@@ -18,6 +18,7 @@ module Scenario
     , genAnyScenario
     , genIntegratable
     , shrinkScenario
+    , namedScenarios
     ) where
 
 import Arc.Model ( DebtKind(..), ExternalKind(..), Policy(..), VerdictKind(..) )
@@ -105,6 +106,43 @@ openPolicy = Policy
 
 requireDeclaredPolicy :: Policy
 requireDeclaredPolicy = dangerPolicy { Policy.requireDeclaredActor = True }
+
+{- | Histories worth naming: each pins one rule the model states, so a reader
+of a differential report can find the case by what it exercises rather than
+by a seed.
+-}
+namedScenarios :: [(String, Scenario)]
+namedScenarios =
+  [ ("approved",                   defaultScenario)
+  , ("contributor-reviewer",       defaultScenario { reviewer = Just ActorContributor })
+  , ("assumed-reviewer",           defaultScenario { reviewer = Just ActorAssumed })
+  , ("assumed-reviewer-open",      defaultScenario { reviewer = Just ActorAssumed, policy = openPolicy })
+  , ("self-approval-open",         defaultScenario { reviewer = Just ActorContributor, policy = openPolicy })
+  , ("changes-requested",          defaultScenario { verdict = ChangesRequested })
+  , ("comment-only",               defaultScenario { verdict = CommentOnly })
+  , ("unreviewed",                 defaultScenario { reviewer = Nothing })
+  , ("waived",                     defaultScenario { reviewer = Nothing, debt = Just (1, Nothing) })
+  , ("waiver-expired",             defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), patchsets = 2 })
+  , ("waived-contributor",         defaultScenario { reviewer = Just ActorContributor, debt = Just (1, Nothing) })
+  , ("stale-approval",             defaultScenario { patchsets = 2, verdictOnFirst = True })
+  , ("finding-open",               defaultScenario { blockingFinding = True })
+  , ("finding-resolved",           defaultScenario { blockingFinding = True, resolveFinding = True })
+  , ("head-moved",                 defaultScenario { headMoved = True })
+  , ("gate-omitted",               defaultScenario { gateMode = EvidenceOmitted })
+  , ("gate-failed",                defaultScenario { gateMode = EvidenceFailing })
+  , ("gate-other-tree",            defaultScenario { gateMode = EvidenceOtherTree, patchsets = 2 })
+  , ("gate-declaration-changed",   defaultScenario { gateMode = EvidenceShapeMoved })
+  , ("gate-other-environment",     defaultScenario { gateMode = EvidenceOtherEnvironment })
+  , ("gate-environment-unrecorded", defaultScenario { gateMode = EvidenceUnrecordedEnvironment })
+  , ("gate-probe-failed",          defaultScenario { gateMode = EvidenceProbeFailed })
+  , ("external-approved-open",     defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = openPolicy })
+  , ("external-approved-danger",   defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved })
+  , ("external-beside-local",      defaultScenario { externalVerdict = Just ExternalApproved })
+  , ("external-changes-requested", defaultScenario { externalVerdict = Just ExternalChangesRequested })
+  , ("external-over-waiver",       defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), externalVerdict = Just ExternalChangesRequested })
+  , ("external-rejected",          defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalRejected, policy = openPolicy })
+  , ("extra-contributor",          defaultScenario { extraContributor = True })
+  ]
 
 -- generation
 

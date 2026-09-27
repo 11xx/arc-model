@@ -196,7 +196,8 @@ externalDecisions =
   , expectRefusedWith "fixture/external: a change request stands over a local approval" "external-verdict-stands" (decisionOf requested)
   , expectRefusedWith "fixture/external: a change request is not waivable" "external-verdict-stands" (decisionOf requestedWaived)
   , expectRefusedWith "fixture/external: a local refusal stands over an external approval" "verdict-stands" (decisionOf localRefusal)
-  , expectRefusedWith "fixture/external: a rejection stands" "external-verdict-stands" (decisionOf rejected)
+  , expectRefusedWith "fixture/external: a rejection closes the change" "closed" (decisionOf rejected)
+  , expectTrue "fixture/external: a rejection stands beneath the closure" "the rejection must be a ground beside the closure" (RefusedExternalVerdictStands ExternalRejected (EventId 2) `elem` refusals (build rejected).observation (build rejected).state)
   , expectTrue "fixture/external: an external approval is no independent read" "coverage must not report a read arc cannot verify" (coverage.read == Nothing)
   ]
   where
