@@ -1,0 +1,8 @@
+# arc-model's integration gates. The differential is not one: it needs an
+# arc binary and Git, and a gate that can only run where arc is installed
+# would make every change here depend on the implementation it challenges.
+[gates.build]
+command = "cabal v2-build --enable-tests"
+
+[gates.test]
+command = "cabal v2-test spec --test-show-details=direct"
