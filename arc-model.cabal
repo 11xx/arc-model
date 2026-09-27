@@ -6,7 +6,8 @@ description:
   A pure Haskell characterization of arc's authorization semantics: what a
   recorded history permits, what it refuses, and which facts a decision
   rests on. The model is independent of the Rust implementation; it is not
-  a port of it.
+  a port of it. The differential executable replays generated histories
+  through the arc binary and compares its answer with the model's.
 license:            Unlicense
 author:             arc contributors
 build-type:         Simple
@@ -51,6 +52,21 @@ library
       base        >= 4.21 && < 4.22
     , containers  >= 0.7  && < 0.8
 
+-- the scenario plan, its generators, and the deliberate faults, shared by
+-- the spec and the differential
+library scenarios
+  import:           warnings
+  hs-source-dirs:   scenarios
+  exposed-modules:
+      Generators
+    , Mutants
+    , Scenario
+  build-depends:
+      arc-model
+    , base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
+    , QuickCheck  >= 2.14 && < 2.16
+
 test-suite spec
   import:           warnings
   type:             exitcode-stdio-1.0
@@ -58,12 +74,31 @@ test-suite spec
   main-is:          Main.hs
   other-modules:
       Fixtures
-    , Generators
-    , Mutants
     , Render
-    , Scenario
   build-depends:
       arc-model
+    , arc-model:scenarios
     , base        >= 4.21 && < 4.22
     , containers  >= 0.7  && < 0.8
     , QuickCheck  >= 2.14 && < 2.16
+
+executable arc-model-differential
+  import:           warnings
+  hs-source-dirs:   differential
+  main-is:          Main.hs
+  other-modules:
+      Differential.Arc
+    , Differential.Compare
+    , Differential.Plan
+  build-depends:
+      arc-model
+    , arc-model:scenarios
+    , aeson       >= 2.2  && < 3
+    , base        >= 4.21 && < 4.22
+    , bytestring  >= 0.12 && < 1
+    , containers  >= 0.7  && < 0.8
+    , directory   >= 1.3  && < 2
+    , filepath    >= 1.5  && < 2
+    , process     >= 1.6  && < 2
+    , QuickCheck  >= 2.14 && < 2.16
+    , unix        >= 2.8  && < 3
