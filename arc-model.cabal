@@ -10,37 +10,59 @@ description:
 license:            Unlicense
 author:             arc contributors
 build-type:         Simple
+category:           Development
+
+common warnings
+  default-language:   GHC2024
+  default-extensions:
+      DuplicateRecordFields
+    , NoFieldSelectors
+    , OverloadedRecordDot
+  ghc-options:        -Wall -Werror
 
 library
+  import:           warnings
   hs-source-dirs:   src
   exposed-modules:
-    Arc.Model
-    Arc.Model.Audit
-    Arc.Model.Basis
-    Arc.Model.Debt
-    Arc.Model.Decision
-    Arc.Model.History
-    Arc.Model.Identifiers
-    Arc.Model.Observation
+      Arc.Model
+    , Arc.Model.Basis
+    , Arc.Model.Coverage
+    , Arc.Model.Decision
+    , Arc.Model.Declaration
+    , Arc.Model.Discharge
+    , Arc.Model.Gate
+    , Arc.Model.Identifiers
+    , Arc.Model.Ledger
+    , Arc.Model.Ledger.Audit
+    , Arc.Model.Ledger.Claim
+    , Arc.Model.Ledger.Debt
+    , Arc.Model.Ledger.Disposition
+    , Arc.Model.Ledger.Finding
+    , Arc.Model.Ledger.Integration
+    , Arc.Model.Ledger.Patchset
+    , Arc.Model.Ledger.Verdict
+    , Arc.Model.Ledger.Verification
+    , Arc.Model.Observations
+    , Arc.Model.Observed
+    , Arc.Model.Policy
+    , Arc.Model.State
   build-depends:
-    base >=4.21 && <5,
-    containers >=0.7 && <0.8
-  default-language: Haskell2010
-  ghc-options:      -Wall
+      base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
 
 test-suite spec
+  import:           warnings
   type:             exitcode-stdio-1.0
-  main-is:          Main.hs
   hs-source-dirs:   test
+  main-is:          Main.hs
   other-modules:
-    Fixtures
-    Generators
-    Mutants
-    Render
+      Fixtures
+    , Generators
+    , Mutants
+    , Render
+    , Scenario
   build-depends:
-    base >=4.21 && <5,
-    containers >=0.7 && <0.8,
-    arc-model,
-    QuickCheck >=2.14 && <2.16
-  default-language: Haskell2010
-  ghc-options:      -Wall
+      arc-model
+    , base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
+    , QuickCheck  >= 2.14 && < 2.16
