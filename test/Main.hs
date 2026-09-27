@@ -99,6 +99,8 @@ properties =
   , ("proposition: a fulfilled read needs an independent reader",          genAnyScenario,  prop_read_requires_independence)
   , ("proposition: a debt beside an approval authorized nothing",          genAnyScenario,  prop_debt_unused)
   , ("proposition: a negative audit that fulfils a read does not approve", genAnyScenario,  prop_negative_audit_is_not_approval)
+  , ("proposition: the decision is the first standing ground",             genAnyScenario,  prop_decide_is_first_ground)
+  , ("proposition: every ground is a fact of the history",                 genAnyScenario,  prop_grounds_are_facts)
   ]
 
 prop_integratable_permitted :: Scenario -> Property
@@ -112,14 +114,12 @@ prop_mutation_flips scenario =
     | mutation <- mutations scenario
     ]
 
--- | Either the mutated history refuses, or its execution stands down on a
--- moved basis.
+-- | Either the mutated history refuses, or its execution stands down: on a
+-- moved basis, or on authority the store does not hold.
 mutationInvalidated :: Scenario -> Bool
 mutationInvalidated scenario = case built.decision of
   Refused _   -> True
-  Permitted _ -> case built.execution of
-    Left (RefusedBasisMoved _) -> True
-    _stood                     -> False
+  Permitted _ -> either (const True) (const False) built.execution
   where
     built = build scenario
 
@@ -142,11 +142,18 @@ authorizationGrounded state basis = case basis.authorization of
   AuthorizedByVerdict event                 -> verdictGrounded state event basis.patchset
   AuthorizedByWaiver debt                   -> debtGrounded state debt basis.patchset
   AuthorizedByVerdictUnderWaiver event debt -> verdictGrounded state event basis.patchset && debtGrounded state debt basis.patchset
+  AuthorizedByExternalVerdict event         -> externalGrounded state event basis.head
 
 verdictGrounded :: ChangeState -> EventId -> PatchsetId -> Bool
 verdictGrounded state event patchset = any grounded state.verdicts
   where
     grounded verdict = verdict.event == event && verdict.kind == Approved && verdict.patchset == patchset
+
+-- | An external approval grounds a basis only for exactly the head it named.
+externalGrounded :: ChangeState -> EventId -> Revision -> Bool
+externalGrounded state event revision = any grounded state.externalVerdicts
+  where
+    grounded external = external.event == event && external.kind == ExternalApproved && external.revision == revision
 
 debtGrounded :: ChangeState -> DebtId -> PatchsetId -> Bool
 debtGrounded state debt patchset = any (\record -> record.debtId == debt && record.patchset == Just patchset) state.debts
@@ -164,21 +171,25 @@ gateGrounded state tree (gate, event, declaration) = any grounded state.verifica
 
 prop_unknown_never_permits :: Scenario -> Property
 prop_unknown_never_permits scenario
-  | scenario.gateMode `elem` [GateOmitted, GateUnreadable, GateOtherTree, GateShapeMoved]
+  | scenario.gateMode `elem` [EvidenceOmitted, EvidenceRecordUnreadable, EvidenceOtherTree, EvidenceShapeMoved, EvidenceOtherEnvironment, EvidenceUnrecordedEnvironment, EvidenceProbeFailed]
       = counterexample (show scenario) (not (isPermitted (build scenario).decision))
   | otherwise = property True
 
+-- | A permitted decision whose target or policy moved before execution
+-- stands down on the moved basis, unless the store cannot act at all, which
+-- is refused before the basis is even compared.
 prop_basis_moved_stands_down :: Scenario -> Property
 prop_basis_moved_stands_down scenario
   | scenario.targetAfter || scenario.policyAfter = case built.decision of
-      Permitted _ -> counterexample (show scenario) (isBasisMoved built.execution)
+      Permitted _ -> counterexample (show scenario) (stoodDown built.execution)
       Refused _   -> property True
   | otherwise = property True
   where
     built = build scenario
-    isBasisMoved = \case
-      Left (RefusedBasisMoved _) -> True
-      _stood                     -> False
+    stoodDown = \case
+      Left (RefusedBasisMoved _)    -> not scenario.authorityWithheld
+      Left RefusedAuthorityWithheld -> scenario.authorityWithheld
+      _acted                        -> False
 
 prop_waiver_exact :: Scenario -> Property
 prop_waiver_exact scenario = case built.decision of
@@ -249,6 +260,70 @@ prop_debt_unused scenario = case built.decision of
     _waived -> property True
   where
     built = build scenario
+
+-- | 'decide' is a projection of the grounds: permitted exactly when none
+-- stands, and otherwise the first in priority order.
+prop_decide_is_first_ground :: Scenario -> Property
+prop_decide_is_first_ground scenario = counterexample (show scenario) $
+  case refusals built.observation built.state of
+    []         -> isPermitted built.decision
+    ground : _ -> built.decision == Refused ground
+  where
+    built = build scenario
+
+-- | Every ground names a fact the history and observations hold, so a
+-- reader can check each one against the ledger rather than trust the list.
+prop_grounds_are_facts :: Scenario -> Property
+prop_grounds_are_facts scenario = conjoin
+  [ counterexample (show scenario <> " ground " <> show ground) (grounded ground)
+  | ground <- refusals observation state
+  ]
+  where
+    built       = build scenario
+    state       = built.state
+    observation = built.observation
+    latest      = latestPatchset state
+    latestId    = (.patchsetId) <$> latest
+    grounded = \case
+      RefusedClosed closure          -> state.closed == Just closure
+      RefusedIterating               -> state.iterating
+      RefusedNoPatchset              -> latest == Nothing
+      RefusedBlockedBy blockers      -> not (null blockers) && blockers == observation.blockedBy
+      RefusedHeadMoved seen recorded -> seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded
+      RefusedBlockingFindings open   -> not (null open) && open == openBlockingFindings state
+      RefusedContestedVerdict events -> verdictContested state && events == map (.event) (activeVerdicts state)
+      RefusedUndeclaredActor         -> observation.policy.requireDeclaredActor && not observation.invokerDeclared
+      RefusedVerdictStands kind event
+        -> kind /= Approved
+        && any (\v -> v.event == event && v.kind == kind && Just v.patchset == latestId) (activeVerdicts state)
+      RefusedExternalVerdictStands kind event
+        -> kind /= ExternalApproved
+        && any (\e -> e.event == event && e.kind == kind && Just e.revision == ((.revision) <$> latest)) state.externalVerdicts
+      RefusedStaleApproval event patchset
+        -> Just patchset /= latestId
+        && any (\v -> v.event == event && v.kind == Approved && v.patchset == patchset) state.verdicts
+      RefusedSelfApproval event actor contributors
+        -> observation.policy.independentVerdictRequired
+        && observation.policy.forbidSelfApproval
+        && Just contributors == (effectiveContributors <$> latest)
+        && any (\v -> v.event == event && effectiveActor v == actor) state.verdicts
+      RefusedNoApproval
+        -> maybe True (null . debtsForPatchset state) latestId
+        && (verdictContested state || not (any (\v -> v.kind == Approved && Just v.patchset == latestId) (activeVerdicts state)))
+      RefusedGates refused           -> not (null refused) && all ((`elem` map fst observation.requiredGates) . gateOf) refused
+      RefusedHoldActive hold         -> hold `Set.member` state.holds
+      RefusedAuthorityWithheld       -> False
+      RefusedBasisMoved _            -> False
+    gateOf = \case
+      GateNotDeclared gate                  -> gate
+      GateNeverEvaluated gate               -> gate
+      GateEvaluatedOtherTree gate _         -> gate
+      GateDeclarationChanged gate           -> gate
+      GateFailed gate _                     -> gate
+      GateEvidenceUnreadable gate           -> gate
+      GateEvaluatedOtherEnvironment gate _ _ -> gate
+      GateEnvironmentUnrecorded gate        -> gate
+      GateEnvironmentUnobserved gate        -> gate
 
 -- mutants
 

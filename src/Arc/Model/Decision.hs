@@ -1,13 +1,17 @@
 {- | Validation of a requested action.
 
-'decide' reads a replayed history and the observations, and answers with
-either a basis naming the facts it relied on or a structured refusal.
-'execute' re-checks that the basis still holds before producing a plan;
-'recordIntegration' is the separate step that puts the effect in the
-ledger. A permission alone never records anything.
+'evaluate' reads a replayed history and the observations, and answers with
+every ground on which the integration is refused, in the model's priority
+order, or with the basis it would rest on when no ground stands. 'decide'
+is the first ground or the basis. 'execute' re-checks that the basis still
+holds before producing a plan; 'recordIntegration' is the separate step
+that puts the effect in the ledger. A permission alone never records
+anything.
 -}
 module Arc.Model.Decision
-    ( decide
+    ( evaluate
+    , refusals
+    , decide
     , authorizationFor
     , gateEvidence
     , newestWaiver
@@ -22,85 +26,118 @@ import Arc.Model.Gate
 import Arc.Model.Identifiers
 import Arc.Model.Ledger
 import Arc.Model.Ledger.Integration qualified as Integration
-import Arc.Model.Observations ( Observations )
+import Arc.Model.Observations ( IntegrationAuthority(..), Observations )
 import Arc.Model.Observations qualified as Observations
-import Arc.Model.Observed ( newest )
+import Arc.Model.Observed
 import Arc.Model.Policy ( Policy )
 import Arc.Model.Policy qualified as Policy
 import Arc.Model.State
 import Arc.Model.State qualified as State
 
-import Data.Maybe ( listToMaybe )
+import Data.List.NonEmpty ( NonEmpty(..) )
+import Data.List.NonEmpty qualified as NE
+import Data.Maybe ( fromMaybe, listToMaybe )
 import Data.Set qualified as Set
 
 
--- | Decide whether an integration is permitted now.
-decide :: Observations -> ChangeState -> Decision
-decide observations state
-  | Just closure <- state.closed          = Refused (RefusedClosed closure)
-  | state.iterating                       = Refused RefusedIterating
-  | not (null observations.blockedBy)     = Refused (RefusedBlockedBy observations.blockedBy)
-  | otherwise = case latestPatchset state of
-      Nothing -> Refused RefusedNoPatchset
-      Just patchset
-        | observations.head /= patchset.revision
-          -> Refused (RefusedHeadMoved observations.head patchset.revision)
-        | not (null openFindings)
-          -> Refused (RefusedBlockingFindings openFindings)
-        | verdictContested state
-          -> Refused (RefusedContestedVerdict (map (.event) (activeVerdicts state)))
-        | policy.requireDeclaredActor && not observations.invokerDeclared
-          -> Refused RefusedUndeclaredActor
-        | otherwise -> case authorizationFor policy state patchset of
-            Left refusal        -> Refused refusal
-            Right authorization -> case gateEvidence observations state of
-              Left refusals -> Refused (RefusedGates refusals)
-              Right gates   -> case Set.lookupMin state.holds of
-                Just hold -> Refused (RefusedHoldActive hold)
-                Nothing   -> Permitted DecisionBasis
-                  { patchset         = patchset.patchsetId
-                  , head             = patchset.revision
-                  , tree             = observations.evaluatedTree
-                  , targetBranch     = observations.targetBranch
-                  , target           = observations.target
-                  , policy           = policy
-                  , authorization    = authorization
-                  , gates            = gates
-                  , consumedFindings = openFindings
-                  , consumedHolds    = []
-                  }
+{- | Every ground on which the integration is refused, in priority order, or
+the basis it would rest on. The grounds are independent readings of the
+same history: a moved head and an unevaluated gate are both reported, and
+neither hides the other.
+-}
+evaluate :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
+evaluate observations state = case latestPatchset state of
+  Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
+  Just patchset ->
+    let authorization = authorizationFor policy state patchset
+        gates         = gateEvidence observations state
+        grounds       = concat
+          [ preliminary
+          , [ RefusedHeadMoved observations.head patchset.revision | observations.head /= patchset.revision ]
+          , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
+          , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | verdictContested state ]
+          , [ RefusedUndeclaredActor | policy.requireDeclaredActor && not observations.invokerDeclared ]
+          , either pure (const []) authorization
+          , either (pure . RefusedGates) (const []) gates
+          , [ RefusedHoldActive hold | Just hold <- [Set.lookupMin state.holds] ]
+          ]
+    in case (NE.nonEmpty grounds, authorization, gates) of
+      (Just standing, _, _)         -> Left standing
+      (Nothing, Right by, Right on) -> Right (basisOn patchset by on)
+      (Nothing, Left refusal, _)    -> Left (refusal :| [])
+      (Nothing, _, Left refused)    -> Left (RefusedGates refused :| [])
   where
-    openFindings = openBlockingFindings state
     policy       = observations.policy
+    openFindings = openBlockingFindings state
+    preliminary  = concat
+      [ [ RefusedClosed closure | Just closure <- [state.closed] ]
+      , [ RefusedIterating | state.iterating ]
+      , [ RefusedBlockedBy observations.blockedBy | not (null observations.blockedBy) ]
+      ]
+    basisOn patchset authorization gates = DecisionBasis
+      { patchset         = patchset.patchsetId
+      , head             = patchset.revision
+      , tree             = observations.evaluatedTree
+      , targetBranch     = observations.targetBranch
+      , target           = observations.target
+      , policy           = policy
+      , authorization    = authorization
+      , gates            = gates
+      , consumedFindings = openFindings
+      , consumedHolds    = []
+      }
 
--- | The recorded approval or waiver that lets this patchset stand.
+-- | The grounds alone, empty when the integration is permitted.
+refusals :: Observations -> ChangeState -> [Refusal]
+refusals observations state = either NE.toList (const []) (evaluate observations state)
+
+-- | Decide whether an integration is permitted now: the first standing
+-- ground, or the basis.
+decide :: Observations -> ChangeState -> Decision
+decide observations state = either (Refused . NE.head) Permitted (evaluate observations state)
+
+{- | The recorded approval or waiver that lets this patchset stand.
+
+A refusal recorded on the current patchset, local or external, is the
+answer: a waiver declares a missing review and does not clear one that was
+given. Otherwise a local approval or waiver authorizes; an external approval
+of exactly this head authorizes only where no independent review is owed,
+because arc cannot verify who gave it.
+-}
 authorizationFor :: Policy -> ChangeState -> Patchset -> Either Refusal Authorization
-authorizationFor policy state patchset =
-  case governingVerdict state of
-    Nothing -> case waiver of
-      Just debt -> Right (AuthorizedByWaiver debt.debtId)
-      Nothing   -> Left RefusedNoApproval
-    Just verdict
-      | verdict.kind == Approved && verdict.patchset == patchset.patchsetId ->
-          if selfApprovalRejected verdict
-            then case waiver of
-              Just debt -> Right (AuthorizedByVerdictUnderWaiver verdict.event debt.debtId)
-              Nothing   -> Left (RefusedSelfApproval verdict.event (effectiveActor verdict) (effectiveContributors patchset))
-            else Right (AuthorizedByVerdict verdict.event)
-      | verdict.kind /= Approved && verdict.patchset == patchset.patchsetId ->
-          -- a refusal on the current patchset is the action itself: a waiver
-          -- declares a missing review, it does not clear an answer
-          Left (RefusedVerdictStands verdict.kind verdict.event)
-      | otherwise -> case waiver of
-          Just debt -> Right (AuthorizedByWaiver debt.debtId)
-          Nothing   -> case verdict.kind of
-            Approved -> Left (RefusedStaleApproval verdict.event verdict.patchset)
-            _refused -> Left RefusedNoApproval
+authorizationFor policy state patchset
+  | Just verdict <- governing, verdict.kind /= Approved, verdict.patchset == patchset.patchsetId
+      = Left (RefusedVerdictStands verdict.kind verdict.event)
+  | Just external <- externalHere, external.kind /= ExternalApproved
+      = Left (RefusedExternalVerdictStands external.kind external.event)
+  | otherwise = case local of
+      Right authorization -> Right authorization
+      Left refusal        -> maybe (Left refusal) Right externalAuthorization
   where
-    waiver = newestWaiver state patchset.patchsetId
+    governing    = governingVerdict state
+    externalHere = externalVerdictAt state patchset.revision
+    waiver       = newestWaiver state patchset.patchsetId
+    local = case governing of
+      Nothing -> maybe (Left RefusedNoApproval) (Right . AuthorizedByWaiver . (.debtId)) waiver
+      Just verdict
+        | verdict.kind == Approved && verdict.patchset == patchset.patchsetId ->
+            if selfApprovalRejected verdict
+              then case waiver of
+                Just debt -> Right (AuthorizedByVerdictUnderWaiver verdict.event debt.debtId)
+                Nothing   -> Left (RefusedSelfApproval verdict.event (effectiveActor verdict) (effectiveContributors patchset))
+              else Right (AuthorizedByVerdict verdict.event)
+        | otherwise -> case waiver of
+            Just debt -> Right (AuthorizedByWaiver debt.debtId)
+            Nothing   -> case verdict.kind of
+              Approved -> Left (RefusedStaleApproval verdict.event verdict.patchset)
+              _refused -> Left RefusedNoApproval
+    externalAuthorization = case externalHere of
+      Just external
+        | external.kind == ExternalApproved, not independentRequired -> Just (AuthorizedByExternalVerdict external.event)
+      _absent -> Nothing
+    independentRequired = policy.independentVerdictRequired && policy.forbidSelfApproval
     selfApprovalRejected verdict
-      = policy.independentVerdictRequired
-      && policy.forbidSelfApproval
+      = independentRequired
       && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset)
 
 {- | The newest debt whose waiver binds to exactly this patchset. Later
@@ -110,34 +147,43 @@ patchset waives nothing here.
 newestWaiver :: ChangeState -> PatchsetId -> Maybe Debt
 newestWaiver state patchset = newest (debtsForPatchset state patchset)
 
--- | Read every required gate against the evaluated tree. A gate that is
--- required but not declared is refused like any other missing evidence.
+{- | Read every required gate against the evaluated tree and the environment
+its probe yields here. A gate that is required but not declared is refused
+like any other missing evidence.
+-}
 gateEvidence :: Observations -> ChangeState -> Either [GateRefusal] [(GateName, EventId, DeclarationId)]
 gateEvidence observations state =
   case [ refusal | (_, _, Left refusal) <- results ] of
-    []       -> Right [ evidence | Just evidence <- map toEvidence results ]
-    refusals -> Left refusals
+    []      -> Right [ evidence | Just evidence <- map toEvidence results ]
+    refused -> Left refused
   where
     results =
-      [ (gate, declaration, gateGreen gate declaration observations.evaluatedTree state.verifications)
+      [ (gate, declaration, gateGreen gate declaration observations.evaluatedTree (environmentFor declaration) state.verifications)
       | (gate, wanted) <- observations.requiredGates
       , let declaration = lookupDeclaration wanted
       ]
     lookupDeclaration wanted = listToMaybe [ d | d <- observations.declarations, d.declarationId == wanted ]
+    environmentFor declaration = fromMaybe Omitted $ do
+      probe <- declaration >>= (.environment)
+      lookup probe observations.environments
     toEvidence = \case
       (gate, Just declaration, Right reading) -> case reading.coverage of
         Covered event -> Just (gate, event, declaration.declarationId)
         _uncovered    -> Nothing
       _refused -> Nothing
 
--- | Re-check a basis against the observations at execution time. Any moved
--- fact stands the action down; the recorded basis is never reused.
+{- | Re-check a basis against the observations at execution time. A store
+that does not hold integration authority cannot act at all, and any moved
+fact stands the action down; the recorded basis is never reused.
+-}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
   Refused refusal -> Left refusal
-  Permitted basis -> case moved basis of
-    []    -> Right ExecutionPlan { integration = integration basis }
-    facts -> Left (RefusedBasisMoved facts)
+  Permitted basis
+    | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
+    | otherwise -> case moved basis of
+        []    -> Right ExecutionPlan { integration = integration basis }
+        facts -> Left (RefusedBasisMoved facts)
   where
     moved basis = concat
       [ [ MovedHead basis.head observations.head            | basis.head   /= observations.head ]

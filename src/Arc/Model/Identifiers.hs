@@ -19,6 +19,8 @@ module Arc.Model.Identifiers
     , HoldId(..)
     , FailureLabel(..)
     , TargetBranch(..)
+    , ProbeCommand(..)
+    , EnvironmentId(..)
     ) where
 
 import Data.String ( IsString )
@@ -77,5 +79,16 @@ newtype FailureLabel = FailureLabel String
   deriving newtype (IsString)
 
 newtype TargetBranch = TargetBranch String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | The command a gate declares to name the environment it runs in.
+newtype ProbeCommand = ProbeCommand String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | The identity a probe yields: a digest of what it printed, so two
+-- environments compare by what the probe saw and never by name.
+newtype EnvironmentId = EnvironmentId String
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
