@@ -36,11 +36,5 @@ ghcup, GHC 9.12.x, GHC2024, cabal, `-Wall` as errors — incomplete patterns
 included, since a non-exhaustive match over a refusal is a dropped ground
 rather than a lint nit. The library depends on `base` and `containers` only.
 
-Records are read with dot syntax and generate no selectors
-(`DuplicateRecordFields`, `NoFieldSelectors`, `OverloadedRecordDot`, declared
-once in the cabal `common` stanza). Field names are bare; a record that is
-ever updated owns its module, and an update names it:
-`verdict { Verdict.actor = who }`. An unqualified update of a shared field is
-an error here, not a style slip.
-
-Code presentation follows `~/code/haskell-style.md`.
+Code presentation, including the record dialect, follows
+`~/code/haskell-style.md`.
