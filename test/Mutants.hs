@@ -1,46 +1,54 @@
-{-# LANGUAGE RecordWildCards #-}
+{- | Deliberate faults.
 
--- | Deliberate faults.
---
--- Each mutant changes exactly one rule of the model. The suite must kill
--- every one of them, and it must kill each for the predicted reason: a
--- mutant that permits where the model refuses is a different fault from one
--- that rewrites a recorded basis. A mutant that survives is a gap in the
--- suite, not a hobby.
+Each mutant changes exactly one rule of the model. The suite must kill
+every one of them, and it must kill each for the predicted reason: a
+mutant that permits where the model refuses is a different fault from one
+that rewrites a recorded basis. A mutant that survives is a gap in the
+suite, not a hobby.
+-}
 module Mutants
-  ( Behaviour (..)
-  , Channel (..)
-  , specBehaviour
-  , Predicted
-  , Divergence (..)
-  , divergenceOf
-  , predictedHolds
-  , Mutant (..)
-  , mutantBehaviour
-  , allMutants
-  ) where
+    ( Behaviour(..)
+    , Channel(..)
+    , specBehaviour
+    , Predicted
+    , Divergence(..)
+    , divergenceOf
+    , predictedHolds
+    , Mutant(..)
+    , allMutants
+    ) where
 
 import Arc.Model
+import Arc.Model.Coverage qualified as Coverage
+import Arc.Model.Ledger.Debt qualified as Debt
+import Arc.Model.Ledger.Verdict qualified as Verdict
+import Arc.Model.Ledger.Verification qualified as Verification
+import Arc.Model.State qualified as State
 import Generators
 
--- | One observable channel of the model.
-data Behaviour
-  = BehaviourDecision Decision
-  | BehaviourExecution (Either Refusal ExecutionPlan)
-  | BehaviourHistorical (Maybe Authorization)
-  | BehaviourCoverage CoverageAfterIntegration
-  deriving (Eq, Show)
+import Data.Maybe ( listToMaybe )
 
-data Channel = ChannelDecision | ChannelExecution | ChannelHistorical | ChannelCoverage
-  deriving (Eq, Show)
+
+-- | One observable channel of the model.
+data Behaviour = BehaviourDecision Decision
+               | BehaviourExecution (Either Refusal ExecutionPlan)
+               | BehaviourHistorical (Maybe Authorization)
+               | BehaviourCoverage CoverageAfterIntegration
+  deriving stock (Eq, Show)
+
+data Channel = ChannelDecision
+             | ChannelExecution
+             | ChannelHistorical
+             | ChannelCoverage
+  deriving stock (Eq, Show)
 
 -- | What the model says on one channel.
 specBehaviour :: Channel -> Built -> Behaviour
-specBehaviour channel Built {..} = case channel of
-  ChannelDecision -> BehaviourDecision builtDecision
-  ChannelExecution -> BehaviourExecution builtExecution
-  ChannelHistorical -> BehaviourHistorical (historicalAuthorization builtFinalState)
-  ChannelCoverage -> BehaviourCoverage (coverageAfterIntegration builtFinalState)
+specBehaviour channel built = case channel of
+  ChannelDecision   -> BehaviourDecision built.decision
+  ChannelExecution  -> BehaviourExecution built.execution
+  ChannelHistorical -> BehaviourHistorical (historicalAuthorization built.finalState)
+  ChannelCoverage   -> BehaviourCoverage (coverageAfterIntegration built.finalState)
 
 -- | The divergence classes a mutant is allowed to exhibit. A fault can show
 -- as a permission where the model refused, or as one refusal replaced by
@@ -48,13 +56,12 @@ specBehaviour channel Built {..} = case channel of
 type Predicted = [Divergence]
 
 -- | How a mutant's answer differs from the model's.
-data Divergence
-  = DivergenceAgrees
-  | DivergencePermits
-  | DivergenceRefuses
-  | DivergenceDifferentRefusal
-  | DivergenceDifferentValue
-  deriving (Eq, Show)
+data Divergence = DivergenceAgrees
+                | DivergencePermits
+                | DivergenceRefuses
+                | DivergenceDifferentRefusal
+                | DivergenceDifferentValue
+  deriving stock (Eq, Show)
 
 divergenceOf :: Behaviour -> Behaviour -> Divergence
 divergenceOf mutant spec
@@ -62,180 +69,164 @@ divergenceOf mutant spec
   | otherwise = case (mutant, spec) of
       (BehaviourDecision (Permitted _), BehaviourDecision (Refused _)) -> DivergencePermits
       (BehaviourDecision (Refused _), BehaviourDecision (Permitted _)) -> DivergenceRefuses
-      (BehaviourDecision (Refused _), BehaviourDecision (Refused _)) -> DivergenceDifferentRefusal
-      (BehaviourExecution (Right _), BehaviourExecution (Left _)) -> DivergencePermits
-      (BehaviourExecution (Left _), BehaviourExecution (Right _)) -> DivergenceRefuses
-      (BehaviourExecution (Left _), BehaviourExecution (Left _)) -> DivergenceDifferentRefusal
-      _ -> DivergenceDifferentValue
+      (BehaviourDecision (Refused _), BehaviourDecision (Refused _))   -> DivergenceDifferentRefusal
+      (BehaviourExecution (Right _), BehaviourExecution (Left _))      -> DivergencePermits
+      (BehaviourExecution (Left _), BehaviourExecution (Right _))      -> DivergenceRefuses
+      (BehaviourExecution (Left _), BehaviourExecution (Left _))       -> DivergenceDifferentRefusal
+      _values                                                          -> DivergenceDifferentValue
 
 predictedHolds :: Predicted -> Divergence -> Bool
-predictedHolds predicted divergence =
-  divergence == DivergenceAgrees || divergence `elem` predicted
+predictedHolds predicted divergence = divergence == DivergenceAgrees || divergence `elem` predicted
 
 data Mutant = Mutant
-  { mutantName :: String
-  , mutantChannel :: Channel
-  , mutantPredicted :: Predicted
-  , mutantRun :: Built -> Behaviour
+  { name      :: !String
+  , channel   :: !Channel
+  , predicted :: !Predicted
+  , run       :: !(Built -> Behaviour)
   }
-
-mutantBehaviour :: Mutant -> Built -> Behaviour
-mutantBehaviour Mutant {..} = mutantRun
 
 allMutants :: [Mutant]
 allMutants =
   [ Mutant
-      { mutantName = "contributor-identity-ignored"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceDifferentValue]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (withoutContributors (builtState b)))
+      { name      = "contributor-identity-ignored"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceDifferentValue]
+      , run       = decisionOn withoutContributors
       }
   , Mutant
-      { mutantName = "gate-matched-by-name"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (evidenceNormalized b))
+      { name      = "gate-matched-by-name"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn evidenceNormalized
       }
   , Mutant
-      { mutantName = "unknown-treated-as-success"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (evidenceFabricated b))
+      { name      = "unknown-treated-as-success"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn evidenceFabricated
       }
   , Mutant
-      { mutantName = "authorization-reused-after-basis-moved"
-      , mutantChannel = ChannelExecution
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourExecution (execute (builtObservation b) (builtState b) (builtDecision b))
+      { name      = "authorization-reused-after-basis-moved"
+      , channel   = ChannelExecution
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourExecution (execute b.observation b.state b.decision)
       }
   , Mutant
-      { mutantName = "fulfilled-implies-approved"
-      , mutantChannel = ChannelCoverage
-      , mutantPredicted = [DivergenceDifferentValue]
-      , mutantRun = \b ->
-          let coverage = coverageAfterIntegration (builtFinalState b)
-           in BehaviourCoverage coverage {coverageApproved = coverageApproved coverage || coverageRead coverage /= Nothing}
+      { name      = "fulfilled-implies-approved"
+      , channel   = ChannelCoverage
+      , predicted = [DivergenceDifferentValue]
+      , run       = BehaviourCoverage . approvedByRead . coverageAfterIntegration . (.finalState)
       }
   , Mutant
-      { mutantName = "latest-debt-applied-to-every-patchset"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (debtsRelocated b))
+      { name      = "latest-debt-applied-to-every-patchset"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn debtsRelocated
       }
   , Mutant
-      { mutantName = "debt-clears-refusing-verdict"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (refusalDropped b))
+      { name      = "debt-clears-refusing-verdict"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn refusalDropped
       }
   , Mutant
-      { mutantName = "later-audit-rewrites-integration-basis"
-      , mutantChannel = ChannelHistorical
-      , mutantPredicted = [DivergenceDifferentValue]
-      , mutantRun = \b ->
-          let audits = stateAudits (builtFinalState b)
-           in BehaviourHistorical (case audits of
-                    [] -> historicalAuthorization (builtFinalState b)
-                    _ -> Just (AuthorizedByVerdict (auditEvent (last audits)))
-                  )
+      { name      = "later-audit-rewrites-integration-basis"
+      , channel   = ChannelHistorical
+      , predicted = [DivergenceDifferentValue]
+      , run       = BehaviourHistorical . auditRewritesBasis . (.finalState)
       }
   , Mutant
-      { mutantName = "unreadable-evidence-counts-as-review"
-      , mutantChannel = ChannelDecision
-      , mutantPredicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , mutantRun = \b -> BehaviourDecision (decide (builtObservation b) (evidenceMadeReadable b))
+      { name      = "unreadable-evidence-counts-as-review"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn evidenceMadeReadable
       }
   ]
 
--- | A state where the reviewer's identity is not compared against the
--- contributor set: every verdict reads as if it came from a declared
--- stranger. The assumed-identity half of the rule still applies, because a
--- mutant that ignores identity entirely would not be the fault under test.
-withoutContributors :: ChangeState -> ChangeState
-withoutContributors state =
-  state
-    { stateVerdicts =
-        [ verdict
-            { verdictActor = ActorId "identity-ignored"
-            , verdictOnBehalfOf = Nothing
-            }
-        | verdict <- stateVerdicts state
-        ]
-    }
+-- | The decision the model makes on a faulted reading of the built state.
+decisionOn :: (Built -> ChangeState) -> Built -> Behaviour
+decisionOn fault built = BehaviourDecision (decide built.observation (fault built))
+
+{- | A state where the reviewer's identity is not compared against the
+contributor set: every verdict reads as if it came from a declared
+stranger. The assumed-identity half of the rule still applies, because a
+mutant that ignores identity entirely would not be the fault under test.
+-}
+withoutContributors :: Built -> ChangeState
+withoutContributors built = built.state
+  { State.verdicts =
+      [ verdict { Verdict.actor = ActorId "identity-ignored", Verdict.onBehalfOf = Nothing }
+      | verdict <- built.state.verdicts
+      ]
+  }
 
 -- | A state where every recorded evaluation is moved to the evaluated tree
 -- and the declared shape, so a gate is green by name alone.
 evidenceNormalized :: Built -> ChangeState
-evidenceNormalized Built {..} =
-  builtState
-    { stateVerifications = map normalize (stateVerifications builtState)
-    }
+evidenceNormalized built = built.state { State.verifications = map normalize built.state.verifications }
   where
-    observation = builtObservation
-    normalize verification =
-      case declarationFor (verificationDeclaration verification) of
-        Just declaration ->
-          verification
-            { verificationTree = obsEvaluatedTree observation
-            , verificationShape = declarationShape declaration
-            }
-        Nothing -> verification
-    declarationFor wanted = case [d | d <- obsDeclarations observation, declarationId d == wanted] of
-      declaration : _ -> Just declaration
-      [] -> Nothing
+    normalize verification = case declarationFor verification.declaration of
+      Just declaration -> verification
+        { Verification.tree  = built.observation.evaluatedTree
+        , Verification.shape = declarationShape declaration
+        }
+      Nothing -> verification
+    declarationFor wanted = listToMaybe [ d | d <- built.observation.declarations, d.declarationId == wanted ]
 
 -- | A state where a missing observation is answered with a passing record.
 evidenceFabricated :: Built -> ChangeState
-evidenceFabricated built = case builtDecision built of
-  Refused (RefusedGates _) ->
-    (builtState built) {stateVerifications = stateVerifications (builtState built) <> fabricated}
-  _ -> builtState built
+evidenceFabricated built = case built.decision of
+  Refused (RefusedGates _) -> built.state { State.verifications = built.state.verifications <> fabricated }
+  _otherwise               -> built.state
   where
-    observation = builtObservation built
-    fabricated = case obsRequiredGates observation of
-      [] -> []
-      (gate, wanted) : _ ->
-        case [d | d <- obsDeclarations observation, declarationId d == wanted] of
-          [] -> []
-          declaration : _ ->
-            [ Verification
-                { verificationEvent = EventId 990
-                , verificationGate = gate
-                , verificationDeclaration = declarationId declaration
-                , verificationShape = declarationShape declaration
-                , verificationTree = obsEvaluatedTree observation
-                , verificationResult = GatePass
-                , verificationExecution = RanLocally
-                , verificationAnswers = Nothing
-                , verificationReadable = True
-                }
-            ]
+    fabricated =
+      [ Verification
+          { event       = EventId 990
+          , gate        = gate
+          , declaration = declaration.declarationId
+          , shape       = declarationShape declaration
+          , tree        = built.observation.evaluatedTree
+          , result      = GatePass
+          , execution   = RanLocally
+          , answers     = Nothing
+          , readable    = True
+          }
+      | (gate, wanted) <- take 1 built.observation.requiredGates
+      , declaration    <- take 1 [ d | d <- built.observation.declarations, d.declarationId == wanted ]
+      ]
 
 -- | A state where one debt declaration is rebound from its patchset to the
 -- newest one.
 debtsRelocated :: Built -> ChangeState
-debtsRelocated Built {..} =
-  builtState
-    { stateDebts = [debt {debtPatchset = latest} | debt <- stateDebts builtState]
-    }
+debtsRelocated built = built.state { State.debts = [ debt { Debt.patchset = latest } | debt <- built.state.debts ] }
   where
-    latest = patchsetId <$> latestPatchset builtState
+    latest = (.patchsetId) <$> latestPatchset built.state
 
 -- | A state where a refusing verdict has been dropped, as if the debt
 -- cleared it.
 refusalDropped :: Built -> ChangeState
-refusalDropped built = case builtDecision built of
+refusalDropped built = case built.decision of
   Refused (RefusedVerdictStands _ event)
-    | waiverBindsLatest -> (builtState built) {stateVerdicts = filter ((/= event) . verdictEvent) (stateVerdicts (builtState built))}
-  _ -> builtState built
+    | waiverBindsLatest -> built.state { State.verdicts = filter ((/= event) . (.event)) built.state.verdicts }
+  _otherwise -> built.state
   where
-    waiverBindsLatest = case latestPatchset (builtState built) of
-      Nothing -> False
-      Just patchset -> not (null (debtsForPatchset (builtState built) (patchsetId patchset)))
+    waiverBindsLatest = case latestPatchset built.state of
+      Nothing       -> False
+      Just patchset -> not (null (debtsForPatchset built.state patchset.patchsetId))
 
 -- | A state where every evidence record is readable.
 evidenceMadeReadable :: Built -> ChangeState
-evidenceMadeReadable Built {..} =
-  builtState
-    { stateVerifications = [verification {verificationReadable = True} | verification <- stateVerifications builtState]
-    }
+evidenceMadeReadable built = built.state
+  { State.verifications = [ verification { Verification.readable = True } | verification <- built.state.verifications ]
+  }
+
+-- | A coverage projection where a fulfilled read counts as an approval.
+approvedByRead :: CoverageAfterIntegration -> CoverageAfterIntegration
+approvedByRead coverage = coverage { Coverage.approved = coverage.approved || coverage.read /= Nothing }
+
+-- | A historical reading where the newest audit replaces what the merge
+-- rested on.
+auditRewritesBasis :: ChangeState -> Maybe Authorization
+auditRewritesBasis state = case newest state.audits of
+  Nothing    -> historicalAuthorization state
+  Just audit -> Just (AuthorizedByVerdict audit.event)

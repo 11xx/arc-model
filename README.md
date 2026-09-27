@@ -57,7 +57,7 @@ The full list, including the fields the model collapses, is in
 ```sh
 cd spec/arc-model
 cabal v2-build --enable-tests
-cabal v2-test --test-show-details=direct
+cabal v2-test spec --test-show-details=direct
 ```
 
 The suite exits non-zero on any failed fixture, property, surviving mutant, or
@@ -74,7 +74,7 @@ per property. Property `n` derives seed `seed + n * 13`; mutant checks use
 `seed + index`.
 
 ```sh
-cabal v2-test --test-show-details=direct --test-options="--seed 20260907 --tests 300"
+cabal v2-test spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
 ```
 
 A failure prints the shrunk counterexample and the replay line. Re-running the
@@ -86,24 +86,24 @@ out, so a counterexample always retains the references its events need.
 ## Fixture format
 
 A fixture is a Haskell `Scenario` interpreted by `build` into a ledger plus
-observations. Fields (`Generators.Scenario`):
+observations. Fields (`Scenario`):
 
 | field | meaning |
 | --- | --- |
-| `scnPatchsets` | number of patchsets, `rev1..revN` / `tree1..treeN` |
-| `scnVerdictOnFirst` | bind the verdict to `ps-01` rather than the latest |
-| `scnReviewer` | `Nothing`, or `ActorIndependent`, `ActorContributor`, `ActorAssumed` |
-| `scnVerdict` | `Approved`, `ChangesRequested`, `CommentOnly` |
-| `scnProvisional` | record the approval as provisional |
-| `scnExtraContributor` | add a third contributor to every patchset |
-| `scnDebt` | `(patchset index, declared kind)` or `Nothing` |
-| `scnGateMode` | `GateCovered`, `GateOtherTree`, `GateShapeMoved`, `GateUnreadable`, `GateOmitted` |
-| `scnBlockingFinding` / `scnResolveFinding` | record an open or resolved blocking finding |
-| `scnHeadMoved` | the observed head is not the patchset head |
-| `scnPolicy` | `dangerPolicy`, `openPolicy`, or `requireDeclaredPolicy` |
-| `scnTargetAfter` / `scnPolicyAfter` | the execution observation moves the target or policy |
-| `scnAudit` | `(verdict, independent)` recorded after integration |
-| `scnEpisodeExpired` | record a claim and expire it |
+| `patchsets` | number of patchsets, `rev1..revN` / `tree1..treeN` |
+| `verdictOnFirst` | bind the verdict to `ps-01` rather than the latest |
+| `reviewer` | `Nothing`, or `ActorIndependent`, `ActorContributor`, `ActorAssumed` |
+| `verdict` | `Approved`, `ChangesRequested`, `CommentOnly` |
+| `provisional` | record the approval as provisional |
+| `extraContributor` | add a third contributor to every patchset |
+| `debt` | `(patchset index, declared kind)` or `Nothing` |
+| `gateMode` | `GateCovered`, `GateOtherTree`, `GateShapeMoved`, `GateUnreadable`, `GateOmitted` |
+| `blockingFinding` / `resolveFinding` | record an open or resolved blocking finding |
+| `headMoved` | the observed head is not the patchset head |
+| `policy` | `dangerPolicy`, `openPolicy`, or `requireDeclaredPolicy` |
+| `targetAfter` / `policyAfter` | the execution observation moves the target or policy |
+| `audit` | `(verdict, independent)` recorded after integration |
+| `episodeExpired` | record a claim and expire it |
 
 `mutations scenario` returns the one-invalidating-transition set: gate
 omitted/elsewhere/shape-moved/unreadable, head moved, target moved, policy
@@ -115,18 +115,30 @@ reached.
 ## Layout
 
 ```
-src/Arc/Model/Identifiers.hs     distinct identifier types
-src/Arc/Model/Observation.hs     Observed, gate declarations/evidence/readings, policy, observations
-src/Arc/Model/History.hs         ledger events, replay, and derived queries
-src/Arc/Model/Basis.hs           decision bases, structured refusals
-src/Arc/Model/Decision.hs        decide, execute, recordIntegration
-src/Arc/Model/Debt.hs            debt kinds, review obligation, coverage projection
-src/Arc/Model/Audit.hs           post-integration audit gating and discharges
-test/Generators.hs               scenarios, generators, shrinking, mutations, features
-test/Fixtures.hs                 unit fixtures
-test/Mutants.hs                  the nine deliberate faults
-test/Main.hs                     driver: fixtures, properties, mutants, coverage
+src/Arc/Model/Identifiers.hs         distinct identifier types
+src/Arc/Model/Observed.hs            Observed, and the newest of a recording-ordered list
+src/Arc/Model/Declaration.hs         gate declarations and the vocabulary of one run
+src/Arc/Model/Gate.hs                the four readings of a required gate, and what makes it green
+src/Arc/Model/Policy.hs              the declared integration policy
+src/Arc/Model/Observations.hs        everything the model is told at decision time
+src/Arc/Model/Ledger/*.hs            one module per ledger record: patchset, verdict, finding,
+                                     disposition, verification, debt, audit, claim, integration
+src/Arc/Model/Ledger.hs              the event sum over those records
+src/Arc/Model/State.hs               replay and the derived queries
+src/Arc/Model/Basis.hs               decision bases, structured refusals
+src/Arc/Model/Decision.hs            decide, execute, recordIntegration
+src/Arc/Model/Coverage.hs            debt kinds, review obligation, coverage projection
+src/Arc/Model/Discharge.hs           post-integration audit gating and discharges
+test/Scenario.hs                     the scenario plan, its generators and shrinking
+test/Generators.hs                   building a scenario, mutations, features
+test/Fixtures.hs                     unit fixtures
+test/Mutants.hs                      the nine deliberate faults
+test/Main.hs                         driver: fixtures, properties, mutants, coverage
 ```
+
+Every record carries bare field names read with dot syntax, and a record that
+is ever updated owns its module so an update can name it
+(`verdict { Verdict.actor = who }`); `AGENTS.md` names the dialect.
 
 [REPORT.md](REPORT.md) separates what the types enforce, what the runtime
 checks, and what the model leaves unsettled.
