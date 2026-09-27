@@ -20,9 +20,11 @@ module Mutants
 
 import Arc.Model
 import Arc.Model.Coverage qualified as Coverage
+import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Debt qualified as Debt
 import Arc.Model.Ledger.Verdict qualified as Verdict
 import Arc.Model.Ledger.Verification qualified as Verification
+import Arc.Model.Observations qualified as Observations
 import Arc.Model.State qualified as State
 import Generators
 
@@ -141,6 +143,26 @@ allMutants =
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
       , run       = decisionOn evidenceMadeReadable
       }
+  , Mutant
+      { name      = "external-approval-counts-as-independent-review"
+      , channel   = ChannelDecision
+      -- where an external approval already authorizes, the fault names a
+      -- witnessed verdict in the basis instead: a different value
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceDifferentValue]
+      , run       = decisionOn externalTreatedAsWitnessed
+      }
+  , Mutant
+      { name      = "environment-ignored"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourDecision (decide (probesDropped b.observation) b.state)
+      }
+  , Mutant
+      { name      = "authority-ignored"
+      , channel   = ChannelExecution
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourExecution (execute (authorityAssumed b.executionObservation) b.state b.decision)
+      }
   ]
 
 -- | The decision the model makes on a faulted reading of the built state.
@@ -190,6 +212,7 @@ evidenceFabricated built = case built.decision of
           , execution   = RanLocally
           , answers     = Nothing
           , readable    = True
+          , environment = declaration.environment >>= \probe -> lookup probe built.observation.environments >>= observedToMaybe
           }
       | (gate, wanted) <- take 1 built.observation.requiredGates
       , declaration    <- take 1 [ d | d <- built.observation.declarations, d.declarationId == wanted ]
@@ -219,6 +242,42 @@ evidenceMadeReadable :: Built -> ChangeState
 evidenceMadeReadable built = built.state
   { State.verifications = [ verification { Verification.readable = True } | verification <- built.state.verifications ]
   }
+
+{- | A state where an external approval of the latest head is read as a
+verdict arc witnessed from a declared independent reviewer, superseding
+whatever local verdict stood. That is the fault of trusting an identity arc
+cannot check.
+-}
+externalTreatedAsWitnessed :: Built -> ChangeState
+externalTreatedAsWitnessed built = case (latestPatchset built.state, externalVerdictAt built.state =<< ((.revision) <$> latestPatchset built.state)) of
+  (Just patchset, Just external)
+    | external.kind == ExternalApproved -> built.state
+        { State.verdicts = built.state.verdicts <>
+            [ Verdict
+                { event       = EventId 980
+                , patchset    = patchset.patchsetId
+                , kind        = Approved
+                , actor       = ActorId "upstream"
+                , onBehalfOf  = Nothing
+                , assumed     = False
+                , provisional = Nothing
+                , relation    = Supersedes
+                , supersedes  = (.event) <$> governingVerdict built.state
+                }
+            ]
+        }
+  _absent -> built.state
+
+-- | Observations where no declaration names a probe, so evidence from any
+-- environment answers for every gate.
+probesDropped :: Observations -> Observations
+probesDropped observations = observations
+  { Observations.declarations = [ d { Declaration.environment = Nothing } | d <- observations.declarations ]
+  }
+
+-- | Observations where the store always holds integration authority.
+authorityAssumed :: Observations -> Observations
+authorityAssumed observations = observations { Observations.authority = AuthorityHeld }
 
 -- | A coverage projection where a fulfilled read counts as an approval.
 approvedByRead :: CoverageAfterIntegration -> CoverageAfterIntegration

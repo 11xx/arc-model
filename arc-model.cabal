@@ -37,6 +37,7 @@ library
     , Arc.Model.Ledger.Claim
     , Arc.Model.Ledger.Debt
     , Arc.Model.Ledger.Disposition
+    , Arc.Model.Ledger.ExternalVerdict
     , Arc.Model.Ledger.Finding
     , Arc.Model.Ledger.Integration
     , Arc.Model.Ledger.Patchset

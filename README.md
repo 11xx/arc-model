@@ -6,7 +6,7 @@ on. It is a characterization of behaviour, not a translation of the Rust
 implementation, and it is not part of the Rust build, its gates, or its
 releases.
 
-The model characterizes arc at `df47db0b559853af567362901e3027231b2f9d1d`.
+The model characterizes arc at `26f6bdc051b9464bbe3d0c7026c564b14464904a`.
 A revision is pinned so a reader compares against a fixed implementation
 rather than a moving branch; the constant is exported as `comparisonRevision`.
 
@@ -19,18 +19,29 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 - **The integration decision.** The observed head against the recorded
   patchset head, the exact evaluated tree (the merge target when the change is
   behind it), contributor identity and reviewer independence, a recorded
-  approval or a waiver bound to the exact patchset, open blocking findings,
-  holds, dependencies, and a gate declaration with its evidence.
-- **Four separate gate readings.** Pass/fail, coverage (which declaration and
-  tree an observation answers), availability (whether a record exists and
-  could be read), and demonstrated falsification are distinct fields. An
-  omitted observation is `Omitted`: never false, never successful.
+  approval or a waiver bound to the exact patchset, an external decision
+  about exactly this head, open blocking findings, holds, dependencies, and a
+  gate declaration with its evidence.
+- **Every ground, not the first.** `evaluate` answers with every ground on
+  which the integration is refused, in the model's priority order, or with
+  the basis it would rest on; `decide` is the first ground or the basis.
+- **Four separate gate readings.** Pass/fail, coverage (which declaration,
+  tree, and environment an observation answers), availability (whether a
+  record exists and could be read), and demonstrated falsification are
+  distinct fields. An omitted observation is `Omitted`: never false, never
+  successful. A gate that declares an environment probe is answered only by
+  evidence carrying the identity the probe yields where the decision is made.
+- **Decisions made outside arc.** An external approval of exactly this head
+  authorizes where no independent review is owed and never over a local
+  refusal; an external change request or rejection stands over any approval
+  and is not waivable.
 - **Structured refusals and a decision basis.** A permission names the exact
   events, patchset, tree, target, and policy it relied on. A refusal names the
   facts that stood in the way.
 - **Permission is not effect.** `execute` re-checks the basis against the
-  observations and produces a plan; only `recordIntegration` puts the effect
-  in the ledger.
+  observations and produces a plan, and a store that does not hold
+  integration authority cannot act at all; only `recordIntegration` puts the
+  effect in the ledger.
 - **Coverage obligations.** A debt declares a missing read; a waiver binds to
   exactly one patchset; a refusing verdict is not waivable. An independent
   negative audit can fulfil the read and leave its findings open: fulfilled is
@@ -55,16 +66,15 @@ The full list, including the fields the model collapses, is in
 ## Build and test
 
 ```sh
-cd spec/arc-model
 cabal v2-build --enable-tests
 cabal v2-test spec --test-show-details=direct
 ```
 
 The suite exits non-zero on any failed fixture, property, surviving mutant, or
 unreached generator feature. Its library dependencies are `base` and
-`containers`; the test suite adds `QuickCheck`. The package is not a
-dependency of the Rust crate and is not named by any `Makefile` gate target,
-so no arc change needs a Haskell toolchain to build.
+`containers`; the test suite adds `QuickCheck`. The package lives outside the
+arc repository and is named by none of its gates, so no arc change needs a
+Haskell toolchain to build.
 
 ## Deterministic seeds and replay
 
@@ -96,19 +106,22 @@ observations. Fields (`Scenario`):
 | `verdict` | `Approved`, `ChangesRequested`, `CommentOnly` |
 | `provisional` | record the approval as provisional |
 | `extraContributor` | add a third contributor to every patchset |
+| `externalVerdict` | `Nothing`, or an `ExternalApproved`, `ExternalChangesRequested`, or `ExternalRejected` decision about the latest head |
 | `debt` | `(patchset index, declared kind)` or `Nothing` |
-| `gateMode` | `GateCovered`, `GateOtherTree`, `GateShapeMoved`, `GateUnreadable`, `GateOmitted` |
+| `gateMode` | `EvidenceCovered`, `EvidenceFailing`, `EvidenceOtherTree`, `EvidenceShapeMoved`, `EvidenceOtherEnvironment`, `EvidenceUnrecordedEnvironment`, `EvidenceProbeFailed`, `EvidenceRecordUnreadable`, `EvidenceOmitted` |
 | `blockingFinding` / `resolveFinding` | record an open or resolved blocking finding |
 | `headMoved` | the observed head is not the patchset head |
 | `policy` | `dangerPolicy`, `openPolicy`, or `requireDeclaredPolicy` |
 | `targetAfter` / `policyAfter` | the execution observation moves the target or policy |
+| `authorityWithheld` | the store lacks integration authority when it executes |
 | `audit` | `(verdict, independent)` recorded after integration |
 | `episodeExpired` | record a claim and expire it |
 
 `mutations scenario` returns the one-invalidating-transition set: gate
-omitted/elsewhere/shape-moved/unreadable, head moved, target moved, policy
-moved, finding opened, verdict refused, review bound to a stale patchset,
-reviewer made a contributor, and waiver expired. `featureOf` classifies a
+omitted/failed/elsewhere/shape-moved/other-environment/environment-unrecorded/
+probe-failed/unreadable, head moved, target moved, policy moved, authority
+withheld, external verdict refused, finding opened, verdict refused, review
+bound to a stale patchset, reviewer made a contributor, and waiver expired. `featureOf` classifies a
 built scenario so the coverage sampler can prove each required class was
 reached.
 
@@ -121,18 +134,19 @@ src/Arc/Model/Declaration.hs         gate declarations and the vocabulary of one
 src/Arc/Model/Gate.hs                the four readings of a required gate, and what makes it green
 src/Arc/Model/Policy.hs              the declared integration policy
 src/Arc/Model/Observations.hs        everything the model is told at decision time
-src/Arc/Model/Ledger/*.hs            one module per ledger record: patchset, verdict, finding,
-                                     disposition, verification, debt, audit, claim, integration
+src/Arc/Model/Ledger/*.hs            one module per ledger record: patchset, verdict, external
+                                     verdict, finding, disposition, verification, debt, audit,
+                                     claim, integration
 src/Arc/Model/Ledger.hs              the event sum over those records
 src/Arc/Model/State.hs               replay and the derived queries
 src/Arc/Model/Basis.hs               decision bases, structured refusals
-src/Arc/Model/Decision.hs            decide, execute, recordIntegration
+src/Arc/Model/Decision.hs            evaluate, decide, execute, recordIntegration
 src/Arc/Model/Coverage.hs            debt kinds, review obligation, coverage projection
 src/Arc/Model/Discharge.hs           post-integration audit gating and discharges
 test/Scenario.hs                     the scenario plan, its generators and shrinking
 test/Generators.hs                   building a scenario, mutations, features
 test/Fixtures.hs                     unit fixtures
-test/Mutants.hs                      the nine deliberate faults
+test/Mutants.hs                      the twelve deliberate faults
 test/Main.hs                         driver: fixtures, properties, mutants, coverage
 ```
 

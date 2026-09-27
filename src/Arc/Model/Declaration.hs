@@ -2,7 +2,9 @@
 
 A required check is declared with the exact command and timeout it will be
 recognized by. Evidence is green for a declaration, and a changed
-declaration is a check that has not run.
+declaration is a check that has not run. A declaration may also name an
+environment probe; evidence then has to carry the identity that probe
+yields where the decision is made.
 -}
 module Arc.Model.Declaration
     ( GateResult(..)
@@ -30,10 +32,12 @@ data Declaration = Declaration
   { declarationId  :: !DeclarationId
   , command        :: !String
   , timeoutSeconds :: !Int
+  , environment    :: !(Maybe ProbeCommand)  -- ^ The probe whose identity evidence must carry, when the gate declares one.
   }
   deriving stock (Eq, Ord, Show)
 
--- | The part of a declaration evidence is recognized by.
+-- | The part of a declaration evidence is recognized by. The environment is
+-- not part of it: it decides where evidence applies, not which check ran.
 data DeclarationShape = DeclarationShape
   { command        :: !String
   , timeoutSeconds :: !Int

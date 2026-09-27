@@ -109,10 +109,12 @@ coverageAfterIntegration state = case latestIntegration state of
     , authorization = Just record.authorization
     }
   where
+    -- only a verdict arc witnessed can be an independent read: a waiver is
+    -- the absence of one, and an external decision names nobody arc can check
     independentVerdict record = do
       event <- case record.authorization of
         AuthorizedByVerdict event -> Just event
-        _waived                   -> Nothing
+        _unwitnessed              -> Nothing
       verdict <- verdictByEvent state event
       verdictIsIndependent state verdict >> Just event
     auditRead record = ReadByAudit . (.event) <$> newest
