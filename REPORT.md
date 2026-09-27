@@ -170,6 +170,103 @@ withheld 61, debt unused 100, unknown observation 521, audit fulfilled read
 contributor variation 2026. A class with a count of zero is reported by name,
 so the suite cannot pass on trivial histories.
 
+## Differential
+
+`arc-model-differential` replays histories through the arc binary and
+compares `arc check --json` with the model's grounds. The comparison is over
+sets, because arc reports every blocker and `refusals` returns every ground.
+
+### The mapping
+
+Arc's vocabulary is coarser than the model's. The model claims its grounds
+appear in arc's answer as follows; the claim is what the run tests.
+
+| model ground | arc blockers |
+| --- | --- |
+| `closed`, `iterating`, `blocked-by`, `hold-active` | the same, by name |
+| `head-moved` | `no-valid-approval` and `gates-not-green`: arc binds approval validity and gate lookup to the head |
+| `blocking-findings` | `blocking-findings` |
+| `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
+| `gates` | `gates-not-green` |
+| `undeclared-actor` | nothing: arc refuses the undeclared write, so no such verdict reaches `check` |
+
+### The encoding
+
+Each scenario field is a command: a patchset is a commit and `arc snapshot`
+(with `--contributors` for the extra contributor); a verdict is `arc review`
+by `reviewer`, by `author`, or by nobody so that arc assumes the harness
+identity; a finding is a blocking finding on a comment-only review by
+`other` that the scenario's verdict then supersedes; a debt is `arc debt` on
+the patchset it names; an external decision is `arc external verdict` at the
+current head; gate evidence is `arc verify` under an environment that makes
+the declared gate fail or its probe print a chosen identity, or print
+nothing so the evidence records none; a changed declaration is an
+uncommitted edit of `gates.toml`; a moved head is a commit after the last
+snapshot. The decision is asked with the probe printing the local identity,
+or nothing when the scenario fails it. Policy is written to
+`.arc/policy.toml` and the change edits the declared dangerous path exactly
+when independent review is required.
+
+Three fields have no command, and a scenario using one is skipped with the
+reason rather than approximated: unreadable evidence, evidence at another
+tree when there is no earlier patchset to record it at, and a finding on a
+history with no verdict, since arc records findings only with one.
+
+Three scenario fields do not reach the decision and are not replayed: a
+target or policy moved before execution, withheld authority, and a
+post-integration audit. They are the execution and coverage channels, which
+`check` does not answer.
+
+A rejection of the head is recorded by arc's command together with the
+closure it causes; the scenario builder records both events, as arc does.
+
+### Results at the comparison revision
+
+Seed `20260907`, the 29 named histories and 200 generated ones: 210 agreed,
+19 skipped (10 unreadable evidence, 4 other-tree on one patchset, 5 finding
+without verdict), 0 adjudicated, 0 disagreed, 0 failed to replay. No
+disagreement class is on record; `Differential.Compare.adjudicate` is where
+one is named, with the scenario shape and blocker sets it applies to, when a
+run produces one.
+
+### The comparison can object
+
+`--mutant NAME` expects a permission wherever the named fault permits and
+the model's grounds elsewhere, so a run objects exactly where the fault
+would let arc's refusal through. At seed `20260907` with 40 generated cases:
+
+| fault | rows that object | what arc refused |
+| --- | --- | --- |
+| contributor identity ignored | `contributor-reviewer`, one generated | `no-valid-approval` |
+| environment ignored | `gate-other-environment`, `gate-environment-unrecorded`, `gate-probe-failed`, two generated | `gates-not-green` |
+| external approval counts as independent review | `external-approved-danger` | `no-valid-approval` |
+| unknown treated as success | every gate history but `gate-covered`, plus generated | `gates-not-green` |
+
+Each run exits non-zero. The first row of the first table is the
+demonstrated counterexample against the arc binary: one patchset by `author`
+approved by `author` under a policy that requires independence, which the
+fault permits and arc refuses.
+
+### What a quiet run means
+
+Every replayed history agreed over the fields the CLI can express. It is
+supporting evidence for the model's characterization of these decisions and
+for arc's implementation of them, and nothing more: the channels `check`
+does not answer, the fields the CLI cannot record, and the operating-system
+behaviour a pure model cannot state remain outside it.
+
+### Recommendation
+
+The evidence supports extracting one pure decision boundary from arc: the
+blocker derivation in `status.rs`, which turns already-computed facts —
+approval validity, gate greenness, open findings, holds, dependency and
+rebase state — into the blocker list. It has an independent twin in
+`evaluate`, the differential protects it on 210 histories plus the named
+ones, and the extraction changes no observable answer. The approval-validity
+computation above it, where local, external, waiver, and danger interact,
+is the next candidate and the one where the vocabulary differences listed
+under unsettled design would have to be settled first.
+
 ## Comparison revision
 
 `comparisonRevision` names arc `26f6bdc`. Every commit between the previous
@@ -205,7 +302,8 @@ still choose differently. Each is a deliberate choice, not an oversight.
   still evaluates authorization and gates against the recorded patchset.
   Production folds a moved head into approval validity and gate lookup, so
   it reports no valid approval and gates not green instead. The facts agree;
-  the vocabulary does not.
+  the vocabulary does not, and the differential's mapping states the
+  correspondence.
 - **External beside local.** When a witnessed approval and an external
   approval both stand, the model's basis names the witnessed verdict.
   Production records both in its authorization basis.
@@ -241,16 +339,16 @@ still choose differently. Each is a deliberate choice, not an oversight.
 
 ## Deferred out of this package
 
-Both are recorded here so a reader does not read the package's scope as a
-claim about them:
+Recorded here so a reader does not read the package's scope as a claim
+about them:
 
 - **The candidate protocol.** The proposed challenge/evaluation/selection
   semantics is a separate model. This package models existing arc
   authorization only, and the candidate rules must not be added to it by
   accident.
-- **The differential.** A comparison that runs the same histories through the
-  arc binary and the model is the next deliverable. A quiet differential run
-  will be supporting evidence, not proof of equivalence.
+- **A multi-obligation debt representation.** The single-slot waiver query
+  is the production reducer's semantics; a representation carrying several
+  obligations would be a different model, not a refinement of this one.
 
 ## Known unsupported semantics
 

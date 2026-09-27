@@ -2,9 +2,11 @@
 
 An independent, pure Haskell model of arc's authorization semantics: what a
 recorded history permits, what it refuses, and which facts a decision rests
-on. It is a characterization of behaviour, not a translation of the Rust
-implementation, and it is not part of the Rust build, its gates, or its
-releases.
+on, and a differential that replays the same histories through the arc
+binary and compares its answer with the model's. The model is a
+characterization of behaviour, not a translation of the Rust implementation,
+and neither it nor the differential is part of the Rust build, its gates, or
+its releases.
 
 The model characterizes arc at `26f6bdc051b9464bbe3d0c7026c564b14464904a`.
 A revision is pinned so a reader compares against a fixed implementation
@@ -51,9 +53,7 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 
 Deferred, with the deferral recorded here rather than implied:
 
-- the proposed candidate/evaluation/selection protocol — the second model
-  slice;
-- a differential test adapter against the Rust implementation;
+- the proposed candidate/evaluation/selection protocol — a separate model;
 - Git effects: how a merged tree is synthesized, that a merge commit's tree is
   the evaluated one, and the reset that follows a mismatch are outside a pure
   model, which takes the evaluated tree and the target as observations;
@@ -68,13 +68,45 @@ The full list, including the fields the model collapses, is in
 ```sh
 cabal v2-build --enable-tests
 cabal v2-test spec --test-show-details=direct
+cabal v2-run arc-model-differential -- --cases 200
 ```
 
 The suite exits non-zero on any failed fixture, property, surviving mutant, or
 unreached generator feature. Its library dependencies are `base` and
 `containers`; the test suite adds `QuickCheck`. The package lives outside the
 arc repository and is named by none of its gates, so no arc change needs a
-Haskell toolchain to build.
+Haskell toolchain to build. The differential needs `git` and an `arc` binary
+on `PATH` (or `--arc PATH`); it is not one of this package's gates either,
+because a gate that needs the implementation would make every change here
+depend on the thing the model challenges.
+
+## The differential
+
+`arc-model-differential` builds each history in a repository and home of its
+own under a scratch root, records it through arc's own commands, asks
+`arc check --json`, and compares the blockers with the model's grounds mapped
+onto arc's vocabulary (the mapping is in `Differential.Compare`, and REPORT
+states it). Twenty-nine named histories run first, then histories generated
+from the seed with the spec's generator, so any row is reproducible from its
+index. Each row is one of:
+
+- `agreed` — the same blockers, or ready on both sides;
+- `skipped` — a field the CLI cannot record, with the reason: unreadable
+  evidence, evidence at another tree on a one-patchset history, a finding
+  without a verdict;
+- `adjudicated` — a classified disagreement, with its class and reason;
+- `DISAGREED` — a disagreement nobody has classified;
+- `REPLAY FAILED` — an arc command the plan did not expect to be refused.
+
+The run exits non-zero on the last two and on nothing else. `--mutant NAME`
+expects a permission wherever that deliberate fault permits, so the run
+objects exactly where the fault would let arc's refusal through; it is how a
+reader checks that the comparison can fail at all. `--keep` leaves every
+sandbox on disk, `--verbose` prints each arc command, `--seed` and `--cases`
+select the histories.
+
+A quiet run is supporting evidence, not proof of equivalence: it says every
+replayed history agreed, over the fields the CLI can express.
 
 ## Deterministic seeds and replay
 
@@ -143,11 +175,16 @@ src/Arc/Model/Basis.hs               decision bases, structured refusals
 src/Arc/Model/Decision.hs            evaluate, decide, execute, recordIntegration
 src/Arc/Model/Coverage.hs            debt kinds, review obligation, coverage projection
 src/Arc/Model/Discharge.hs           post-integration audit gating and discharges
-test/Scenario.hs                     the scenario plan, its generators and shrinking
-test/Generators.hs                   building a scenario, mutations, features
+scenarios/Scenario.hs                the scenario plan, the named histories, generators and shrinking
+scenarios/Generators.hs              building a scenario, mutations, features
+scenarios/Mutants.hs                 the twelve deliberate faults
 test/Fixtures.hs                     unit fixtures
-test/Mutants.hs                      the twelve deliberate faults
-test/Main.hs                         driver: fixtures, properties, mutants, coverage
+test/Render.hs                       the check harness
+test/Main.hs                         spec driver: fixtures, properties, mutants, coverage
+differential/Differential/Plan.hs    a scenario as arc commands, or the reason it has none
+differential/Differential/Arc.hs     running a plan against the arc binary in a sandbox
+differential/Differential/Compare.hs the grounds-to-blockers mapping and adjudication
+differential/Main.hs                 the differential driver
 ```
 
 Every record carries bare field names read with dot syntax, and a record that
