@@ -254,11 +254,20 @@ build scenario = Built
       }
     state    = replay scenarioChange events
     decision = decide observations state
+    -- an audit is recorded only where arc would record it: after an
+    -- integration, and never as a contributor's approval where policy
+    -- forbids self-approval
     effectEvents = case decision of
       Permitted _
         | Right plan <- execute executionObs state decision
-          -> IntegrationRecorded plan.integration { Integration.event = EventId 900 } : auditEvents
-      _refused -> auditEvents
+          -> let integration = IntegrationRecorded plan.integration { Integration.event = EventId 900 }
+             in integration : admittedAudits integration
+      _refused -> []
+    admittedAudits integration = case auditEvents of
+      AuditRecorded audit : _
+        | Right () <- admitAudit observations.policy (replay scenarioChange (events <> [integration])) audit
+          -> auditEvents
+      _refusedOrNone -> []
     auditEvents = case scenario.audit of
       Nothing                  -> []
       Just (kind, independent) ->

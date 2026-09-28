@@ -55,7 +55,9 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 - **Coverage obligations.** A debt declares a missing read; a waiver binds to
   exactly one patchset; a refusing verdict is not waivable. An independent
   negative audit can fulfil the read and leave its findings open: fulfilled is
-  not approved. A later audit never rewrites what an integration rested on.
+  not approved. A later audit never rewrites what an integration rested on,
+  and a contributor's approving audit is not recorded where policy forbids
+  self-approval.
 
 ## What it deliberately does not model
 

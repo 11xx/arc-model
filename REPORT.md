@@ -90,7 +90,7 @@ counterexample can be generated for them.
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds in priority order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
-| `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone |
+| `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone; a contributor's approving audit is not recorded where self-approval is forbidden, and is recorded elsewhere |
 | `provisional` | a provisional approval gates like any other |
 | `dirty` | a run on a dirty worktree is not coverage and its result stands beside it; a waiver at its revision counts it, one at another revision does not; a run recording nothing about its worktree is refused; attested evidence carries no worktree |
 | `merged-tree` / `needs-rebase` | a merge nobody ran a gate on is refused beside the gate; an evaluated merge permits on the merge's tree; a head that does not merge owes a rebase and nothing else |
@@ -136,7 +136,7 @@ ground answers.
 | fulfilled implies approved | coverage | different value | 13 tests, 2 shrinks |
 | latest debt applied to every patchset | decision | permits, different refusal | 55 tests, 6 shrinks |
 | debt clears a refusing verdict | decision | permits, different refusal | 34 tests, 4 shrinks |
-| later audit rewrites the integration basis | historical | different value | 3 tests, 6 shrinks |
+| later audit rewrites the integration basis | historical | different value | 3 tests, 5 shrinks |
 | unreadable evidence counts as review | decision | permits, different refusal | 45 tests, 5 shrinks |
 | external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 8 shrinks |
 | environment ignored | decision | permits, different refusal | 49 tests, 8 shrinks |
