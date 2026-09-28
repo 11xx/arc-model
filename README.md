@@ -83,7 +83,8 @@ depend on the thing the model challenges.
 ## The differential
 
 `arc-model-differential` builds each history in a repository and home of its
-own under a scratch root, records it through arc's own commands, asks
+own under a scratch root in the temporary directory (`TMPDIR` when set),
+records it through arc's own commands, asks
 `arc check --json`, and compares the blockers with the model's grounds mapped
 onto arc's vocabulary (the mapping is in `Differential.Compare`, and REPORT
 states it). Twenty-nine named histories run first, then histories generated
