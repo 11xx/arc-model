@@ -82,9 +82,11 @@ cabal v2-test spec --test-show-details=direct
 cabal v2-run arc-model-differential -- --cases 200
 ```
 
-The suite exits non-zero on any failed fixture, property, surviving mutant, or
-unreached generator feature. Its library dependencies are `base` and
-`containers`; the test suite adds `QuickCheck`. The package lives outside the
+The suite exits non-zero on any failed fixture, comparator check, property,
+surviving mutant, or unreached generator feature. Its library dependencies
+are `base` and `containers`; the test suite adds `QuickCheck`, and compiles
+the differential's plan, driver, and comparator modules with their
+dependencies so the comparator is checked without running arc. The package lives outside the
 arc repository and is named by none of its gates, so no arc change needs a
 Haskell toolchain to build. The differential needs `git` and an `arc` binary
 on `PATH` (or `--arc PATH`); it is not one of this package's gates either,
@@ -222,8 +224,9 @@ scenarios/Scenario.hs                the scenario plan, the named histories, gen
 scenarios/Generators.hs              building a scenario, mutations, features
 scenarios/Mutants.hs                 the eighteen deliberate faults
 test/Fixtures.hs                     unit fixtures
+test/Comparator.hs                   the differential's adjudication rules, pinned to their exact answers
 test/Render.hs                       the check harness
-test/Main.hs                         spec driver: fixtures, properties, mutants, coverage
+test/Main.hs                         spec driver: fixtures, comparator, properties, mutants, coverage
 differential/Differential/Plan.hs    a scenario as arc commands, or the reason it has none
 differential/Differential/Arc.hs     running a plan against the arc binary in a sandbox
 differential/Differential/Compare.hs the grounds-to-blockers mapping and adjudication

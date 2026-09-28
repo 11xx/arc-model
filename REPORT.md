@@ -99,6 +99,18 @@ counterexample can be generated for them.
 | `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
 | `demonstration` | the model refuses a contributor reviewer; the deliberate fault permits |
 
+### Comparator checks
+
+`test/Comparator.hs` pins every adjudication rule of the differential
+(policy motion, external beside local, and the undeclared reviewer on the
+coverage channel; policy motion and authority at execution on the
+execution channel) to its exact answer, and changes each other field of
+that answer in turn — whether it integrated, the basis slots, the audit
+verdict, the open audit findings, the owed review, the readiness and
+blockers of the check beside a dry run — expecting each change to be left
+a disagreement. 29 checks; a rule that accepted an unrelated field would
+fail here without a run against arc.
+
 ### Properties
 
 Thirteen properties run over generated scenarios; seeds and case counts are
@@ -370,11 +382,14 @@ of the same name under "Unsettled design":
 - **Authority at execution.** A refused decision in a store without
   authority: arc answers exit 17, since it refuses the store before reading
   readiness; the model's `execute` answers a refused decision with its
-  refusal. Both refuse; which refusal answers first is the contract.
+  refusal. Both refuse; which refusal answers first is the contract. The
+  rule applies only where the check beside the dry run refuses on exactly
+  the blockers the model's grounds name.
 - **Policy motion.** A policy moved between the decision and the
   integration, where the model's own grounds under the new policy are none:
   arc decides again under that policy and would integrate; the model acts
-  only on the decision made before the policy moved, and stands down.
+  only on the decision made before the policy moved, and stands down. The
+  rule applies only where the check beside the dry run is ready.
 
 `--mutant authority-ignored` objects on `execute-authority-withheld`, and
 `--mutant authorization-reused-after-basis-moved` on
@@ -427,7 +442,16 @@ lets an external approval count, arc's basis names both, and the model's
 `AuthorizedByVerdict` names the verdict alone. Under a policy that
 requires independent review the external approval does not count and arc
 names the verdict alone, as the model does. The class is adjudicated
-`unsettled`; policy motion is adjudicated as on the execution channel.
+`unsettled`.
+
+Policy motion is adjudicated only where arc's record is, field for field,
+the one the model makes when it decides afresh under the moved policy:
+`Built.redecidedState` is the history the model records from
+`decide` under the execution-time observations, integration and admitted
+audit included, and the rule compares arc's answer with that history's
+authorization, audit verdict, open audit findings, and owed review. The
+expectation is the model's alone; nothing in it is read from arc's answer.
+Any other difference on such a history stays a disagreement.
 
 One class is `encoding`. Where policy requires a declared actor, arc
 refuses to record a verdict nobody declared, and the model's ledger holds
