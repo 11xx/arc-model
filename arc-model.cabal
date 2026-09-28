@@ -67,6 +67,29 @@ library scenarios
     , containers  >= 0.7  && < 0.8
     , QuickCheck  >= 2.14 && < 2.16
 
+-- the proposed candidate protocol: a separate model that depends on the
+-- main library for shared identifiers and observations and nothing else of
+-- it; the main library cannot depend on it without a cycle
+library candidate
+  import:           warnings
+  hs-source-dirs:   candidate
+  exposed-modules:
+      Arc.Candidate
+    , Arc.Candidate.Basis
+    , Arc.Candidate.Context
+    , Arc.Candidate.Evaluation
+    , Arc.Candidate.Identifiers
+    , Arc.Candidate.Observations
+    , Arc.Candidate.Registration
+    , Arc.Candidate.Relation
+    , Arc.Candidate.Retention
+    , Arc.Candidate.Selection
+    , Arc.Candidate.State
+  build-depends:
+      arc-model
+    , base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
+
 test-suite spec
   import:           warnings
   type:             exitcode-stdio-1.0
