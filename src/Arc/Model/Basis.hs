@@ -19,6 +19,7 @@ import Arc.Model.Gate ( GateRefusal, gateRefusalText )
 import Arc.Model.Identifiers
 import Arc.Model.Ledger ( Authorization, Closure, ExternalKind, VerdictKind )
 import Arc.Model.Policy ( Policy )
+import Arc.Model.Probe ( ProbeRefusal, probeRefusalText )
 
 import Data.Set ( Set )
 
@@ -55,14 +56,19 @@ data MovedFact = MovedHead Revision Revision
                | MovedPatchset PatchsetId PatchsetId
   deriving stock (Eq, Ord, Show)
 
-{- | Why an integration is refused. The first fifteen are grounds a decision
-can stand on; the last two arise only when a permitted decision is executed.
+{- | Why an integration is refused. The last two arise only when a permitted
+decision is executed; every other is a ground a decision can stand on, and
+a missing branch is also refused at execution.
 -}
-data Refusal = RefusedClosed Closure
+data Refusal = RefusedConflictingDeclarations [GateName]
+             | RefusedClosed Closure
              | RefusedIterating
              | RefusedNoPatchset
              | RefusedBlockedBy [ChangeId]
+             | RefusedBranchMissing
              | RefusedHeadMoved Revision Revision
+             | RefusedNeedsRebase
+             | RefusedMergedTreeUnevaluated TreeId
              | RefusedBlockingFindings [FindingId]
              | RefusedContestedVerdict [EventId]
              | RefusedVerdictStands VerdictKind EventId
@@ -71,6 +77,7 @@ data Refusal = RefusedClosed Closure
              | RefusedSelfApproval EventId ActorId (Set ActorId)
              | RefusedNoApproval
              | RefusedGates [GateRefusal]
+             | RefusedAcceptanceProbes [ProbeRefusal]
              | RefusedHoldActive HoldId
              | RefusedUndeclaredActor
              | RefusedAuthorityWithheld
@@ -81,11 +88,15 @@ data Refusal = RefusedClosed Closure
 -- comparison.
 refusalTag :: Refusal -> String
 refusalTag = \case
+  RefusedConflictingDeclarations _ -> "conflicting-declarations"
   RefusedClosed _                  -> "closed"
   RefusedIterating                 -> "iterating"
   RefusedNoPatchset                -> "no-patchset"
   RefusedBlockedBy _               -> "blocked-by"
+  RefusedBranchMissing             -> "branch-missing"
   RefusedHeadMoved _ _             -> "head-moved"
+  RefusedNeedsRebase               -> "needs-rebase"
+  RefusedMergedTreeUnevaluated _   -> "merged-tree-unevaluated"
   RefusedBlockingFindings _        -> "blocking-findings"
   RefusedContestedVerdict _        -> "contested-verdict"
   RefusedVerdictStands _ _         -> "verdict-stands"
@@ -94,6 +105,7 @@ refusalTag = \case
   RefusedSelfApproval {}           -> "self-approval"
   RefusedNoApproval                -> "no-approval"
   RefusedGates _                   -> "gates"
+  RefusedAcceptanceProbes _        -> "acceptance-probes"
   RefusedHoldActive _              -> "hold-active"
   RefusedUndeclaredActor           -> "undeclared-actor"
   RefusedAuthorityWithheld         -> "authority-withheld"
@@ -101,12 +113,20 @@ refusalTag = \case
 
 refusalText :: Refusal -> String
 refusalText = \case
+  RefusedConflictingDeclarations gates
+    -> "policy layers declare these gates differently, so there is nothing to evaluate: " <> unwords (map show gates)
   RefusedClosed _           -> "the change is closed"
   RefusedIterating          -> "the change declares it is iterating"
   RefusedNoPatchset         -> "no patchset is recorded"
   RefusedBlockedBy changes  -> "blocked by " <> unwords (map show changes)
+  RefusedBranchMissing      -> "the change's branch is gone"
+  RefusedNeedsRebase        -> "the head does not merge with its target"
+  RefusedMergedTreeUnevaluated tree
+    -> "no required gate was evaluated at the merged tree " <> show tree
   RefusedNoApproval         -> "no approval and no waiver is recorded"
   RefusedGates refusals     -> unwords (map gateRefusalText refusals)
+  RefusedAcceptanceProbes refusals
+    -> unwords (map probeRefusalText refusals)
   RefusedHoldActive hold    -> "hold " <> show hold <> " is active"
   RefusedUndeclaredActor    -> "the acting identity is not declared and policy requires one"
   RefusedAuthorityWithheld  -> "this replica does not hold integration authority"

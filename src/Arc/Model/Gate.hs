@@ -4,7 +4,9 @@ Pass/fail, coverage, availability, and demonstrated falsification are four
 separate readings of the same gate, kept apart because they answer four
 different questions. Coverage asks whether the observation answers the
 declaration, the tree, and the environment in force; a pass recorded for
-another of any of the three is a result, never coverage.
+another of any of the three is a result, never coverage. A run arc
+observed on a dirty worktree answers for none of them unless a dirty-tree
+waiver names exactly the revision it was recorded at.
 -}
 module Arc.Model.Gate
     ( GateCoverage(..)
@@ -18,7 +20,7 @@ module Arc.Model.Gate
 
 import Arc.Model.Declaration
 import Arc.Model.Identifiers
-import Arc.Model.Ledger.Verification ( Verification )
+import Arc.Model.Ledger.Verification ( Verification, WorktreeState(..) )
 import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observed
 
@@ -32,6 +34,8 @@ data GateCoverage = Covered EventId
                   | EvaluatedOtherEnvironment EnvironmentId EnvironmentId  -- ^ Recorded identity, then the one the probe yields here.
                   | EnvironmentUnrecorded                                  -- ^ The gate declares a probe and the evidence carries no identity.
                   | EnvironmentUnobserved                                  -- ^ The probe yielded no identity where the decision is made.
+                  | EvaluatedDirtyTree                                     -- ^ The run read uncommitted changes, and no waiver names its revision.
+                  | WorktreeUnrecorded                                     -- ^ The run recorded nothing about its worktree.
   deriving stock (Eq, Ord, Show)
 
 -- | Whether evidence exists at all, and whether the record could be read.
@@ -60,6 +64,8 @@ data GateRefusal = GateNotDeclared GateName
                  | GateEvaluatedOtherEnvironment GateName EnvironmentId EnvironmentId
                  | GateEnvironmentUnrecorded GateName
                  | GateEnvironmentUnobserved GateName
+                 | GateEvaluatedDirtyTree GateName
+                 | GateWorktreeUnrecorded GateName
   deriving stock (Eq, Ord, Show)
 
 gateRefusalText :: GateRefusal -> String
@@ -79,15 +85,20 @@ gateRefusalText = \case
     -> "gate " <> name <> " evidence records no environment, so nothing says where it ran"
   GateEnvironmentUnobserved (GateName name)
     -> "gate " <> name <> " declares an environment probe that yielded no identity here"
+  GateEvaluatedDirtyTree (GateName name)
+    -> "gate " <> name <> " evidence was recorded on a dirty worktree, and no waiver covers its revision"
+  GateWorktreeUnrecorded (GateName name)
+    -> "gate " <> name <> " evidence records nothing about the worktree it ran in"
 
 {- | Read one required gate from the recorded verifications, given the
-identity the declaration's probe yields where the decision is made. Coverage
-and availability are decided by the newest record, so an unreadable newest
-record leaves the gate refused rather than falling back to an older pass;
-any older result is reported beside them as a result, never as coverage.
+identity the declaration's probe yields where the decision is made and the
+revision the dirty-tree waiver in force names. Coverage and availability
+are decided by the newest record, so an unreadable newest record leaves the
+gate refused rather than falling back to an older pass; any older result is
+reported beside them as a result, never as coverage.
 -}
-readGate :: GateName -> Declaration -> TreeId -> Observed EnvironmentId -> [Verification] -> GateReading
-readGate gate declaration tree here verifications = GateReading
+readGate :: GateName -> Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> GateReading
+readGate gate declaration tree here waived verifications = GateReading
   { gate         = gate
   , result       = maybe Omitted (Observed . (.result)) newestReadable
   , coverage     = coverage
@@ -108,7 +119,17 @@ readGate gate declaration tree here verifications = GateReading
         | not v.readable   -> NeverEvaluated
         | v.shape /= shape -> DeclarationMoved declaration.declarationId
         | v.tree /= tree   -> EvaluatedOtherTree v.tree
-        | otherwise        -> environmentCoverage v
+        | otherwise        -> worktreeCoverage v
+    -- evidence somebody attests to carries no worktree of arc's observing;
+    -- a run arc observed counts on a clean tree, or on a dirty one whose
+    -- revision the waiver in force names
+    worktreeCoverage v = case (v.execution, v.worktree) of
+      (Attested, _)                        -> environmentCoverage v
+      (RanLocally, Observed CleanWorktree) -> environmentCoverage v
+      (RanLocally, Observed DirtyWorktree)
+        | waived == Just v.revision        -> environmentCoverage v
+        | otherwise                        -> EvaluatedDirtyTree
+      (RanLocally, Omitted)                -> WorktreeUnrecorded
     -- a gate without a probe takes evidence from anywhere; one with a probe
     -- takes only evidence whose recorded identity is the one observed here
     environmentCoverage v = case declaration.environment of
@@ -129,9 +150,9 @@ readGate gate declaration tree here verifications = GateReading
 The first question is coverage, so a pass recorded elsewhere never stands
 in for the declaration, tree, and environment in force.
 -}
-gateGreen :: GateName -> Maybe Declaration -> TreeId -> Observed EnvironmentId -> [Verification] -> Either GateRefusal GateReading
-gateGreen gate Nothing _ _ _ = Left (GateNotDeclared gate)
-gateGreen gate (Just declaration) tree here verifications =
+gateGreen :: GateName -> Maybe Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> Either GateRefusal GateReading
+gateGreen gate Nothing _ _ _ _ = Left (GateNotDeclared gate)
+gateGreen gate (Just declaration) tree here waived verifications =
   case reading.coverage of
     Covered event -> case reading.result of
       Observed GatePass -> Right reading
@@ -145,5 +166,7 @@ gateGreen gate (Just declaration) tree here verifications =
     EvaluatedOtherEnvironment recorded now -> Left (GateEvaluatedOtherEnvironment gate recorded now)
     EnvironmentUnrecorded                -> Left (GateEnvironmentUnrecorded gate)
     EnvironmentUnobserved                -> Left (GateEnvironmentUnobserved gate)
+    EvaluatedDirtyTree                   -> Left (GateEvaluatedDirtyTree gate)
+    WorktreeUnrecorded                   -> Left (GateWorktreeUnrecorded gate)
   where
-    reading = readGate gate declaration tree here verifications
+    reading = readGate gate declaration tree here waived verifications

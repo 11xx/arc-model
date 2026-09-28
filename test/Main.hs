@@ -9,6 +9,7 @@ import Mutants
 import Render
 
 import Data.List ( intercalate )
+import Data.Maybe ( listToMaybe )
 import Data.Set qualified as Set
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure, exitSuccess )
@@ -101,6 +102,7 @@ properties =
   , ("proposition: a negative audit that fulfils a read does not approve", genAnyScenario,  prop_negative_audit_is_not_approval)
   , ("proposition: the decision is the first standing ground",             genAnyScenario,  prop_decide_is_first_ground)
   , ("proposition: every ground is a fact of the history",                 genAnyScenario,  prop_grounds_are_facts)
+  , ("proposition: a check-time fact against the change never permits",    genAnyScenario,  prop_check_time_refuses)
   ]
 
 prop_integratable_permitted :: Scenario -> Property
@@ -271,6 +273,23 @@ prop_decide_is_first_ground scenario = counterexample (show scenario) $
   where
     built = build scenario
 
+{- | Unwaived dirty evidence, a merge nobody evaluated, a head that does not
+merge, a probe left undischarged, a missing branch, and gate declarations
+two layers disagree on each refuse whatever else the history holds.
+-}
+prop_check_time_refuses :: Scenario -> Property
+prop_check_time_refuses scenario
+  | against   = counterexample (show scenario) (not (isPermitted (build scenario).decision))
+  | otherwise = property True
+  where
+    against = or
+      [ scenario.worktree `elem` [WorktreeDirty, WorktreeDirtyWaivedElsewhere]
+      , scenario.targetMode `elem` [TargetBehind, TargetConflicting]
+      , scenario.probe `notElem` [ProbeNone, ProbeDischarged]
+      , scenario.branchMissing
+      , scenario.conflictingGates
+      ]
+
 -- | Every ground names a fact the history and observations hold, so a
 -- reader can check each one against the ledger rather than trust the list.
 prop_grounds_are_facts :: Scenario -> Property
@@ -289,7 +308,15 @@ prop_grounds_are_facts scenario = conjoin
       RefusedIterating               -> state.iterating
       RefusedNoPatchset              -> latest == Nothing
       RefusedBlockedBy blockers      -> not (null blockers) && blockers == observation.blockedBy
-      RefusedHeadMoved seen recorded -> seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded
+      RefusedConflictingDeclarations gates -> not (null gates) && gates == observation.conflictingGates
+      RefusedBranchMissing           -> observation.head == Omitted
+      RefusedHeadMoved seen recorded -> Observed seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded
+      RefusedNeedsRebase             -> observation.targetRelation == HeadConflictsWithTarget
+      RefusedMergedTreeUnevaluated tree
+        -> observation.targetRelation == HeadBehindTarget
+        && tree == observation.evaluatedTree
+        && not (any (\v -> v.tree == tree && v.gate `elem` map fst observation.requiredGates) state.verifications)
+      RefusedAcceptanceProbes refused -> not (null refused) && all probeGrounded refused
       RefusedBlockingFindings open   -> not (null open) && open == openBlockingFindings state
       RefusedContestedVerdict events -> verdictContested state && events == map (.event) (activeVerdicts state)
       RefusedUndeclaredActor         -> observation.policy.requireDeclaredActor && not observation.invokerDeclared
@@ -314,6 +341,25 @@ prop_grounds_are_facts scenario = conjoin
       RefusedHoldActive hold         -> hold `Set.member` state.holds
       RefusedAuthorityWithheld       -> False
       RefusedBasisMoved _            -> False
+    brief = do
+      patchset <- latest
+      wanted   <- patchset.brief
+      listToMaybe [ b | b <- state.briefs, b.event == wanted ]
+    declared name = maybe False (elem name . (.probes)) brief
+    -- the newest run recorded for this probe, phase, and revision, read
+    -- straight from the ledger
+    ran name phase revision = case reverse [ run.result | run <- state.probeRuns, Just run.brief == ((.event) <$> brief), run.probe == name, run.phase == phase, Just run.revision == revision ] of
+      result : _ -> Observed result
+      []         -> Omitted
+    headRevision = (.revision) <$> latest
+    probeGrounded = \case
+      ProbeCannotDischarge name
+        -> declared name && maybe False (\b -> b.base == Nothing || b.base == headRevision) brief
+      ProbeNotDiscriminating name baseline final
+        -> declared name
+        && baseline == ran name Baseline (brief >>= (.base))
+        && final == ran name Final headRevision
+        && (baseline, final) /= (Observed GateFail, Observed GatePass)
     gateOf = \case
       GateNotDeclared gate                  -> gate
       GateNeverEvaluated gate               -> gate
@@ -324,6 +370,8 @@ prop_grounds_are_facts scenario = conjoin
       GateEvaluatedOtherEnvironment gate _ _ -> gate
       GateEnvironmentUnrecorded gate        -> gate
       GateEnvironmentUnobserved gate        -> gate
+      GateEvaluatedDirtyTree gate           -> gate
+      GateWorktreeUnrecorded gate           -> gate
 
 -- mutants
 

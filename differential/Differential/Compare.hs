@@ -17,7 +17,7 @@ module Differential.Compare
     ) where
 
 import Arc.Model
-import Differential.Arc ( Answer(..) )
+import Differential.Arc ( Answer(..), checkRefusedConflictingGates )
 import Scenario ( Scenario(..) )
 
 import Data.Set ( Set )
@@ -29,13 +29,18 @@ expected :: [Refusal] -> Set String
 expected = Set.fromList . concatMap blockersOf
   where
     blockersOf = \case
+      -- arc refuses to check at all; the name is the differential's
+      RefusedConflictingDeclarations _ -> [checkRefusedConflictingGates]
       RefusedClosed _                  -> ["closed"]
       RefusedIterating                 -> ["iterating"]
       RefusedBlockedBy _               -> ["blocked-by-changes"]
       RefusedNoPatchset                -> ["no-valid-approval", "gates-not-green"]
       -- arc binds approval validity and gate lookup to the head, so a moved
-      -- head invalidates both rather than being named
+      -- or missing head invalidates both as well as being named, or not
+      RefusedBranchMissing             -> ["branch-missing", "no-valid-approval", "gates-not-green"]
       RefusedHeadMoved _ _             -> ["no-valid-approval", "gates-not-green"]
+      RefusedNeedsRebase               -> ["needs-rebase"]
+      RefusedMergedTreeUnevaluated _   -> ["merged-tree-unevaluated"]
       RefusedBlockingFindings _        -> ["blocking-findings"]
       RefusedContestedVerdict _        -> ["no-valid-approval"]
       RefusedVerdictStands _ _         -> ["no-valid-approval"]
@@ -44,6 +49,7 @@ expected = Set.fromList . concatMap blockersOf
       RefusedSelfApproval {}           -> ["no-valid-approval"]
       RefusedNoApproval                -> ["no-valid-approval"]
       RefusedGates _                   -> ["gates-not-green"]
+      RefusedAcceptanceProbes _        -> ["acceptance-probes-not-green"]
       RefusedHoldActive _              -> ["hold-active"]
       -- arc refuses the undeclared write itself; nothing reaches check
       RefusedUndeclaredActor           -> []

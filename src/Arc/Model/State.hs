@@ -19,6 +19,9 @@ module Arc.Model.State
     , openBlockingFindings
     , openAuditFindings
     , debtsForPatchset
+    , dirtyTreeWaiver
+    , briefOf
+    , newestProbeRun
     , latestIntegration
     , historicalAuthorization
     , activeIntegration
@@ -27,10 +30,13 @@ module Arc.Model.State
 import Arc.Model.Identifiers
 import Arc.Model.Ledger ( Closure, Event(..) )
 import Arc.Model.Ledger.Audit ( Audit )
+import Arc.Model.Ledger.Brief ( Brief )
+import Arc.Model.Ledger.Brief qualified as Brief
 import Arc.Model.Ledger.Claim ( Claim )
 import Arc.Model.Ledger.Claim qualified as Claim
 import Arc.Model.Ledger.Debt ( Debt )
 import Arc.Model.Ledger.Debt qualified as Debt
+import Arc.Model.Ledger.DirtyTreeWaiver ( DirtyTreeWaiver )
 import Arc.Model.Ledger.Disposition ( Disposition )
 import Arc.Model.Ledger.Disposition qualified as Disposition
 import Arc.Model.Ledger.ExternalVerdict ( ExternalVerdict )
@@ -41,6 +47,8 @@ import Arc.Model.Ledger.Integration ( Authorization, IntegrationRecord )
 import Arc.Model.Ledger.Integration qualified as Integration
 import Arc.Model.Ledger.Patchset ( Patchset )
 import Arc.Model.Ledger.Patchset qualified as Patchset
+import Arc.Model.Ledger.ProbeRun ( ProbePhase, ProbeRun )
+import Arc.Model.Ledger.ProbeRun qualified as ProbeRun
 import Arc.Model.Ledger.Verdict ( Verdict, VerdictRelation(..) )
 import Arc.Model.Ledger.Verdict qualified as Verdict
 import Arc.Model.Ledger.Verification ( Verification )
@@ -62,6 +70,9 @@ data ChangeState = ChangeState
   , verifications    :: ![Verification]
   , debts            :: ![Debt]
   , audits           :: ![Audit]
+  , dirtyTreeWaivers :: ![DirtyTreeWaiver]
+  , briefs           :: ![Brief]
+  , probeRuns        :: ![ProbeRun]
   , claims           :: ![Claim]
   , holds            :: !(Set HoldId)
   , integrations     :: ![IntegrationRecord]
@@ -81,6 +92,9 @@ emptyState change = ChangeState
   , verifications    = []
   , debts            = []
   , audits           = []
+  , dirtyTreeWaivers = []
+  , briefs           = []
+  , probeRuns        = []
   , claims           = []
   , holds            = Set.empty
   , integrations     = []
@@ -104,6 +118,9 @@ replay change = foldl' step (emptyState change)
       AuditRecorded value           -> state { audits           = state.audits           <> [value] }
       ClaimStarted value            -> state { claims           = state.claims           <> [value] }
       IntegrationRecorded value     -> state { integrations     = state.integrations     <> [value] }
+      DirtyTreeWaived value         -> state { dirtyTreeWaivers = state.dirtyTreeWaivers <> [value] }
+      BriefRecorded value           -> state { briefs           = state.briefs           <> [value] }
+      ProbeRunRecorded value        -> state { probeRuns        = state.probeRuns        <> [value] }
       ClaimExpired claim            -> state { claims           = map (expire claim) state.claims }
       HoldSet hold                  -> state { holds            = Set.insert hold state.holds }
       HoldReleased hold             -> state { holds            = Set.delete hold state.holds }
@@ -166,6 +183,29 @@ openAuditFindings state =
 
 debtsForPatchset :: ChangeState -> PatchsetId -> [Debt]
 debtsForPatchset state identifier = [ debt | debt <- state.debts, debt.patchset == Just identifier ]
+
+-- | The dirty-tree waiver in force: the newest declared, whichever revision
+-- it names.
+dirtyTreeWaiver :: ChangeState -> Maybe DirtyTreeWaiver
+dirtyTreeWaiver state = newest state.dirtyTreeWaivers
+
+-- | The brief a patchset was recorded under, when it was recorded under one.
+briefOf :: ChangeState -> Patchset -> Maybe Brief
+briefOf state patchset = do
+  wanted <- patchset.brief
+  listToMaybe [ brief | brief <- state.briefs, brief.event == wanted ]
+
+-- | The newest run of one probe of one brief, in one phase, at exactly this
+-- revision.
+newestProbeRun :: ChangeState -> EventId -> ProbeName -> ProbePhase -> Revision -> Maybe ProbeRun
+newestProbeRun state brief probe phase revision = newest
+  [ run
+  | run <- state.probeRuns
+  , run.brief == brief
+  , run.probe == probe
+  , run.phase == phase
+  , run.revision == revision
+  ]
 
 -- | The newest recorded integration, in recording order.
 latestIntegration :: ChangeState -> Maybe IntegrationRecord
