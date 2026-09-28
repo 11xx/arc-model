@@ -117,16 +117,20 @@ adjudicateExecution scenario built wanted dry
   , Set.null refused
   , scenario.policyAfter
   , dry.exit == 0
+  , dry.after.ready
   = Just Adjudication
       { kind   = Unsettled
       , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
       }
   -- a refused decision in a store without authority: arc refuses the store
-  -- before it reads readiness, the model answers with the decision's refusal
-  | StoodDown _ <- wanted
+  -- before it reads readiness, the model answers with the decision's
+  -- refusal, and the check beside the dry run refuses on exactly its grounds
+  | StoodDown refused <- wanted
   , scenario.authorityWithheld
   , not (isPermitted built.decision)
   , dry.exit == 17
+  , not dry.after.ready
+  , dry.after.blockers == refused
   = Just Adjudication
       { kind   = Unsettled
       , reason = "authority at execution: arc refuses a store without authority before readiness; the model's execute answers a refused decision with its refusal"
@@ -208,16 +212,20 @@ adjudicateCoverage scenario built wanted found
       , reason = "undeclared reviewer: arc refuses to record a verdict nobody declared where policy requires a declared actor; the model's ledger holds it"
       }
   -- a policy that moved and now permits: arc integrates under it, the model
-  -- acts only on the decision made before it moved
-  | not wanted.integrated
-  , found.integrated
-  , scenario.policyAfter
-  , null (refusals built.executionObservation built.state)
+  -- acts only on the decision made before it moved. What arc records has to
+  -- be, field for field, what the model records when it decides afresh
+  -- under the moved policy
+  | scenario.policyAfter
+  , not wanted.integrated
+  , redecided.integrated
+  , found == redecided
   = Just Adjudication
       { kind   = Unsettled
       , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
       }
   | otherwise = Nothing
+  where
+    redecided = expectedCoverage (historicalAuthorization built.redecidedState) (coverageAfterIntegration built.redecidedState)
 
 -- | Which side is wrong, or whether the contract is unsettled. An encoding
 -- difference is a fact about the CLI's shape, not about either decision.

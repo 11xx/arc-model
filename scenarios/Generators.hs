@@ -87,6 +87,7 @@ data Built = Built
   , finalState           :: !ChangeState
   , decision             :: !Decision
   , execution            :: !(Either Refusal ExecutionPlan)
+  , redecidedState       :: !ChangeState  -- ^ The history had the integration been decided afresh under the execution observations.
   }
 
 build :: Scenario -> Built
@@ -99,6 +100,7 @@ build scenario = Built
   , finalState           = replay scenarioChange finalEvents
   , decision             = decision
   , execution            = execute executionObs state decision
+  , redecidedState       = replay scenarioChange (events <> effectsOf (decide executionObs state))
   }
   where
     patchsets = patchsetsFor scenario briefEvent
@@ -257,9 +259,10 @@ build scenario = Built
     -- an audit is recorded only where arc would record it: after an
     -- integration, and never as a contributor's approval where policy
     -- forbids self-approval
-    effectEvents = case decision of
+    effectEvents = effectsOf decision
+    effectsOf decided = case decided of
       Permitted _
-        | Right plan <- execute executionObs state decision
+        | Right plan <- execute executionObs state decided
           -> let integration = IntegrationRecorded plan.integration { Integration.event = EventId 900 }
              in integration : admittedAudits integration
       _refused -> []

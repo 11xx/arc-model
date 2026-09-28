@@ -3,6 +3,7 @@
 module Main ( main ) where
 
 import Arc.Model
+import Comparator ( comparatorChecks )
 import Fixtures ( fixtureChecks )
 import Generators
 import Mutants
@@ -37,7 +38,7 @@ main = do
   propertyResults <- propertyChecks seed tests
   mutantResults   <- mutantChecks
   coverage        <- coverageCheck seed tests
-  let checks   = fixtureChecks <> propertyResults <> mutantResults <> [coverage]
+  let checks   = fixtureChecks <> comparatorChecks <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""
