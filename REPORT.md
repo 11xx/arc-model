@@ -343,9 +343,10 @@ Recorded here so a reader does not read the package's scope as a claim
 about them:
 
 - **The candidate protocol.** The proposed challenge/evaluation/selection
-  semantics is a separate model. This package models existing arc
-  authorization only, and the candidate rules must not be added to it by
-  accident.
+  semantics is a separate model in its own component, described under
+  [The proposed candidate protocol](#the-proposed-candidate-protocol). The
+  existing-authorization model carries none of its rules and cannot import
+  it.
 - **A multi-obligation debt representation.** The single-slot waiver query
   is the production reducer's semantics; a representation carrying several
   obligations would be a different model, not a refinement of this one.
@@ -386,3 +387,217 @@ about them:
   never block, and the model's job is the blocking decision.
 - **Dependency status.** `Observations.blockedBy` names blockers; how a chain's
   readiness is computed is not modelled.
+
+## The proposed candidate protocol
+
+A separate model of semantics no arc revision implements. It is checked for
+consistency and for sensitivity to named faults; no differential exists or
+can exist until an implementation does. The evidence below is produced by:
+
+```sh
+cabal v2-test candidate-spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
+```
+
+### Separation
+
+The candidate model is the internal library `arc-model:candidate`, whose
+only project dependency is `arc-model`, and of it only
+`Arc.Model.Identifiers` and `Arc.Model.Observed` are imported. The main
+library cannot use it. An `import Arc.Candidate` in an `Arc.Model.*` module
+is refused as a hidden package:
+
+```
+Could not load module 'Arc.Candidate'.
+It is a member of the hidden package 'arc-model-0.1.0.0:candidate'.
+```
+
+and declaring the dependency to force it is refused before anything builds:
+
+```
+Dependency cycle between the following components:
+    library
+    library candidate
+```
+
+No `Arc.Model.*` module, the `spec` suite, the scenarios, or the
+differential depends on the candidate component.
+
+### Structural type invariants
+
+- **Distinct identifiers.** `CandidateId`, `EpisodeId`, `EvaluationId`,
+  `ReviewId`, `SelectionId`, `ToolRecordId`, `JournalId`, `ArtifactName`,
+  `RepositoryId`, `ContentId`, `PathName`, `VersionId`, and
+  `InferenceSource` are separate types, beside the shared ones. A candidate
+  is never its tree: registrations compare by `CandidateId`, trees by
+  `TreeId`.
+- **A registration has no change.** `Registration` carries no change or
+  patchset field, so registering an alternative cannot open one; only a
+  `SelectionBasis` names a `Destination`.
+- **A reference separates address from observation.** `ContextRef` holds a
+  `Locator` and, separately, an `Observed VersionId` and an `Observed
+  Extent`. `resolve` goes through the version; an omitted version resolves
+  to `VersionUnobserved`, never to the locator's current content.
+- **Relations carry their establishment.** `ContextRelation` is a sum of
+  `Supplied`, `Read`, `Declared`, and `Inferred`; only `Read` holds a
+  `ToolRecordId`, only `Declared` an attributed declarant, only `Inferred` an
+  `InferenceSource`. `readSatisfaction` consults `Read` alone.
+- **Omitted is not a result.** `EvaluationRecord.outcome` and `.environment`,
+  `Observations.target` and `.environment`, reference coverage, and the
+  capture a provider reported are `Observed` values; no code path turns
+  `Omitted` into a pass, a match, full coverage, or a pin.
+- **The reuse policy has no default.** `evaluate` and `refusals` take a
+  `ReusePolicy` argument; `Requirements` has no reuse field and the library
+  exports no default value. Every basis records the policy it was decided
+  under.
+- **Selection is validation.** `evaluate :: ReusePolicy -> Requirements ->
+  Observations -> State -> Proposal -> Either (NonEmpty Refusal)
+  SelectionBasis` takes the choice as input and returns no state. Recording
+  it is a separate `record` of `SelectionRecorded`, which touches only the
+  selection map.
+- **Permission is not effect.** `promote` returns a `PromotionPlan`; only
+  `recordPromotion`, given an `Observed` result, writes a `Promotion`.
+- **Collection is not permitted by the model.** `collection` answers
+  `CollectionRefused root` or `NoRootReaches`; there is no constructor for
+  permission to delete.
+
+### Runtime validation
+
+#### Unit fixtures
+
+`candidate-test/Fixtures.hs`, 63 checks:
+
+| fixture | what it anchors |
+| --- | --- |
+| `equal-tree` | two registrations of one tree share one storage entry; a review of A authorizes A and not B (`ReviewOfOtherCandidate`); B's producer may review A and not B |
+| `different-tree` | two trees, two storage entries; either is selectable |
+| `selection-immutable` | selecting and promoting leaves every registration as recorded; the basis names the proposal's choice |
+| `stale-target` / `stale-evaluation` | a proposal naming an old target is `target-moved`; evidence at another tree, declaration, or environment is refused with the coordinate; a target moved after the decision stands the promotion down |
+| `episode` | an episode with no candidate, one with three, and a candidate citing two episodes |
+| `expiry` | an expired episode is not live; the selected candidate and its episode record stay rooted; an unrooted alternative is reached by no root; a declared root retains a losing alternative |
+| `amended` | a read of the first version resolves to it after an amendment and still meets the requirement; an unversioned reference resolves to nothing; a lost version is unavailable |
+| `lead-repair` | the lead is among the contributors and the repaired tree ships; the lead cannot be the independent reviewer; a review of the unrepaired tree is stale |
+| `reuse` | the same selection is refused under `ReuseNever` (`OtherRegistration`) and permitted under `ReuseOnMatchingCoordinates`; the latter still needs the tree and a recorded environment; review authority is never reused |
+| `claims` | a declared reliance, an inference, a supply, an unknown coverage, a partial read, and no read are each their own shortfall; relations stand as record, claim, or inference by establishment |
+| `citation` | a declaration citing an unrecorded read is refused; one citing a recorded read is accepted and remains a claim |
+| `registration` | a second registration of one identity and an unversioned brief are refused |
+| `effect` | a promotion plan records nothing without an observed result |
+| `capture` | a rooted reference is retained when pinned, at risk when unpinned or unobserved |
+| `unknown` | an unobserved outcome, target, or environment, and no named evaluation, each refuse |
+| `every-ground` | a stale target, a failed gate, a changes-requested review, and a declared-only read are all reported, in order |
+| `demonstration` | a producer reviewing its own candidate is refused; the contributor-identity fault permits |
+
+#### Properties
+
+Fourteen properties over generated plans:
+
+| property | statement |
+| --- | --- |
+| registrations immutable | the registrations after every event are exactly the ones registered |
+| selection is named | the basis's candidate, target, selector, destination, evaluations, and review are the proposal's |
+| review authority | a required review in a basis names the chosen registration and shipped tree, approves, and is by no contributor |
+| evidence grounded | every basis evaluation is at the shipped tree, the required declaration, the observed environment, passed, and on the chosen registration unless the policy reuses |
+| repairers contribute | basis contributors are exactly the producers and the repair authors |
+| unknown never permits | an unobserved target, environment, outcome, or coverage never permits |
+| reads are observed | every read in a basis is a tool record of the chosen candidate's episode covering the required version and extent |
+| target moved stands down | a target moved after the decision refuses the promotion as `basis-moved` |
+| roots retain | a selection's candidate, tree, evaluations, brief, and episodes are refused collection |
+| expiry deletes nothing | every collection answer is the same with and without episode expiry |
+| reuse-never is stricter | whatever `ReuseNever` permits, `ReuseOnMatchingCoordinates` permits |
+| unpinned at risk | a retained reference is `Retained` only when its provider reported it pinned |
+| reference resolves observed | every read resolves to the version it observed, or reports it unavailable |
+| relations by establishment | a tool record stands as a record, a declaration as a claim, an inference as an inference |
+
+#### Mutants
+
+Each must be killed, and each divergence must be of the predicted class.
+Decision faults draw from every plan; promotion and retention faults from
+plans the model permits.
+
+| fault | channel | predicted divergence | killed (seed 20260907) |
+| --- | --- | --- | --- |
+| candidate identity dropped when trees match | decision | permits, different refusal | 2 tests, 9 shrinks |
+| decision reused after the target moved | promotion | permits | 15 tests, 11 shrinks |
+| contributor identity ignored in selection authority | decision | permits, different refusal | 46 tests, 7 shrinks |
+| unknown context treated as complete | decision | permits, different refusal | 1 test, 8 shrinks |
+| collection permitted of rooted content | retention | permits | 1 test, 7 shrinks |
+| episode TTL expires a retained candidate | retention | permits | 2 tests, 10 shrinks |
+| declared context consumed as a read | decision | permits, different refusal | 27 tests, 7 shrinks |
+
+Each shrunk counterexample is the smallest plan exhibiting its fault: an
+evaluation of the equal-tree sibling under `ReuseNever`; a target moved
+after a permitted decision; B's producer reviewing B; a read with unobserved
+coverage; any permitted selection, whose candidate is reached only through
+it; an expired episode under a selection; a declared-only reliance. A mutant
+that agrees with the model on every generated plan fails the suite as
+`SURVIVED`.
+
+#### Generator coverage
+
+4000 plans at seed `20260907`: permitted 529, equal-tree pair 2376,
+zero-candidate episode 1927, episode of three 957, expired episode under a
+root 693, amended reference 1961, lead repair 105, divergent reuse policies
+51, stale target 509, stale evaluation 593, declared-only read 247, coverage
+unknown 224, retained at risk 825, promotion stood down 114. A class with a
+count of zero fails the suite by name.
+
+### Open decisions
+
+The owning design leaves these open; the model takes each as a parameter or
+reports it unsupported, and states no default:
+
+| decision | treatment |
+| --- | --- |
+| evaluation reuse across registrations | `ReusePolicy` argument: `ReuseNever`, `ReuseOnMatchingCoordinates` (tree, declaration, and recorded environment equal; an unrecorded environment matches nothing). The `reuse` fixture decides one selection both ways and gets different answers; review authority is outside the policy and never reused |
+| provider durable-capture guarantees | an observation per referenced version, `Pinned` or `Unpinned`, or absent; a rooted reference is `RetainedAtRisk` unless pinned, and an unversioned one is at risk as `ReferenceUnversioned` |
+| retention budgets for unreferenced history | unsupported: `NoRootReaches` states a reference fact and grants nothing |
+| canonical context and manifest encoding | unsupported: locators and versions are opaque identifiers compared for equality |
+| initial trace-mapping scope | unsupported: no mapping from source ranges to candidates is represented |
+| production core language and packaging | unsupported, and not a question a model answers |
+
+### Unsettled design
+
+Readings the model fixes where the sources do not; each could be chosen
+differently.
+
+- **What selection authority is.** The sources say equal trees share no
+  selection authority without saying what it is. The model reads it as the
+  independent review a selection may require: bound to one registration and
+  tree, and by no contributor, repair authors included. Who may *select* is
+  unconstrained; the selector is recorded only.
+- **Unnamed negative reviews.** A proposal names the reviews it relies on. A
+  changes-requested review of the chosen candidate that the proposal does
+  not name does not refuse the selection. Whether one should, as a standing
+  verdict does on an arc change, is open.
+- **Repairs.** A repair is a proposal field naming its author and resulting
+  tree, not a registration. Evidence and review must be at the repaired
+  tree. Whether a repair should itself be registered is open.
+- **Which reads count.** A read requirement is met by reads from episodes the
+  chosen registration cites. Reads by a repairer, or by the selector, do not
+  count.
+- **Liveness.** Episode expiry gates no write: a registration may cite, and a
+  tool may record a read for, an expired episode. What an expired episode may
+  still record is not stated by the sources.
+- **What a root reaches.** A candidate reaches its tree, brief, parents,
+  episodes, and declared context; an episode reaches what was supplied to and
+  read by it; a selection reaches its candidate, shipped tree, evaluations,
+  review, and the references its reads resolved. Judgements and inferences
+  reach nothing.
+- **Recording a basis.** `SelectionRecorded` accepts any `SelectionBasis`;
+  that it came from `evaluate` is the caller's obligation, as a decision
+  basis is in the existing model.
+
+### Comparing a future implementation
+
+An implementation could be compared the way the differential compares arc:
+replay a plan through its commands and compare, over sets, its refusals with
+`refusals`, its selection record with the `SelectionBasis`, its promotion
+refusal with `promote`, and its collection and retention answers with
+`collection` and `retention`. That needs, on the implementation's side: a
+registration command that opens no change and refuses a duplicate identity;
+records for supplied context, tool reads with coverage, declarations with a
+checked citation, and inferences with a source; evaluation and review records
+naming the registration and tree; a selection command taking every proposal
+field; a promotion that re-reads the target; a query for what a root
+retains; and a stated reuse policy, since the model's answer depends on it.
+A mismatch would be classified as elsewhere: implementation defect, model
+defect, or an open decision above.

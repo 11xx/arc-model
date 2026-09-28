@@ -193,3 +193,103 @@ is ever updated owns its module so an update can name it
 
 [REPORT.md](REPORT.md) separates what the types enforce, what the runtime
 checks, and what the model leaves unsettled.
+
+## The proposed candidate protocol
+
+A second, separate model states the proposed semantics of candidate
+registration, typed context relations, evaluation applicability, explicit
+selection, and retention roots. Nothing in arc implements it, so there is
+nothing to compare it with: what it shows is that the stated rules are
+consistent, that its tests object to the named faults, and which decisions
+remain open. It is the cabal component `arc-model:candidate`
+(`Arc.Candidate.*`), which depends on the main library for identifiers and
+`Observed` and nothing else; the main library cannot import it without a
+dependency cycle cabal refuses.
+
+### What it states
+
+- **Registration is immutable.** A registration names its content tree, an
+  immutable brief reference, its producers, its parents, and the episodes it
+  cites. It names no change. A second registration of one identity is
+  refused, so no later event alters one. Two registrations of one tree share
+  storage and nothing else: no review, contributor set, brief, or selection
+  authority.
+- **Episodes and candidates are many-to-many.** An episode may produce none,
+  one, or several candidates; a candidate may cite several episodes.
+- **Relations are typed by who establishes them.** An observed read comes
+  only from a tool's record with the coverage it recorded; a supply is the
+  operation's record and no read; citing, relying on, and considering are
+  attributed claims; an inference names its source. A declaration's citation
+  must resolve to a recorded read or the declaration is refused.
+- **References carry what was observed.** A context reference names a locator
+  (a journal and complete artifact filename, or a repository, content
+  identity, and path) and the version and coverage actually observed. It
+  resolves through its version, so an amended artifact still resolves to the
+  text that was read.
+- **Evaluation consumes observations.** An evaluation record carries the
+  outcome and environment the shell observed; the model runs nothing. An
+  omitted outcome, environment, target, or coverage is unknown, never a pass.
+- **Selection is explicit.** `evaluate` validates a named proposal — the
+  chosen registration, destination, target, the evaluations and review relied
+  on, the selector, and any repairs — and answers with every ground against
+  it or the basis it rests on. It never chooses and never writes. A repair's
+  author joins the contributors, so a lead who repairs is not the independent
+  reviewer of what ships. `promote` re-checks the target; only an observed
+  effect is recorded as a promotion.
+- **Retention follows references.** Selections, promotions, and declared roots
+  retain what they reach, and collecting it is refused. Episode expiry ends
+  liveness and nothing else. A reached reference is at risk unless its
+  provider reported it pinned.
+- **Declarations do not decay into observations.** A declared reliance, a
+  supply, or an inference is reported for what it is and never meets a read
+  requirement.
+
+### What it deliberately does not state
+
+The open decisions of the owning design are parameters or unsupported cases,
+never defaults. Evaluation reuse across registrations is an argument to
+`evaluate` (`ReuseNever` or `ReuseOnMatchingCoordinates`) with no default;
+a provider's durable-capture guarantee is an observation per referenced
+version. Retention budgets for unreferenced history, canonical manifest
+encoding, initial trace-mapping scope, and the production core language have
+no representation: content no root reaches is reported as `NoRootReaches`,
+which is not a permission to collect it. Who may select is not stated either;
+the selector is recorded and constrained by nothing. The details are in
+[REPORT.md](REPORT.md#the-proposed-candidate-protocol).
+
+### Build and test
+
+```sh
+cabal v2-build --enable-tests
+cabal v2-test candidate-spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
+cabal v2-test --test-show-details=direct
+```
+
+The last runs both suites and is the package's test gate. The candidate
+suite uses the spec suite's seed scheme: property `n` derives `seed + n *
+13`, mutant checks `1000 + index * 31` and `2000 + index * 31`, the coverage
+sampler `seed + index` over 4000 plans. It exits non-zero on any failed
+fixture, property, surviving mutant, or unreached plan class.
+
+A fixture is a `Plan` (`candidate-test/Plan.hs`) interpreted by `build` into
+a ledger of two registrations under one brief, their episodes, the context
+the chosen one read or only claimed, one evaluation, and one review, then
+decided under the plan's reuse policy. Every field is a fixed coordinate, so
+shrinking never leaves a reference dangling.
+
+```
+candidate/Arc/Candidate/Identifiers.hs   identifiers the protocol adds
+candidate/Arc/Candidate/Context.hs       locators, observed versions and coverage, resolution
+candidate/Arc/Candidate/Registration.hs  the immutable registration
+candidate/Arc/Candidate/Relation.hs      supplies, reads, declarations, inferences, judgements
+candidate/Arc/Candidate/Evaluation.hs    evaluation and review records, the reuse policy
+candidate/Arc/Candidate/Observations.hs  what the model is told at decision time
+candidate/Arc/Candidate/Basis.hs         proposals, requirements, bases, refusals
+candidate/Arc/Candidate/State.hs         checked writes, replay, relation projection
+candidate/Arc/Candidate/Selection.hs     evaluate, refusals, promote
+candidate/Arc/Candidate/Retention.hs     roots, reachability, collection, capture risk
+candidate-test/Plan.hs                   the plan, its generator, shrinking, and features
+candidate-test/Mutants.hs                the seven deliberate faults
+candidate-test/Fixtures.hs               unit fixtures
+candidate-test/Main.hs                   the candidate spec driver
+```
