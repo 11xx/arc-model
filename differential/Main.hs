@@ -20,7 +20,7 @@ import Mutants ( Behaviour(..), Channel(..), Mutant(..), allMutants )
 import Control.Monad ( unless, when )
 import Data.List ( intercalate )
 import Data.Set qualified as Set
-import System.Directory ( removePathForcibly )
+import System.Directory ( getTemporaryDirectory, removePathForcibly )
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure, exitSuccess )
 import System.FilePath ( (</>) )
@@ -90,7 +90,8 @@ main :: IO ()
 main = do
   settings <- either (\failure -> putStrLn failure >> putStr usage >> exitFailure) pure . parseSettings =<< getArgs
   oracle   <- expectedGrounds settings
-  root     <- mkdtemp "/tmp/arc-model-differential-"
+  scratch  <- getTemporaryDirectory
+  root     <- mkdtemp (scratch </> "arc-model-differential-")
   putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
   putStrLn ("seed " <> show settings.seed <> ", " <> show (length namedScenarios) <> " named + " <> show settings.cases <> " generated cases, arc = " <> settings.binary)
   maybe (pure ()) (\name -> putStrLn ("expecting the decisions of mutant " <> name)) settings.mutant
