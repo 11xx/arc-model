@@ -11,8 +11,10 @@ module Differential.Arc
     , Answer(..)
     , Outcome(..)
     , DryRun(..)
+    , PostIntegration(..)
     , runPlan
     , runExecution
+    , runCoverage
     , checkRefusedConflictingGates
     ) where
 
@@ -22,8 +24,10 @@ import Differential.Plan
 
 import Control.Exception ( IOException, try )
 import Control.Monad ( unless, when )
-import Data.Aeson ( FromJSON, eitherDecodeStrict' )
-import Data.ByteString.Char8 qualified as BS
+import Data.Aeson ( FromJSON, Value, eitherDecodeStrict' )
+import Data.ByteString.Builder ( stringUtf8, toLazyByteString )
+import Data.ByteString qualified as BS
+import Data.ByteString.Lazy qualified as BL
 import Data.List ( isPrefixOf )
 import Data.Maybe ( listToMaybe )
 import Data.Set ( Set )
@@ -64,6 +68,19 @@ data DryRun = DryRun
   }
   deriving stock (Eq, Show)
 
+-- | What arc records once the plan has tried to integrate and audit: the
+-- authorization basis the closure names, by which of its slots are filled,
+-- the newest audit's verdict, the audit findings left open, and whether
+-- @arc query --debt@ lists the change as owing a review.
+data PostIntegration = PostIntegration
+  { integrated        :: !Bool
+  , basis             :: !(Set String)
+  , auditVerdict      :: !(Maybe String)
+  , openAuditFindings :: !Int
+  , owed              :: !Bool
+  }
+  deriving stock (Eq, Show)
+
 -- json shapes
 
 data CheckOutput = CheckOutput
@@ -86,6 +103,44 @@ newtype FindingRow = FindingRow { id :: String }
   deriving anyclass (FromJSON)
 
 newtype ReplicaId = ReplicaId { repository_id :: String }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+data ShowOutput = ShowOutput
+  { closure        :: Maybe ClosureRow
+  , audit_verdicts :: Maybe [AuditRow]  -- ^ Absent where nothing was audited.
+  }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+data ClosureRow = ClosureRow
+  { outcome       :: String
+  , authorization :: Maybe BasisRow
+  }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+data BasisRow = BasisRow
+  { verdict_event_id    :: Maybe String
+  , external_verdict    :: Maybe Value
+  , audit_debt_event_id :: Maybe String
+  }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+newtype AuditRow = AuditRow { verdict :: String }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+newtype AuditFindingsOutput = AuditFindingsOutput { findings :: [AuditFindingRow] }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+newtype AuditFindingRow = AuditFindingRow { dispositions :: [Value] }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
+newtype DebtRow = DebtRow { change_id :: String }
   deriving stock (Generic)
   deriving anyclass (FromJSON)
 
@@ -171,6 +226,57 @@ runExecution options root planned = do
     exitNumber = \case
       ExitSuccess      -> 0
       ExitFailure code -> code
+
+{- | Run one plan in a fresh sandbox, ask arc for its decision, make the
+plan's moves, integrate for real, record the plan's audits, and read back
+what arc recorded. An integration or audit arc refuses is part of the
+answer, not a broken replay.
+-}
+runCoverage :: Options -> FilePath -> Plan -> IO (Outcome PostIntegration)
+runCoverage options root planned = do
+  sandbox <- mkSandbox options root planned.policy
+  let dir = checkDir sandbox planned
+  outcome <- try (runSteps options sandbox (planned.steps)) :: IO (Either IOException ())
+  case outcome of
+    Left failure -> pure (ReplayFailed (show failure))
+    Right ()     -> check options sandbox dir planned.probeAtCheck >>= \case
+      ReplayFailed failure -> pure (ReplayFailed failure)
+      Answered _           -> do
+        acted <- try (runSteps options sandbox planned.execution) :: IO (Either IOException ())
+        case acted of
+          Left failure -> pure (ReplayFailed (show failure))
+          Right ()     -> do
+            _ <- arc options sandbox dir (Declared "author") probeEnv ["integrate", changeSlug] ""
+            audited <- try (runSteps options sandbox planned.audits) :: IO (Either IOException ())
+            either (pure . ReplayFailed . show) (const (recorded options sandbox)) audited
+  where
+    probeEnv = [ ("PROBE_ENV", identity) | Just identity <- [planned.probeAtCheck] ]
+
+-- | Read what arc recorded about the change after its integration.
+recorded :: Options -> Sandbox -> IO (Outcome PostIntegration)
+recorded options sandbox = do
+  (_, shown, _)  <- arc options sandbox sandbox.repo (Declared "author") [] ["show", changeSlug, "--json"] ""
+  (_, audits, _) <- arc options sandbox sandbox.repo (Declared "author") [] ["findings", changeSlug, "--audit", "--format", "json"] ""
+  (_, owing, _)  <- arc options sandbox sandbox.repo (Declared "author") [] ["query", "--debt", "--json"] ""
+  pure $ case (decoded shown, decoded audits, decoded owing) of
+    (Right (ShowOutput closure auditRows), Right (AuditFindingsOutput findingRows), Right debtRows) -> Answered PostIntegration
+      { integrated        = maybe False ((== "integrated") . (.outcome)) closure
+      , basis             = maybe Set.empty slots (closure >>= (.authorization))
+      , auditVerdict      = (.verdict) <$> listToMaybe (reverse (concat auditRows))
+      , openAuditFindings = length [ () | AuditFindingRow [] <- findingRows ]
+      , owed              = not (null (debtRows :: [DebtRow]))
+      }
+    (Left failure, _, _) -> ReplayFailed ("show JSON: " <> failure)
+    (_, Left failure, _) -> ReplayFailed ("findings JSON: " <> failure)
+    (_, _, Left failure) -> ReplayFailed ("query JSON: " <> failure)
+  where
+    decoded :: FromJSON a => String -> Either String a
+    decoded = eitherDecodeStrict' . utf8
+    slots basisRow = Set.fromList $ concat
+      [ [ "verdict"  | Just _ <- [basisRow.verdict_event_id] ]
+      , [ "debt"     | Just _ <- [basisRow.audit_debt_event_id] ]
+      , [ "external" | Just _ <- [basisRow.external_verdict] ]
+      ]
 
 -- | Where the decision is asked: the change's worktree, or the main checkout
 -- once the branch is gone.
@@ -264,6 +370,12 @@ runSteps options sandbox = mapM_ step
         -- the file the change edits is dangerous exactly when the policy
         -- requires independence, as the plan's own policy has danger.txt
         writeFile (wt </> ".arc" </> "policy.toml") (policyToml policy [ if policy.independentVerdictRequired then file else "untouched.txt" ])
+      Audit kind independent ->
+        -- arc refuses an audit of a change that did not integrate, which is
+        -- the answer when the plan's integration was refused
+        allowRefusal =<< arc options sandbox sandbox.repo (Declared (if independent then "other" else "author")) []
+          (["audit", changeSlug, "--verdict", verdictFlag kind, "--body", "audit"] <> [ "--findings-json" | kind == ChangesRequested ] <> [ "-" | kind == ChangesRequested ])
+          (if kind == ChangesRequested then "[{\"summary\":\"audit\",\"body\":\"raised\",\"severity\":\"major\",\"blocking\":true}]" else "")
       -- the store is one for every checkout, so the pairing is made from the
       -- main checkout, which outlives a deleted branch
       WithholdAuthority -> do
@@ -271,7 +383,7 @@ runSteps options sandbox = mapM_ step
         git sandbox sandbox.peer ["init", "-q", "-b", "master"]
         git sandbox sandbox.peer ["commit", "-q", "--allow-empty", "-m", "peer"]
         (_, listed, _) <- arc options sandbox sandbox.peer author [] ["replica", "id", "--json"] ""
-        peerId <- case eitherDecodeStrict' (BS.pack listed) of
+        peerId <- case eitherDecodeStrict' (utf8 listed) of
           Right (ReplicaId found) -> pure found
           Left failure            -> ioError (userError ("replica id JSON: " <> failure))
         expect =<< arc options sandbox sandbox.repo author [] ["replica", "init", "here"] ""
@@ -286,7 +398,7 @@ runSteps options sandbox = mapM_ step
           "[{\"summary\":\"finding\",\"body\":\"raised\",\"severity\":\"major\",\"blocking\":true}]"
       ResolveFinding -> do
         (_, listed, _) <- arc options sandbox wt author [] ["findings", changeSlug, "--format", "json"] ""
-        identifier <- case eitherDecodeStrict' (BS.pack listed) of
+        identifier <- case eitherDecodeStrict' (utf8 listed) of
           Right (FindingsOutput rows) | Just row <- listToMaybe rows -> pure row.id
           Right _                                                    -> ioError (userError "no finding to resolve")
           Left failure                                               -> ioError (userError ("findings JSON: " <> failure))
@@ -320,7 +432,7 @@ replay that broke.
 check :: Options -> Sandbox -> FilePath -> Maybe String -> IO (Outcome Answer)
 check options sandbox dir probe = do
   (_, out, err) <- arc options sandbox dir (Declared "author") [ ("PROBE_ENV", identity) | Just identity <- [probe] ] ["check", changeSlug, "--json"] ""
-  pure $ case eitherDecodeStrict' (BS.pack out) of
+  pure $ case eitherDecodeStrict' (utf8 out) of
     Right (CheckOutput isReady found) -> Answered Answer { ready = isReady, blockers = Set.fromList (map (.blocker) found) }
     Left failure
       | "error: conflicting gate declarations" `isPrefixOf` err -> Answered Answer { ready = False, blockers = Set.singleton checkRefusedConflictingGates }
@@ -377,6 +489,11 @@ debtKindFlag = \case
 
 commaList :: [String] -> String
 commaList = foldr1 (\item rest -> item <> "," <> rest)
+
+-- | A process's output as the UTF-8 it was printed in; arc prints more than
+-- ASCII.
+utf8 :: String -> BS.ByteString
+utf8 = BL.toStrict . toLazyByteString . stringUtf8
 
 trim :: String -> String
 trim = unwords . words

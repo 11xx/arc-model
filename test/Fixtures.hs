@@ -397,11 +397,16 @@ auditRefusals =
   , expectAuditRefusal "fixture/audit: contributor approver refuses" AuditAuditorNotIndependent (auditDischarges closedState debt approving { Audit.actor = authorActor })
   , expectTrue "fixture/audit: independent approver discharges" "an independent approving audit must discharge the read" independentDischarges
   , expectTrue "fixture/audit: negative audit is open to anyone" "a negative audit needs no independence" negativeDischarges
+  , expectEq "fixture/audit: a contributor's approval is not recorded where self-approval is forbidden" (Left AuditAuditorNotIndependent) (admitAudit dangerPolicy closedState approving { Audit.actor = authorActor })
+  , expectEq "fixture/audit: elsewhere it is recorded" (Right ()) (admitAudit openPolicy closedState approving { Audit.actor = authorActor })
+  , expectEq "fixture/audit: an open change records no audit" (Left AuditWhileOpen) (admitAudit openPolicy openState openAudit)
+  , expectTrue "fixture/audit: a refused audit is not in the ledger" "the builder must not record an audit the admission refuses" (null refusedAudit.finalState.audits)
   ]
   where
     debt        = Debt (DebtId 9) (EventId 900) (Just (PatchsetId 1)) Nothing "owed review" authorActor
     openState   = (build defaultScenario { Scenario.verdict = ChangesRequested }).state
     closedState = (build defaultScenario { Scenario.audit = Just (Approved, True) }).finalState
+    refusedAudit = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing), Scenario.audit = Just (Approved, False) }
     openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False []
     approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False []
     independentDischarges = case auditDischarges closedState debt approving of
