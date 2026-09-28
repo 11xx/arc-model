@@ -1,4 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
 {- | A compact plan for one history: which facts it records and which
 observations it is decided under.
 
@@ -11,11 +10,15 @@ module Scenario
     ( Scenario(..)
     , ActorPick(..)
     , GateMode(..)
+    , WorktreeMode(..)
+    , TargetMode(..)
+    , ProbeMode(..)
     , defaultScenario
     , dangerPolicy
     , openPolicy
     , requireDeclaredPolicy
     , genAnyScenario
+    , genDecisionScenario
     , genIntegratable
     , shrinkScenario
     , namedScenarios
@@ -46,6 +49,30 @@ data GateMode = EvidenceCovered
               | EvidenceOmitted
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
+-- | What the evidence run recorded about the worktree it ran in, and where
+-- a dirty-tree waiver was declared.
+data WorktreeMode = WorktreeClean
+                  | WorktreeDirty
+                  | WorktreeDirtyWaived           -- ^ The waiver names the revision the evidence was recorded at.
+                  | WorktreeDirtyWaivedElsewhere  -- ^ The waiver names the change's base, before any patchset.
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | How the target moved while the change was open.
+data TargetMode = TargetContained        -- ^ The target did not move; the head's own tree is evaluated.
+                | TargetBehind           -- ^ The target moved; the gate ran at the head and nobody ran the merge.
+                | TargetBehindEvaluated  -- ^ The target moved; the gate ran against the merge.
+                | TargetConflicting      -- ^ The target moved in a way the head does not merge with.
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | Whether a brief declares an acceptance probe, and what its runs recorded.
+data ProbeMode = ProbeNone
+               | ProbeDischarged       -- ^ Failed at the brief's base, passed at the head.
+               | ProbeBaselinePassed   -- ^ Passed at the base as well as at the head.
+               | ProbeFinalMissing     -- ^ Failed at the base; never run at the head.
+               | ProbeFinalFailed      -- ^ Failed at the base and at the head.
+               | ProbeUndischargeable  -- ^ The brief's base is the head: a failure and a pass at one revision.
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
 data Scenario = Scenario
   { patchsets         :: !Int
   , verdictOnFirst    :: !Bool
@@ -65,6 +92,11 @@ data Scenario = Scenario
   , authorityWithheld :: !Bool                   -- ^ The store lacks integration authority when it executes.
   , audit             :: !(Maybe (VerdictKind, Bool))
   , episodeExpired    :: !Bool
+  , worktree          :: !WorktreeMode
+  , targetMode        :: !TargetMode
+  , probe             :: !ProbeMode
+  , branchMissing     :: !Bool                   -- ^ The change's branch is gone when the decision is asked.
+  , conflictingGates  :: !Bool                   -- ^ A second policy layer declares the required gate differently.
   }
   deriving stock (Eq, Ord, Show)
 
@@ -88,6 +120,11 @@ defaultScenario = Scenario
   , authorityWithheld = False
   , audit             = Nothing
   , episodeExpired    = False
+  , worktree          = WorktreeClean
+  , targetMode        = TargetContained
+  , probe             = ProbeNone
+  , branchMissing     = False
+  , conflictingGates  = False
   }
 
 dangerPolicy :: Policy
@@ -142,13 +179,37 @@ namedScenarios =
   , ("external-over-waiver",       defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), externalVerdict = Just ExternalChangesRequested })
   , ("external-rejected",          defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalRejected, policy = openPolicy })
   , ("extra-contributor",          defaultScenario { extraContributor = True })
+  , ("gate-dirty",                 defaultScenario { worktree = WorktreeDirty })
+  , ("gate-dirty-waived",          defaultScenario { worktree = WorktreeDirtyWaived })
+  , ("gate-dirty-waived-elsewhere", defaultScenario { worktree = WorktreeDirtyWaivedElsewhere })
+  , ("target-behind",              defaultScenario { targetMode = TargetBehind })
+  , ("target-behind-evaluated",    defaultScenario { targetMode = TargetBehindEvaluated })
+  , ("target-conflicting",         defaultScenario { targetMode = TargetConflicting })
+  , ("probe-discharged",           defaultScenario { probe = ProbeDischarged })
+  , ("probe-baseline-passed",      defaultScenario { probe = ProbeBaselinePassed })
+  , ("probe-final-missing",        defaultScenario { probe = ProbeFinalMissing })
+  , ("probe-final-failed",         defaultScenario { probe = ProbeFinalFailed })
+  , ("probe-undischargeable",      defaultScenario { probe = ProbeUndischargeable })
+  , ("branch-missing",             defaultScenario { branchMissing = True })
+  , ("conflicting-gates",          defaultScenario { conflictingGates = True })
   ]
 
 -- generation
 
 -- | A generator that reaches every feature the suite claims to exercise.
 genAnyScenario :: Gen Scenario
-genAnyScenario = do
+genAnyScenario = genScenarioThen genCheckTime
+
+{- | The generator over the fields the decision rests on, with every
+check-time fact at its default. Its histories for a seed are the ones
+'genAnyScenario' extends: the check-time fields are drawn after the rest,
+so drawing them changes none of the others.
+-}
+genDecisionScenario :: Gen Scenario
+genDecisionScenario = genScenarioThen pure
+
+genScenarioThen :: (Scenario -> Gen Scenario) -> Gen Scenario
+genScenarioThen extend = do
   patchsets         <- choose (1, 3)
   verdictOnFirst    <- frequency [(2, pure False), (1, pure True)]
   reviewer          <- frequency [(1, pure Nothing), (3, Just <$> arbitrary), (2, pure (Just ActorIndependent))]
@@ -167,7 +228,44 @@ genAnyScenario = do
   authorityWithheld <- frequency [(5, pure False), (1, pure True)]
   audit             <- frequency [(2, pure Nothing), (1, Just <$> ((,) <$> elements [Approved, ChangesRequested] <*> arbitrary))]
   episodeExpired    <- arbitrary
-  pure Scenario {..}
+  extend defaultScenario
+    { patchsets         = patchsets
+    , verdictOnFirst    = verdictOnFirst
+    , reviewer          = reviewer
+    , verdict           = verdict
+    , provisional       = provisional
+    , extraContributor  = extraContributor
+    , externalVerdict   = externalVerdict
+    , debt              = debt
+    , gateMode          = gateMode
+    , blockingFinding   = blockingFinding
+    , resolveFinding    = resolveFinding
+    , headMoved         = headMoved
+    , policy            = policy
+    , targetAfter       = targetAfter
+    , policyAfter       = policyAfter
+    , authorityWithheld = authorityWithheld
+    , audit             = audit
+    , episodeExpired    = episodeExpired
+    }
+
+-- | The facts arc's check reports beside the decision: the tree evidence
+-- ran on, the target's motion, acceptance probes, the branch, and the gate
+-- declarations.
+genCheckTime :: Scenario -> Gen Scenario
+genCheckTime scenario = do
+  worktree         <- frequency ((6, pure WorktreeClean) : [ (1, pure mode) | mode <- [WorktreeDirty ..] ])
+  targetMode       <- frequency ((6, pure TargetContained) : [ (1, pure mode) | mode <- [TargetBehind ..] ])
+  probe            <- frequency ((5, pure ProbeNone) : (2, pure ProbeDischarged) : [ (1, pure mode) | mode <- [ProbeBaselinePassed ..] ])
+  branchMissing    <- frequency [(9, pure False), (1, pure True)]
+  conflictingGates <- frequency [(12, pure False), (1, pure True)]
+  pure scenario
+    { worktree         = worktree
+    , targetMode       = targetMode
+    , probe            = probe
+    , branchMissing    = branchMissing
+    , conflictingGates = conflictingGates
+    }
 
 debtFor :: Int -> Gen (Maybe (Int, Maybe DebtKind))
 debtFor count = do
@@ -190,7 +288,7 @@ genIntegratable = do
   provisional      <- frequency [(4, pure False), (1, pure True)]
   episodeExpired   <- arbitrary
   audit            <- frequency [(2, pure Nothing), (1, Just <$> ((,) <$> elements [Approved, ChangesRequested] <*> pure True))]
-  pure defaultScenario
+  integratableCheckTime defaultScenario
     { patchsets        = count
     , reviewer         = if withApproval then Just ActorIndependent else Nothing
     , extraContributor = extraContributor
@@ -200,6 +298,19 @@ genIntegratable = do
     , episodeExpired   = episodeExpired
     , audit            = audit
     , policy           = dangerPolicy
+    }
+
+-- | The check-time facts an integratable history may carry: clean or waived
+-- evidence, a merge somebody evaluated, a discharged probe.
+integratableCheckTime :: Scenario -> Gen Scenario
+integratableCheckTime scenario = do
+  worktree   <- frequency [(4, pure WorktreeClean), (1, pure WorktreeDirtyWaived)]
+  targetMode <- frequency [(4, pure TargetContained), (1, pure TargetBehindEvaluated)]
+  probe      <- frequency [(3, pure ProbeNone), (1, pure ProbeDischarged)]
+  pure scenario
+    { worktree   = worktree
+    , targetMode = targetMode
+    , probe      = probe
     }
 
 instance Arbitrary Scenario where
@@ -244,6 +355,11 @@ shrinkScenario scenario =
       , [ scenario { authorityWithheld = False } | scenario.authorityWithheld ]
       , [ scenario { audit = Nothing }           | scenario.audit /= Nothing ]
       , [ scenario { episodeExpired = False }    | scenario.episodeExpired ]
+      , [ scenario { worktree = mode }           | mode <- [minBound .. scenario.worktree], mode /= scenario.worktree ]
+      , [ scenario { targetMode = mode }         | mode <- [minBound .. scenario.targetMode], mode /= scenario.targetMode ]
+      , [ scenario { probe = mode }              | mode <- [minBound .. scenario.probe], mode /= scenario.probe ]
+      , [ scenario { branchMissing = False }     | scenario.branchMissing ]
+      , [ scenario { conflictingGates = False }  | scenario.conflictingGates ]
       ]
     referencedPatchsets current = case current.debt of
       Nothing         -> []

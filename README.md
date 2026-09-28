@@ -15,15 +15,18 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 ## What it models
 
 - **Ledger replay.** Patchsets, verdicts, findings and dispositions, gate
-  verifications, debt declarations, post-integration audits, claim episodes,
-  holds, and integration records fold into an immutable state. Replay decides
-  nothing.
+  verifications, dirty-tree waivers, briefs and their probe runs, debt
+  declarations, post-integration audits, claim episodes, holds, and
+  integration records fold into an immutable state. Replay decides nothing.
 - **The integration decision.** The observed head against the recorded
-  patchset head, the exact evaluated tree (the merge target when the change is
-  behind it), contributor identity and reviewer independence, a recorded
-  approval or a waiver bound to the exact patchset, an external decision
-  about exactly this head, open blocking findings, holds, dependencies, and a
-  gate declaration with its evidence.
+  patchset head, or its absence where the branch is gone; how the head
+  merges with its target, and the exact evaluated tree (the merge when the
+  change is behind it); contributor identity and reviewer independence, a
+  recorded approval or a waiver bound to the exact patchset, an external
+  decision about exactly this head, open blocking findings, holds,
+  dependencies, a gate declaration with its evidence, and the acceptance
+  probes of the patchset's brief. Gate declarations two policy layers
+  disagree on leave nothing to decide against, and are refused alone.
 - **Every ground, not the first.** `evaluate` answers with every ground on
   which the integration is refused, in the model's priority order, or with
   the basis it would rest on; `decide` is the first ground or the basis.
@@ -32,7 +35,12 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
   record exists and could be read), and demonstrated falsification are
   distinct fields. An omitted observation is `Omitted`: never false, never
   successful. A gate that declares an environment probe is answered only by
-  evidence carrying the identity the probe yields where the decision is made.
+  evidence carrying the identity the probe yields where the decision is made,
+  and a run on a dirty worktree answers only under a waiver naming its
+  revision.
+- **Acceptance probes.** A probe a brief declares is discharged by a
+  failure at the brief's base and a pass at the head; a failure and a pass
+  at one revision contradict each other rather than discharge it.
 - **Decisions made outside arc.** An external approval of exactly this head
   authorizes where no independent review is owed and never over a local
   refusal; an external change request or rejection stands over any approval
@@ -54,11 +62,12 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 Deferred, with the deferral recorded here rather than implied:
 
 - the proposed candidate/evaluation/selection protocol — a separate model;
-- Git effects: how a merged tree is synthesized, that a merge commit's tree is
-  the evaluated one, and the reset that follows a mismatch are outside a pure
-  model, which takes the evaluated tree and the target as observations;
+- Git effects: how a merged tree is synthesized, whether it conflicts, that a
+  merge commit's tree is the evaluated one, and the reset that follows a
+  mismatch are outside a pure model, which takes the head, the target, how
+  they merge, and the evaluated tree as observations;
 - operating-system durability, locking, race, and crash-recovery behaviour;
-- acceptance probes, forks, worktrees, retention, bundles, and the journal.
+- forks, worktrees, retention, bundles, and the journal.
 
 The full list, including the fields the model collapses, is in
 [REPORT.md](REPORT.md#known-unsupported-semantics).
@@ -84,17 +93,20 @@ depend on the thing the model challenges.
 
 `arc-model-differential` builds each history in a repository and home of its
 own under a scratch root in the temporary directory (`TMPDIR` when set),
-records it through arc's own commands, asks
-`arc check --json`, and compares the blockers with the model's grounds mapped
-onto arc's vocabulary (the mapping is in `Differential.Compare`, and REPORT
-states it). Twenty-nine named histories run first, then histories generated
-from the seed with the spec's generator, so any row is reproducible from its
-index. Each row is one of:
+records it through arc's own commands, asks `arc check --json`, and compares
+the blockers with the model's grounds mapped onto arc's vocabulary (the
+mapping is in `Differential.Compare`, and REPORT states it). Forty-two named
+histories run first, then two generated families, so any row is
+reproducible from its index: `generated-i` draws the fields the decision
+rests on (`--cases`), and `check-time-i` draws the same fields from the same
+seed and then the facts arc's check reports beside them — dirty evidence, a
+target that moved, acceptance probes, a missing branch, conflicting gate
+declarations (`--check-time-cases`). Each row is one of:
 
 - `agreed` — the same blockers, or ready on both sides;
 - `skipped` — a field the CLI cannot record, with the reason: unreadable
   evidence, evidence at another tree on a one-patchset history, a finding
-  without a verdict;
+  without a verdict, dirt on a run against the merge;
 - `adjudicated` — a classified disagreement, with its class and reason;
 - `DISAGREED` — a disagreement nobody has classified;
 - `REPLAY FAILED` — an arc command the plan did not expect to be refused.
@@ -103,8 +115,8 @@ The run exits non-zero on the last two and on nothing else. `--mutant NAME`
 expects a permission wherever that deliberate fault permits, so the run
 objects exactly where the fault would let arc's refusal through; it is how a
 reader checks that the comparison can fail at all. `--keep` leaves every
-sandbox on disk, `--verbose` prints each arc command, `--seed` and `--cases`
-select the histories.
+sandbox on disk, `--verbose` prints each arc command, `--seed`, `--cases`,
+and `--check-time-cases` select the histories.
 
 A quiet run is supporting evidence, not proof of equivalence: it says every
 replayed history agreed, over the fields the CLI can express.
@@ -149,14 +161,24 @@ observations. Fields (`Scenario`):
 | `authorityWithheld` | the store lacks integration authority when it executes |
 | `audit` | `(verdict, independent)` recorded after integration |
 | `episodeExpired` | record a claim and expire it |
+| `worktree` | `WorktreeClean`, `WorktreeDirty`, `WorktreeDirtyWaived` (a waiver at the evidence's revision), or `WorktreeDirtyWaivedElsewhere` (a waiver at the change's base) |
+| `targetMode` | `TargetContained`, `TargetBehind` (the gate ran at the head only), `TargetBehindEvaluated` (the gate ran against the merge), or `TargetConflicting` |
+| `probe` | `ProbeNone`, or a brief declaring one probe: `ProbeDischarged`, `ProbeBaselinePassed`, `ProbeFinalMissing`, `ProbeFinalFailed`, `ProbeUndischargeable` (based at the head) |
+| `branchMissing` | the change's branch is gone when the decision is asked |
+| `conflictingGates` | a second policy layer declares the required gate differently |
 
 `mutations scenario` returns the one-invalidating-transition set: gate
 omitted/failed/elsewhere/shape-moved/other-environment/environment-unrecorded/
 probe-failed/unreadable, head moved, target moved, policy moved, authority
 withheld, external verdict refused, finding opened, verdict refused, review
-bound to a stale patchset, reviewer made a contributor, and waiver expired. `featureOf` classifies a
+bound to a stale patchset, reviewer made a contributor, waiver expired,
+evidence dirty, merge unevaluated, target conflicting, probe baseline
+passed, branch missing, and gates conflicting. `featureOf` classifies a
 built scenario so the coverage sampler can prove each required class was
-reached.
+reached. `genDecisionScenario` draws the fields the decision rests on with
+every check-time field at its default; `genAnyScenario` draws the same
+fields from the same seed and then the check-time ones, so extending a
+history never changes the rest of it.
 
 ## Layout
 
@@ -165,11 +187,12 @@ src/Arc/Model/Identifiers.hs         distinct identifier types
 src/Arc/Model/Observed.hs            Observed, and the newest of a recording-ordered list
 src/Arc/Model/Declaration.hs         gate declarations and the vocabulary of one run
 src/Arc/Model/Gate.hs                the four readings of a required gate, and what makes it green
+src/Arc/Model/Probe.hs               whether a brief's acceptance probes are discharged at the head
 src/Arc/Model/Policy.hs              the declared integration policy
 src/Arc/Model/Observations.hs        everything the model is told at decision time
 src/Arc/Model/Ledger/*.hs            one module per ledger record: patchset, verdict, external
-                                     verdict, finding, disposition, verification, debt, audit,
-                                     claim, integration
+                                     verdict, finding, disposition, verification, dirty-tree
+                                     waiver, brief, probe run, debt, audit, claim, integration
 src/Arc/Model/Ledger.hs              the event sum over those records
 src/Arc/Model/State.hs               replay and the derived queries
 src/Arc/Model/Basis.hs               decision bases, structured refusals
@@ -178,7 +201,7 @@ src/Arc/Model/Coverage.hs            debt kinds, review obligation, coverage pro
 src/Arc/Model/Discharge.hs           post-integration audit gating and discharges
 scenarios/Scenario.hs                the scenario plan, the named histories, generators and shrinking
 scenarios/Generators.hs              building a scenario, mutations, features
-scenarios/Mutants.hs                 the twelve deliberate faults
+scenarios/Mutants.hs                 the eighteen deliberate faults
 test/Fixtures.hs                     unit fixtures
 test/Render.hs                       the check harness
 test/Main.hs                         spec driver: fixtures, properties, mutants, coverage
