@@ -26,11 +26,12 @@ import Arc.Model.Gate
 import Arc.Model.Identifiers
 import Arc.Model.Ledger
 import Arc.Model.Ledger.Integration qualified as Integration
-import Arc.Model.Observations ( IntegrationAuthority(..), Observations )
+import Arc.Model.Observations ( IntegrationAuthority(..), Observations, TargetRelation(..) )
 import Arc.Model.Observations qualified as Observations
 import Arc.Model.Observed
 import Arc.Model.Policy ( Policy )
 import Arc.Model.Policy qualified as Policy
+import Arc.Model.Probe ( probeRefusals )
 import Arc.Model.State
 import Arc.Model.State qualified as State
 
@@ -43,22 +44,36 @@ import Data.Set qualified as Set
 {- | Every ground on which the integration is refused, in priority order, or
 the basis it would rest on. The grounds are independent readings of the
 same history: a moved head and an unevaluated gate are both reported, and
-neither hides the other.
+neither hides the other. Gate declarations two policy layers disagree on
+are the one exception: there is no declaration set to evaluate against, so
+that refusal stands alone.
 -}
 evaluate :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
-evaluate observations state = case latestPatchset state of
+evaluate observations state
+  | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
+  | otherwise                                = evaluateDeclared observations state
+
+-- | 'evaluate' under one declaration set.
+evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
+evaluateDeclared observations state = case latestPatchset state of
   Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
   Just patchset ->
     let authorization = authorizationFor policy state patchset
         gates         = gateEvidence observations state
+        probes        = probeRefusals state patchset
         grounds       = concat
           [ preliminary
-          , [ RefusedHeadMoved observations.head patchset.revision | observations.head /= patchset.revision ]
+          , case observations.head of
+              Omitted       -> [RefusedBranchMissing]
+              Observed seen -> [ RefusedHeadMoved seen patchset.revision | seen /= patchset.revision ]
+          , [ RefusedNeedsRebase | observations.targetRelation == HeadConflictsWithTarget ]
+          , [ RefusedMergedTreeUnevaluated observations.evaluatedTree | mergedTreeUnevaluated ]
           , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
           , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | verdictContested state ]
           , [ RefusedUndeclaredActor | policy.requireDeclaredActor && not observations.invokerDeclared ]
           , either pure (const []) authorization
           , either (pure . RefusedGates) (const []) gates
+          , [ RefusedAcceptanceProbes probes | not (null probes) ]
           , [ RefusedHoldActive hold | Just hold <- [Set.lookupMin state.holds] ]
           ]
     in case (NE.nonEmpty grounds, authorization, gates) of
@@ -74,6 +89,13 @@ evaluate observations state = case latestPatchset state of
       , [ RefusedIterating | state.iterating ]
       , [ RefusedBlockedBy observations.blockedBy | not (null observations.blockedBy) ]
       ]
+    -- a merge nobody ran any required gate on: evidence at the head says
+    -- nothing about content neither branch committed
+    required              = map fst observations.requiredGates
+    mergedTreeUnevaluated
+      =  observations.targetRelation == HeadBehindTarget
+      && not (null required)
+      && not (any (\v -> v.gate `elem` required && v.tree == observations.evaluatedTree) state.verifications)
     basisOn patchset authorization gates = DecisionBasis
       { patchset         = patchset.patchsetId
       , head             = patchset.revision
@@ -158,10 +180,11 @@ gateEvidence observations state =
     refused -> Left refused
   where
     results =
-      [ (gate, declaration, gateGreen gate declaration observations.evaluatedTree (environmentFor declaration) state.verifications)
+      [ (gate, declaration, gateGreen gate declaration observations.evaluatedTree (environmentFor declaration) waived state.verifications)
       | (gate, wanted) <- observations.requiredGates
       , let declaration = lookupDeclaration wanted
       ]
+    waived = (.revision) <$> dirtyTreeWaiver state
     lookupDeclaration wanted = listToMaybe [ d | d <- observations.declarations, d.declarationId == wanted ]
     environmentFor declaration = fromMaybe Omitted $ do
       probe <- declaration >>= (.environment)
@@ -173,20 +196,24 @@ gateEvidence observations state =
       _refused -> Nothing
 
 {- | Re-check a basis against the observations at execution time. A store
-that does not hold integration authority cannot act at all, and any moved
-fact stands the action down; the recorded basis is never reused.
+that does not hold integration authority cannot act at all, declarations
+two policy layers disagree on and a missing branch leave nothing to act
+on, and any moved fact stands the action down; the recorded basis is never
+reused.
 -}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
   Refused refusal -> Left refusal
   Permitted basis
     | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
+    | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
+    | observations.head == Omitted                -> Left RefusedBranchMissing
     | otherwise -> case moved basis of
         []    -> Right ExecutionPlan { integration = integration basis }
         facts -> Left (RefusedBasisMoved facts)
   where
     moved basis = concat
-      [ [ MovedHead basis.head observations.head            | basis.head   /= observations.head ]
+      [ [ MovedHead basis.head seen                         | Observed seen <- [observations.head], basis.head /= seen ]
       , [ MovedTarget basis.target observations.target      | basis.target /= observations.target ]
       , [ MovedTree basis.tree observations.evaluatedTree   | basis.tree   /= observations.evaluatedTree ]
       , [ MovedPolicy basis.policy observations.policy      | basis.policy /= observations.policy ]

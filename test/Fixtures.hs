@@ -7,6 +7,7 @@ module Fixtures ( fixtureChecks ) where
 import Arc.Model
 import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Audit qualified as Audit
+import Arc.Model.Observations qualified as Observations
 import Generators
 import Mutants ( Behaviour(..), Mutant(..), allMutants )
 import Render
@@ -33,6 +34,11 @@ fixtureChecks = concat
   , permissionIsNotEffect
   , auditRefusals
   , provisionalGates
+  , dirtyTree
+  , mergedTree
+  , acceptanceProbes
+  , missingBranch
+  , conflictingDeclarations
   , demonstratedCounterexample
   ]
 
@@ -107,9 +113,14 @@ declaration :: Declaration
 declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe"))
 
 readingIn :: GateMode -> GateReading
-readingIn mode = readGate gateName declaration (TreeId "tree1") (hereIn built) built.state.verifications
+readingIn mode = readGate gateName declaration (TreeId "tree1") (hereIn built) Nothing built.state.verifications
   where
     built = build defaultScenario { Scenario.gateMode = mode }
+
+readGateIn :: Scenario -> GateReading
+readGateIn scenario = readGate gateName declaration (TreeId "tree1") (hereIn built) ((.revision) <$> dirtyTreeWaiver built.state) built.state.verifications
+  where
+    built = build scenario
 
 hereIn :: Built -> Observed EnvironmentId
 hereIn built = fromMaybe Omitted (lookup (ProbeCommand "probe") built.observation.environments)
@@ -126,7 +137,7 @@ unknownCoverage =
   , expectEq "fixture/unknown: availability not produced" NotProduced omitted.availability
   , expectEq "fixture/unknown: falsification omitted" Omitted omitted.falsified
   , expectTrue "fixture/unknown: omitted never permits" "omitted evidence must not be permitted" (not (isPermitted (decisionIn EvidenceOmitted)))
-  , expectEq "fixture/unknown: gate refusal" (Left (GateNeverEvaluated gateName)) (gateGreen gateName (Just declaration) (TreeId "tree1") Omitted [])
+  , expectEq "fixture/unknown: gate refusal" (Left (GateNeverEvaluated gateName)) (gateGreen gateName (Just declaration) (TreeId "tree1") Omitted Nothing [])
   , expectEq "fixture/elsewhere: result observed" (Observed GatePass) elsewhere.result
   , expectEq "fixture/elsewhere: coverage elsewhere" (EvaluatedOtherTree (TreeId "tree-elsewhere")) elsewhere.coverage
   , expectRefusedWith "fixture/elsewhere: refused" "gates" (decisionIn EvidenceOtherTree)
@@ -163,8 +174,97 @@ environmentCoverage =
   ]
   where
     unprobed      = declaration { Declaration.environment = Nothing }
-    anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (TreeId "tree1") GatePass RanLocally Nothing True Nothing
-    unprobedGreen = either (const False) (const True) (gateGreen gateName (Just unprobed) (TreeId "tree1") Omitted [anywhere])
+    anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True Nothing (Observed CleanWorktree)
+    unprobedGreen = either (const False) (const True) (gateGreen gateName (Just unprobed) (TreeId "tree1") Omitted Nothing [anywhere])
+
+{- | A run on a dirty worktree describes content no checkout of its
+revision reproduces. It counts only under a waiver naming exactly the
+revision it was recorded at; a run recording nothing about its worktree
+counts under none, and evidence somebody attests to carries no worktree
+of arc's observing.
+-}
+dirtyTree :: [Check]
+dirtyTree =
+  [ expectEq "fixture/dirty: dirty evidence is not coverage" EvaluatedDirtyTree dirty.coverage
+  , expectEq "fixture/dirty: its result stands beside it" (Observed GatePass) dirty.result
+  , expectRefusedWith "fixture/dirty: refused" "gates" (worktreeDecision WorktreeDirty)
+  , expectPermittedWith "fixture/dirty: a waiver at its revision counts it" (AuthorizedByVerdict (EventId 2)) (worktreeDecision WorktreeDirtyWaived)
+  , expectRefusedWith "fixture/dirty: a waiver at another revision does not" "gates" (worktreeDecision WorktreeDirtyWaivedElsewhere)
+  , expectEq "fixture/dirty: nothing recorded about the worktree" (Left (GateWorktreeUnrecorded gateName)) (gateGreen gateName (Just declaration) (TreeId "tree1") here Nothing [unrecorded])
+  , expectTrue "fixture/dirty: attested evidence carries no worktree" "an attested pass must be covered whatever its worktree" (either (const False) (const True) (gateGreen gateName (Just declaration) (TreeId "tree1") here Nothing [attested]))
+  ]
+  where
+    dirty      = (readGateIn defaultScenario { Scenario.worktree = WorktreeDirty })
+    here       = Observed (EnvironmentId "env-here")
+    unrecorded = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True (Just (EnvironmentId "env-here")) Omitted
+    attested   = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass Attested Nothing True (Just (EnvironmentId "env-here")) (Observed DirtyWorktree)
+    worktreeDecision mode = (build defaultScenario { Scenario.worktree = mode }).decision
+
+{- | A change behind its target ships the merge, a tree neither branch
+committed. Evidence at the head says nothing about it: a merge nobody ran
+a gate on is its own ground beside the gate's. A head that does not merge
+with its target owes a rebase, and nothing else about it changes.
+-}
+mergedTree :: [Check]
+mergedTree =
+  [ expectRefusedWith "fixture/merged-tree: unevaluated merge refused" "merged-tree-unevaluated" behind.decision
+  , expectTrue "fixture/merged-tree: the gate is refused beside it" "evidence at the head tree must not cover the merge" (any isGates (refusals behind.observation behind.state))
+  , expectTrue "fixture/merged-tree: evaluated merge permits on the merged tree" "the basis must name the merge's tree" (basisTree evaluated.decision == Just (TreeId "merged"))
+  , expectEq "fixture/needs-rebase: the rebase is the only ground" [RefusedNeedsRebase] (refusals conflicting.observation conflicting.state)
+  ]
+  where
+    behind      = build defaultScenario { Scenario.targetMode = TargetBehind }
+    evaluated   = build defaultScenario { Scenario.targetMode = TargetBehindEvaluated }
+    conflicting = build defaultScenario { Scenario.targetMode = TargetConflicting }
+    isGates     = \case
+      RefusedGates _ -> True
+      _other         -> False
+    basisTree   = \case
+      Permitted basis -> Just basis.tree
+      Refused _       -> Nothing
+
+{- | A probe a brief declares is discharged by a failure at the brief's base
+and a pass at the head. A pass at the base, a missing or failing final run,
+and a base that is the head itself each leave it undischarged.
+-}
+acceptanceProbes :: [Check]
+acceptanceProbes =
+  [ expectPermittedWith "fixture/probes: discharged" (AuthorizedByVerdict (EventId 2)) (probeDecision ProbeDischarged)
+  , expectEq "fixture/probes: a pass at the base does not discriminate" [ProbeNotDiscriminating accept (Observed GatePass) (Observed GatePass)] (probeGrounds ProbeBaselinePassed)
+  , expectEq "fixture/probes: no final run" [ProbeNotDiscriminating accept (Observed GateFail) Omitted] (probeGrounds ProbeFinalMissing)
+  , expectEq "fixture/probes: a failing final run" [ProbeNotDiscriminating accept (Observed GateFail) (Observed GateFail)] (probeGrounds ProbeFinalFailed)
+  , expectEq "fixture/probes: fail and pass at one revision" [ProbeCannotDischarge accept] (probeGrounds ProbeUndischargeable)
+  , expectRefusedWith "fixture/probes: refused" "acceptance-probes" (probeDecision ProbeFinalMissing)
+  ]
+  where
+    accept = ProbeName "accept"
+    probeDecision mode = (build defaultScenario { Scenario.probe = mode }).decision
+    probeGrounds mode = concat
+      [ refused
+      | let built = build defaultScenario { Scenario.probe = mode }
+      , RefusedAcceptanceProbes refused <- refusals built.observation built.state
+      ]
+
+-- | A change whose branch is gone has no head to decide about or to act on.
+missingBranch :: [Check]
+missingBranch =
+  [ expectRefusedWith "fixture/branch-missing: refused" "branch-missing" missing.decision
+  , expectTrue "fixture/branch-missing: no moved head beside it" "a missing head is not a moved one" (all ((/= "head-moved") . refusalTag) (refusals missing.observation missing.state))
+  , expectEq "fixture/branch-missing: execution refused" (Left RefusedBranchMissing) (execute permitted.executionObservation { Observations.head = Omitted } permitted.state permitted.decision)
+  ]
+  where
+    missing   = build defaultScenario { Scenario.branchMissing = True, Scenario.headMoved = True }
+    permitted = build defaultScenario
+
+-- | Two policy layers declaring one gate differently leave no declaration
+-- set to evaluate against: that refusal stands alone, whatever else the
+-- history holds.
+conflictingDeclarations :: [Check]
+conflictingDeclarations =
+  [ expectEq "fixture/conflicting-gates: the only ground" [RefusedConflictingDeclarations [gateName]] (refusals built.observation built.state)
+  ]
+  where
+    built = build defaultScenario { Scenario.conflictingGates = True, Scenario.blockingFinding = True, Scenario.gateMode = EvidenceFailing }
 
 -- | Equal trees with different contributor and obligation scopes decide
 -- differently. The tree alone says nothing.

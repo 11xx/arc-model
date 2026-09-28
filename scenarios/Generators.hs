@@ -24,11 +24,14 @@ module Generators
 
 import Arc.Model
 import Arc.Model.Ledger.Audit qualified as Audit
+import Arc.Model.Ledger.Brief qualified as Brief
 import Arc.Model.Ledger.Debt qualified as Debt
+import Arc.Model.Ledger.DirtyTreeWaiver qualified as DirtyTreeWaiver
 import Arc.Model.Ledger.Disposition qualified as Disposition
 import Arc.Model.Ledger.ExternalVerdict qualified as ExternalVerdict
 import Arc.Model.Ledger.Finding qualified as Finding
 import Arc.Model.Ledger.Integration qualified as Integration
+import Arc.Model.Ledger.ProbeRun qualified as ProbeRun
 import Arc.Model.Ledger.Verdict qualified as Verdict
 import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
@@ -65,6 +68,13 @@ hereEnvironment, elsewhereEnvironment :: EnvironmentId
 hereEnvironment      = EnvironmentId "env-here"
 elsewhereEnvironment = EnvironmentId "env-elsewhere"
 
+-- | The revision the change started from, before any patchset.
+baseRevision :: Revision
+baseRevision = Revision "base"
+
+acceptProbe :: ProbeName
+acceptProbe = ProbeName "accept"
+
 -- | What one scenario yields: the ledger, the observations, and the
 -- decisions those two produce.
 data Built = Built
@@ -90,7 +100,7 @@ build scenario = Built
   , execution            = execute executionObs state decision
   }
   where
-    patchsets = patchsetsFor scenario
+    patchsets = patchsetsFor scenario briefEvent
     latest    = NE.last patchsets
     verdictTarget
       | scenario.verdictOnFirst && scenario.patchsets > 1 = PatchsetId 1
@@ -159,20 +169,30 @@ build scenario = Built
             , gate        = buildGate
             , declaration = buildDeclaration.declarationId
             , shape       = shapeFor mode
+            , revision    = verifiedAt.revision
             , tree        = treeFor mode
             , result      = if mode == EvidenceFailing then GateFail else GatePass
             , execution   = RanLocally
             , answers     = Just (FailureLabel "known-failure")
             , readable    = mode /= EvidenceRecordUnreadable
             , environment = environmentFor mode
+            , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
             }
         ]
+    -- the patchset whose head the gate ran at: the one before the latest
+    -- when the evidence is for another tree and there is one
+    verifiedAt
+      | scenario.gateMode == EvidenceOtherTree, (earlier : _) <- reverse (NE.init patchsets) = earlier
+      | otherwise = latest
     shapeFor = \case
       EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60
       _unchanged     -> declarationShape buildDeclaration
+    -- a run against the merge records the merge's tree
     treeFor = \case
       EvidenceOtherTree -> TreeId "tree-elsewhere"
-      _here         -> latest.tree
+      _here
+        | scenario.targetMode == TargetBehindEvaluated -> mergedTree
+        | otherwise                                    -> latest.tree
     environmentFor = \case
       EvidenceOtherEnvironment      -> Just elsewhereEnvironment
       EvidenceUnrecordedEnvironment -> Nothing
@@ -183,16 +203,43 @@ build scenario = Built
         ]
       | scenario.episodeExpired
       ]
-    events = assignIds
-      ( map PatchsetRecorded (NE.toList patchsets)
-      <> verdictEvents
-      <> externalEvents
-      <> findingEvents
-      <> debtEvents
-      <> verificationEvents
-      <> claimEvents
-      )
+    waiverEvents =
+      [ DirtyTreeWaived DirtyTreeWaiver { event = EventId 0, revision = revision }
+      | revision <- case scenario.worktree of
+          WorktreeDirtyWaived          | scenario.gateMode /= EvidenceOmitted -> [verifiedAt.revision]
+          WorktreeDirtyWaivedElsewhere -> [baseRevision]
+          _unwaived                    -> []
+      ]
+    -- the brief is recorded after every other event, so its identifier is
+    -- the next one and the events before it keep theirs
+    precedingEvents = concat
+      [ map PatchsetRecorded (NE.toList patchsets)
+      , verdictEvents
+      , externalEvents
+      , findingEvents
+      , debtEvents
+      , verificationEvents
+      , claimEvents
+      , waiverEvents
+      ]
+    probeEvents = case briefFor scenario of
+      Nothing        -> []
+      Just (base, _) ->
+        BriefRecorded Brief { event = briefEvent, base = Just base, probes = [acceptProbe] }
+        : [ ProbeRunRecorded ProbeRun
+              { event    = EventId 0
+              , brief    = briefEvent
+              , probe    = acceptProbe
+              , phase    = phase
+              , revision = revision
+              , result   = result
+              }
+          | (phase, revision, result) <- probeRunsFor scenario base latest.revision
+          ]
+    briefEvent = EventId (length precedingEvents + 1)
+    events = assignIds (precedingEvents <> probeEvents)
     observations = observationsForOf patchsets scenario
+    mergedTree = TreeId "merged"
     executionObs = observations
       { Observations.target    = if scenario.targetAfter then Revision "target-2" else observations.target
       , Observations.policy    = if scenario.policyAfter then flipPolicy observations.policy else observations.policy
@@ -230,9 +277,10 @@ build scenario = Built
 
 -- | The patchsets a scenario records: one per ordinal, on its own revision
 -- and tree, all by the author, with the extra contributor declared on each
--- when the scenario asks for one.
-patchsetsFor :: Scenario -> NonEmpty Patchset
-patchsetsFor scenario = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
+-- when the scenario asks for one, and bound to the brief from the patchset
+-- recorded after it.
+patchsetsFor :: Scenario -> EventId -> NonEmpty Patchset
+patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
   where
     mkPatchset index = Patchset
       { patchsetId   = PatchsetId index
@@ -241,34 +289,76 @@ patchsetsFor scenario = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
       , tree         = TreeId ("tree" <> show index)
       , author       = authorActor
       , contributors = contributors
+      , brief        = case briefFor scenario of
+          Just (_, from) | index >= from -> Just briefEvent
+          _unbound                       -> Nothing
       }
     contributors
       | scenario.extraContributor = Set.fromList [authorActor, otherActor]
       | otherwise                 = Set.singleton authorActor
 
-observationsFor :: Scenario -> Observations
-observationsFor scenario = observationsForOf (patchsetsFor scenario) scenario
+{- | The brief a scenario records, as its base and the first patchset
+recorded under it. A probe that can be discharged is based where the change
+started; one that cannot is based at the latest patchset's head, recorded
+just before that patchset.
+-}
+briefFor :: Scenario -> Maybe (Revision, Int)
+briefFor scenario = case scenario.probe of
+  ProbeNone            -> Nothing
+  ProbeUndischargeable -> Just (Revision ("rev" <> show scenario.patchsets), scenario.patchsets)
+  _based               -> Just (baseRevision, 1)
 
--- | The decision-time observations: the probe yields the local identity
--- unless the scenario makes it fail, and authority is held; the execution
--- observations move what the scenario says moves.
+-- | The probe runs a scenario records, as phase, revision, and result.
+probeRunsFor :: Scenario -> Revision -> Revision -> [(ProbePhase, Revision, GateResult)]
+probeRunsFor scenario base final = case scenario.probe of
+  ProbeNone            -> []
+  ProbeDischarged      -> [(Baseline, base, GateFail), (Final, final, GatePass)]
+  ProbeBaselinePassed  -> [(Baseline, base, GatePass), (Final, final, GatePass)]
+  ProbeFinalMissing    -> [(Baseline, base, GateFail)]
+  ProbeFinalFailed     -> [(Baseline, base, GateFail), (Final, final, GateFail)]
+  ProbeUndischargeable -> [(Baseline, base, GateFail), (Final, final, GatePass)]
+
+observationsFor :: Scenario -> Observations
+observationsFor scenario = (build scenario).observation
+
+{- | The decision-time observations: the probe yields the local identity
+unless the scenario makes it fail, and authority is held; the execution
+observations move what the scenario says moves. A change behind its target
+evaluates the merge of whatever head is observed, so a moved head is a
+different merge; a change without a branch has no head to merge at all.
+-}
 observationsForOf :: NonEmpty Patchset -> Scenario -> Observations
 observationsForOf patchsets scenario = Observations
-  { change          = scenarioChange
-  , head            = if scenario.headMoved then Revision "rev-moved" else latest.revision
-  , targetBranch    = TargetBranch "main"
-  , target          = Revision "target-1"
-  , evaluatedTree   = latest.tree
-  , declarations    = [buildDeclaration]
-  , requiredGates   = [(buildGate, buildDeclaration.declarationId)]
-  , environments    = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
-  , policy          = scenario.policy
-  , blockedBy       = []
-  , invokerDeclared = True
-  , authority       = AuthorityHeld
+  { change           = scenarioChange
+  , head             = observedHead
+  , targetBranch     = TargetBranch "main"
+  , target           = Revision "target-1"
+  , targetRelation   = relation
+  , evaluatedTree    = case relation of
+      HeadBehindTarget -> TreeId (if scenario.headMoved then "merged-moved" else "merged")
+      _headTree        -> latest.tree
+  , declarations     = [buildDeclaration]
+  , conflictingGates = [ buildGate | scenario.conflictingGates ]
+  , requiredGates    = [(buildGate, buildDeclaration.declarationId)]
+  , environments     = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
+  , policy           = scenario.policy
+  , blockedBy        = []
+  , invokerDeclared  = True
+  , authority        = AuthorityHeld
   }
   where
     latest = NE.last patchsets
+    observedHead
+      | scenario.branchMissing = Omitted
+      | scenario.headMoved     = Observed (Revision "rev-moved")
+      | otherwise              = Observed latest.revision
+    relation
+      | scenario.branchMissing = HeadContainsTarget
+      | otherwise = case scenario.targetMode of
+          TargetContained       -> HeadContainsTarget
+          TargetBehind          -> HeadBehindTarget
+          TargetBehindEvaluated -> HeadBehindTarget
+          TargetConflicting     -> HeadConflictsWithTarget
 
 executionObservations :: Scenario -> Observations
 executionObservations scenario = (build scenario).executionObservation
@@ -296,13 +386,18 @@ assignIds = zipWith withId [EventId 1 ..]
       DebtDeclared value            -> DebtDeclared value { Debt.event = eventId }
       AuditRecorded value           -> AuditRecorded value { Audit.event = eventId }
       IntegrationRecorded value     -> IntegrationRecorded value { Integration.event = eventId }
+      DirtyTreeWaived value         -> DirtyTreeWaived value { DirtyTreeWaiver.event = eventId }
+      BriefRecorded value           -> BriefRecorded value { Brief.event = eventId }
+      ProbeRunRecorded value        -> ProbeRunRecorded value { ProbeRun.event = eventId }
       unnumbered                    -> unnumbered
 
 {- | Histories an integration would permit: an independent approval, a
 waiver bound to the latest patchset, or an external approval where no
-independent review is owed; covered gate evidence; no open finding, no
-moved head, no verdict bound to an older patchset, no external refusal,
-and the authority to act.
+independent review is owed; covered gate evidence, from a clean tree or a
+dirty one waived at its own revision, and at the merge when the target
+moved; no open finding, no moved head, no verdict bound to an older
+patchset, no external refusal, no probe left undischarged, a branch to
+integrate, one gate declaration, and the authority to act.
 -}
 isIntegratable :: Scenario -> Bool
 isIntegratable scenario
@@ -313,6 +408,11 @@ isIntegratable scenario
   && not (scenario.verdictOnFirst && scenario.patchsets > 1)
   && scenario.externalVerdict `elem` [Nothing, Just ExternalApproved]
   && not scenario.authorityWithheld
+  && scenario.worktree `elem` [WorktreeClean, WorktreeDirtyWaived]
+  && scenario.targetMode `elem` [TargetContained, TargetBehindEvaluated]
+  && scenario.probe `elem` [ProbeNone, ProbeDischarged]
+  && not scenario.branchMissing
+  && not scenario.conflictingGates
   where
     authorized = case scenario.reviewer of
       Just ActorIndependent -> scenario.verdict == Approved
@@ -372,6 +472,12 @@ mutations scenario = concat
     , scenario.reviewer == Nothing
     , scenario.externalVerdict == Nothing
     ]
+  , [ Mutation "evidence-dirty" scenario { Scenario.worktree = WorktreeDirty }                           | covered, scenario.worktree /= WorktreeDirty ]
+  , [ Mutation "merge-unevaluated" scenario { Scenario.targetMode = TargetBehind }                      | scenario.targetMode /= TargetBehind ]
+  , [ Mutation "target-conflicting" scenario { Scenario.targetMode = TargetConflicting }                | scenario.targetMode /= TargetConflicting ]
+  , [ Mutation "probe-baseline-passed" scenario { Scenario.probe = ProbeBaselinePassed }                | scenario.probe /= ProbeBaselinePassed ]
+  , [ Mutation "branch-missing" scenario { Scenario.branchMissing = True }                              | not scenario.branchMissing ]
+  , [ Mutation "gates-conflict" scenario { Scenario.conflictingGates = True }                           | not scenario.conflictingGates ]
   ]
   where
     covered  = scenario.gateMode == EvidenceCovered
@@ -398,6 +504,15 @@ data Feature = FeaturePermitted
              | FeatureAuditNegativeNotApproved
              | FeatureEpisodeExpired
              | FeatureEqualTreeContributorVariation
+             | FeatureDirtyRefused
+             | FeatureDirtyWaived
+             | FeatureMergedTreeUnevaluated
+             | FeatureMergeEvaluated
+             | FeatureNeedsRebase
+             | FeatureProbesRefused
+             | FeatureProbeDischarged
+             | FeatureBranchMissing
+             | FeatureConflictingGates
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 allFeatures :: [Feature]
@@ -425,7 +540,19 @@ featureOf scenario built = \case
   FeatureAuditNegativeNotApproved      -> coverage.verdict == Just ChangesRequested && not coverage.approved
   FeatureEpisodeExpired                -> any (.expired) built.finalState.claims
   FeatureEqualTreeContributorVariation -> scenario.extraContributor
+  FeatureDirtyRefused                  -> any (\case RefusedGates refused -> GateEvaluatedDirtyTree buildGate `elem` refused; _other -> False) grounds
+  FeatureDirtyWaived                   -> isPermitted built.decision && scenario.worktree == WorktreeDirtyWaived
+  FeatureMergedTreeUnevaluated         -> groundedOn "merged-tree-unevaluated"
+  FeatureMergeEvaluated                -> isPermitted built.decision && built.observation.targetRelation == HeadBehindTarget
+  FeatureNeedsRebase                   -> groundedOn "needs-rebase"
+  FeatureProbesRefused                 -> groundedOn "acceptance-probes"
+  FeatureProbeDischarged               -> isPermitted built.decision && scenario.probe == ProbeDischarged
+  FeatureBranchMissing                 -> groundedOn "branch-missing"
+  FeatureConflictingGates              -> groundedOn "conflicting-declarations"
   where
+    -- every ground, so a fact the first ground would hide is still counted
+    grounds     = refusals built.observation built.state
+    groundedOn tag = any ((== tag) . refusalTag) grounds
     coverage = coverageAfterIntegration built.finalState
     permittedBy predicate = case built.decision of
       Permitted basis -> predicate basis.authorization

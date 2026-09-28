@@ -1,7 +1,10 @@
 {- | The differential: the same histories through the model and through arc.
 
 Named scenarios run first, then histories generated from the seed with the
-spec's own generator, so a reader can reproduce any row from its index.
+spec's own generators, so a reader can reproduce any row from its index:
+@generated-i@ draws the fields the decision rests on, and @check-time-i@
+draws the same fields from the same seed and then the facts arc's check
+reports beside them.
 Every row is one of: agreed, skipped with the field the CLI cannot record,
 adjudicated with its class and reason, disagreed, or failed to replay. The
 run exits non-zero on a disagreement nobody has classified or on a replay
@@ -31,30 +34,34 @@ import Test.QuickCheck.Random ( mkQCGen )
 
 
 data Settings = Settings
-  { seed    :: !Int
-  , cases   :: !Int
-  , binary  :: !FilePath
-  , mutant  :: !(Maybe String)
-  , keep    :: !Bool
-  , verbose :: !Bool
+  { seed           :: !Int
+  , cases          :: !Int
+  , checkTimeCases :: !Int
+  , binary         :: !FilePath
+  , mutant         :: !(Maybe String)
+  , keep           :: !Bool
+  , verbose        :: !Bool
   }
 
 defaults :: Settings
 defaults = Settings
-  { seed    = 20260907
-  , cases   = 60
-  , binary  = "arc"
-  , mutant  = Nothing
-  , keep    = False
-  , verbose = False
+  { seed           = 20260907
+  , cases          = 60
+  , checkTimeCases = 60
+  , binary         = "arc"
+  , mutant         = Nothing
+  , keep           = False
+  , verbose        = False
   }
 
 usage :: String
 usage = unlines
-  [ "arc-model-differential [--seed N] [--cases N] [--arc PATH] [--mutant NAME] [--keep] [--verbose]"
+  [ "arc-model-differential [--seed N] [--cases N] [--check-time-cases N] [--arc PATH] [--mutant NAME] [--keep] [--verbose]"
   , ""
   , "  --seed N      the generator seed (default 20260907)"
   , "  --cases N     generated histories after the named ones (default 60)"
+  , "  --check-time-cases N"
+  , "                generated histories that also draw check-time facts (default 60)"
   , "  --arc PATH    the arc binary to replay against (default: arc on PATH)"
   , "  --mutant NAME expect a permission wherever this deliberate fault permits, to show the comparison objects"
   , "  --keep        leave every sandbox on disk and print where"
@@ -68,6 +75,7 @@ parseSettings = go defaults
       []                     -> Right settings
       "--seed" : value : rest -> go settings { seed = read value } rest
       "--cases" : value : rest -> go settings { cases = read value } rest
+      "--check-time-cases" : value : rest -> go settings { checkTimeCases = read value } rest
       "--arc" : value : rest -> go settings { binary = value } rest
       "--mutant" : value : rest -> go settings { mutant = Just value } rest
       "--keep" : rest        -> go settings { keep = True } rest
@@ -93,11 +101,13 @@ main = do
   scratch  <- getTemporaryDirectory
   root     <- mkdtemp (scratch </> "arc-model-differential-")
   putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
-  putStrLn ("seed " <> show settings.seed <> ", " <> show (length namedScenarios) <> " named + " <> show settings.cases <> " generated cases, arc = " <> settings.binary)
+  putStrLn ("seed " <> show settings.seed <> ", " <> show (length namedScenarios) <> " named + " <> show settings.cases <> " generated + " <> show settings.checkTimeCases <> " check-time cases, arc = " <> settings.binary)
   maybe (pure ()) (\name -> putStrLn ("expecting the decisions of mutant " <> name)) settings.mutant
   putStrLn ""
-  let generated = [ ("generated-" <> show index, unGen genAnyScenario (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)) | index <- [0 .. settings.cases - 1] ]
-  rows <- mapM (runCase settings oracle root) (zip [0 :: Int ..] (namedScenarios <> generated))
+  let draw generator index = unGen generator (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)
+      generated = [ ("generated-" <> show index, draw genDecisionScenario index) | index <- [0 .. settings.cases - 1] ]
+      checkTime = [ ("check-time-" <> show index, draw genAnyScenario index) | index <- [0 .. settings.checkTimeCases - 1] ]
+  rows <- mapM (runCase settings oracle root) (zip [0 :: Int ..] (namedScenarios <> generated <> checkTime))
   putStrLn ""
   summarize rows
   if settings.keep

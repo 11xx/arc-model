@@ -21,6 +21,7 @@ module Arc.Model.Identifiers
     , TargetBranch(..)
     , ProbeCommand(..)
     , EnvironmentId(..)
+    , ProbeName(..)
     ) where
 
 import Data.String ( IsString )
@@ -90,5 +91,10 @@ newtype ProbeCommand = ProbeCommand String
 -- | The identity a probe yields: a digest of what it printed, so two
 -- environments compare by what the probe saw and never by name.
 newtype EnvironmentId = EnvironmentId String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | The name a brief gives one of its acceptance probes.
+newtype ProbeName = ProbeName String
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
