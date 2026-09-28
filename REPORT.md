@@ -86,7 +86,7 @@ counterexample can be generated for them.
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
 | `episode` | an expired claim ends liveness, not the retained debt and evidence; the waiver still applies |
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
-| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down |
+| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds in priority order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
@@ -263,10 +263,10 @@ history with no verdict, since arc records findings only with one, and dirt
 on a run against the merge, since `verify --against` runs in a clean
 checkout of its own and records none.
 
-Three scenario fields do not reach the decision and are not replayed: a
-target or policy moved before execution, withheld authority, and a
-post-integration audit. They are the execution and coverage channels, which
-`check` does not answer.
+Four scenario fields do not reach the decision: a target or policy moved
+before execution, withheld authority, and a post-integration audit. The
+decision channel does not replay them; the execution channel replays the
+first three.
 
 A rejection of the head is recorded by arc's command together with the
 closure it causes; the scenario builder records both events, as arc does.
@@ -326,6 +326,72 @@ Each run exits non-zero. The first row of the first table is the
 demonstrated counterexample against the arc binary: one patchset by `author`
 approved by `author` under a policy that requires independence, which the
 fault permits and arc refuses.
+
+### The execution channel
+
+`--channel execution` compares `execute` with `arc integrate --dry-run`.
+arc keeps no decision to re-check at integration: it refuses a store that
+does not hold integration authority with exit 17, then evaluates readiness
+again, and a dry run reports what that evaluation answers without writing.
+So the model's execution maps onto a dry run as follows:
+
+| `execute` | a dry run |
+| --- | --- |
+| a plan | exit 0, would integrate |
+| `authority-withheld` | exit 17 |
+| any other refusal: the decision's own, `basis-moved`, `branch-missing`, `conflicting-declarations` | a non-zero exit other than 17, with `arc check` in the same world reporting the blockers the model's grounds name under the execution-time observations |
+
+A basis that moved is where the two answer differently in kind. The model
+compares the basis with the observations and names the moved fact; arc
+names the blockers its fresh evaluation finds. The mapping claims the two
+refuse together and that arc's blockers are the model's own grounds under
+the moved observations: a target that moved leaves the head behind a merge
+nobody evaluated, so `merged-tree-unevaluated` and `gates-not-green`.
+
+The moves are commands made after `arc check` answers: a target moved is a
+commit on `master`; a policy moved is the worktree's `.arc/policy.toml`
+rewritten, uncommitted, to the other policy, with the file the change edits
+declared dangerous exactly when the new policy requires independence;
+withheld authority is the store paired with a second repository's store
+through `arc replica init`, `pair`, and `authority offer`, which relinquishes
+it. The dry run and the second check run where the decision was asked. A
+policy moved on a history whose branch is gone is skipped: the only
+checkout left is the target's, and integrate refuses a target checkout with
+tracked changes before it reads readiness.
+
+What a dry run cannot answer: a moved head or patchset at execution (no
+scenario field moves them), and the facts the model names beside a refusal;
+the comparison is over exit codes and blockers. What it answers that the
+model does not state: the target checkout's own dirt, and contribution mode.
+
+Two disagreement classes are on record, both `unsettled`, both the points
+of the same name under "Unsettled design":
+
+- **Authority at execution.** A refused decision in a store without
+  authority: arc answers exit 17, since it refuses the store before reading
+  readiness; the model's `execute` answers a refused decision with its
+  refusal. Both refuse; which refusal answers first is the contract.
+- **Policy motion.** A policy moved between the decision and the
+  integration, where the model's own grounds under the new policy are none:
+  arc decides again under that policy and would integrate; the model acts
+  only on the decision made before the policy moved, and stands down.
+
+`--mutant authority-ignored` objects on `execute-authority-withheld`, and
+`--mutant authorization-reused-after-basis-moved` on
+`execute-target-moved`, `execute-policy-tightened`,
+`execute-authority-withheld`, and `execute-target-and-authority`; each run
+exits non-zero.
+
+At seed `20260907`, `--channel execution --cases 200 --check-time-cases
+200`: 448 cases, 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed, 0
+failed to replay.
+
+| rows | cases | agreed | adjudicated | skipped |
+| --- | --- | --- | --- | --- |
+| the 42 histories named for the decision | 42 | 42 | 0 | 0 |
+| the 6 histories named for execution | 6 | 4 | 2: 1 authority, 1 policy | 0 |
+| `generated-0` .. `generated-199` | 200 | 150 | 31: 27 authority, 4 policy | 19, as on the decision channel |
+| `check-time-0` .. `check-time-199` | 200 | 143 | 29: 28 authority, 1 policy | 28: the decision channel's 25, and 3 policy moved without a worktree |
 
 ### What a quiet run means
 
@@ -406,7 +472,8 @@ still choose differently. Each is a deliberate choice, not an oversight.
 - **Authority at execution.** Production refuses a store without integration
   authority when `integrate` starts, before readiness; `check` never asks.
   The model refuses it in `execute`, before comparing the basis, and never in
-  `decide`.
+  `decide`; a decision that was refused is answered with its own refusal
+  whatever the store's authority, where production answers exit 17.
 - **Debt kind derivation.** `nothing-read`, `contributor-only`, and
   `independent-review` are derived; `merge-resolution-unread` and
   `repair-unread` are accepted only when declared, because only the caller can
@@ -424,6 +491,9 @@ still choose differently. Each is a deliberate choice, not an oversight.
 - **Policy motion.** A policy that changes between decision and execution
   produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
   the new policy would be a different action, with a different basis.
+  Production re-decides: `integrate` evaluates readiness under the policy in
+  force when it runs, and the execution channel adjudicates the difference
+  where that re-decision permits.
 - **Contested verdicts.** The model treats more than one active tip as
   contested and refuses. It does not model the repair of a contested chain
   beyond the arrival of a single superseding verdict.
