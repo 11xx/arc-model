@@ -20,6 +20,9 @@ module Differential.Compare
     , expectedExecution
     , executionText
     , compareExecution
+    , expectedCoverage
+    , recordedText
+    , compareCoverage
     , Comparison(..)
     , Kind(..)
     , Adjudication(..)
@@ -28,10 +31,11 @@ module Differential.Compare
     ) where
 
 import Arc.Model
-import Differential.Arc ( Answer(..), DryRun(..), checkRefusedConflictingGates )
+import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
 import Generators ( Built(..) )
-import Scenario ( Scenario(..) )
+import Scenario ( ActorPick(..), Scenario(..) )
 
+import Data.Maybe ( fromMaybe, isJust, isNothing )
 import Data.Set ( Set )
 import Data.Set qualified as Set
 
@@ -113,21 +117,115 @@ adjudicateExecution scenario built wanted dry
   , Set.null refused
   , scenario.policyAfter
   , dry.exit == 0
+  , dry.after.ready
   = Just Adjudication
       { kind   = Unsettled
       , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
       }
   -- a refused decision in a store without authority: arc refuses the store
-  -- before it reads readiness, the model answers with the decision's refusal
-  | StoodDown _ <- wanted
+  -- before it reads readiness, the model answers with the decision's
+  -- refusal, and the check beside the dry run refuses on exactly its grounds
+  | StoodDown refused <- wanted
   , scenario.authorityWithheld
   , not (isPermitted built.decision)
   , dry.exit == 17
+  , not dry.after.ready
+  , dry.after.blockers == refused
   = Just Adjudication
       { kind   = Unsettled
       , reason = "authority at execution: arc refuses a store without authority before readiness; the model's execute answers a refused decision with its refusal"
       }
   | otherwise = Nothing
+
+{- | The model's post-integration answers, mapped onto what arc records. An
+authorization is the slots of arc's authorization basis it names:
+'AuthorizedByVerdict' the verdict, 'AuthorizedByWaiver' the debt,
+'AuthorizedByVerdictUnderWaiver' both, and 'AuthorizedByExternalVerdict'
+the external approval. The audit verdict is the newest audit's; the open
+findings are the audit findings nobody disposed of; a review is owed where
+a debt authorized the merge and no read fulfilled it. The model's
+@approved@ has no field in arc and is not compared: arc keeps the
+authorization and the audit verdicts, which is the pair the model reads it
+from.
+-}
+expectedCoverage :: Maybe Authorization -> CoverageAfterIntegration -> PostIntegration
+expectedCoverage authorization coverage = PostIntegration
+  { integrated        = isJust authorization
+  , basis             = maybe Set.empty slotsOf authorization
+  , auditVerdict      = verdictText <$> coverage.verdict
+  , openAuditFindings = length coverage.openFindings
+  , owed              = isJust coverage.debt && isNothing coverage.read
+  }
+  where
+    slotsOf = Set.fromList . \case
+      AuthorizedByVerdict _              -> ["verdict"]
+      AuthorizedByWaiver _               -> ["debt"]
+      AuthorizedByVerdictUnderWaiver _ _ -> ["verdict", "debt"]
+      AuthorizedByExternalVerdict _      -> ["external"]
+    verdictText = \case
+      Approved         -> "approved"
+      ChangesRequested -> "changes-requested"
+      CommentOnly      -> "comment-only"
+
+recordedText :: PostIntegration -> String
+recordedText found
+  | not found.integrated = "{not integrated}"
+  | otherwise = "{basis " <> unwords (Set.toList found.basis)
+      <> "; audit " <> fromMaybe "none" found.auditVerdict
+      <> "; open audit findings " <> show found.openAuditFindings
+      <> (if found.owed then "; review owed" else "") <> "}"
+
+compareCoverage :: Scenario -> Built -> PostIntegration -> PostIntegration -> Comparison
+compareCoverage scenario built wanted found
+  | wanted == found = Agreed
+  | otherwise       = maybe Disagreed Adjudicated (adjudicateCoverage scenario built wanted found)
+
+-- | The coverage disagreements that have been read and classified.
+adjudicateCoverage :: Scenario -> Built -> PostIntegration -> PostIntegration -> Maybe Adjudication
+adjudicateCoverage scenario built wanted found
+  -- an external approval beside the verdict arc witnessed: arc records both
+  -- in the basis, the model's authorization names the witnessed verdict
+  | wanted.basis == Set.fromList ["verdict"]
+  , found.basis == Set.fromList ["verdict", "external"]
+  , wanted.integrated == found.integrated
+  , wanted.auditVerdict == found.auditVerdict
+  , wanted.openAuditFindings == found.openAuditFindings
+  , wanted.owed == found.owed
+  , scenario.externalVerdict == Just ExternalApproved
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone"
+      }
+  -- a verdict from an undeclared reviewer where policy requires a declared
+  -- actor: arc refuses to record it, the model's ledger holds it, so arc's
+  -- basis lacks the verdict the model's names beside a waiver
+  | scenario.policy.requireDeclaredActor
+  , scenario.reviewer == Just ActorAssumed
+  , Set.member "verdict" wanted.basis
+  , found.basis == Set.delete "verdict" wanted.basis
+  , wanted.integrated == found.integrated
+  , wanted.auditVerdict == found.auditVerdict
+  , wanted.openAuditFindings == found.openAuditFindings
+  , wanted.owed == found.owed
+  = Just Adjudication
+      { kind   = Encoding
+      , reason = "undeclared reviewer: arc refuses to record a verdict nobody declared where policy requires a declared actor; the model's ledger holds it"
+      }
+  -- a policy that moved and now permits: arc integrates under it, the model
+  -- acts only on the decision made before it moved. What arc records has to
+  -- be, field for field, what the model records when it decides afresh
+  -- under the moved policy
+  | scenario.policyAfter
+  , not wanted.integrated
+  , redecided.integrated
+  , found == redecided
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
+      }
+  | otherwise = Nothing
+  where
+    redecided = expectedCoverage (historicalAuthorization built.redecidedState) (coverageAfterIntegration built.redecidedState)
 
 -- | Which side is wrong, or whether the contract is unsettled. An encoding
 -- difference is a fact about the CLI's shape, not about either decision.

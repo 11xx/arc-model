@@ -61,6 +61,7 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | MoveTarget               -- ^ Commit on the target after the decision.
           | MovePolicy Policy FilePath  -- ^ Rewrite the policy the worktree reads, with this file dangerous when the policy requires independence.
           | WithholdAuthority        -- ^ Pair the store with a replica and offer it integration authority.
+          | Audit VerdictKind Bool   -- ^ Audit the integrated revision; True audits as somebody other than the author.
   deriving stock (Eq, Show)
 
 data Plan = Plan
@@ -70,6 +71,7 @@ data Plan = Plan
   , probeAtCheck  :: !(Maybe String)  -- ^ What the probe prints where the decision is asked; Nothing fails it.
   , inWorktree    :: !Bool            -- ^ Ask from the change's worktree; False asks from the main checkout.
   , execution     :: ![Step]          -- ^ What moves between the decision and the integration.
+  , audits        :: ![Step]          -- ^ What is recorded after the integration.
   }
   deriving stock (Eq, Show)
 
@@ -113,6 +115,7 @@ plan scenario
           , [ MovePolicy (flipPolicy scenario.policy) changed | scenario.policyAfter ]
           , [ WithholdAuthority | scenario.authorityWithheld ]
           ]
+      , audits        = [ Audit kind independent | Just (kind, independent) <- [scenario.audit] ]
       }
   where
     touchesDanger = scenario.policy.independentVerdictRequired

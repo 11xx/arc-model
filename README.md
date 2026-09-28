@@ -55,7 +55,9 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 - **Coverage obligations.** A debt declares a missing read; a waiver binds to
   exactly one patchset; a refusing verdict is not waivable. An independent
   negative audit can fulfil the read and leave its findings open: fulfilled is
-  not approved. A later audit never rewrites what an integration rested on.
+  not approved. A later audit never rewrites what an integration rested on,
+  and a contributor's approving audit is not recorded where policy forbids
+  self-approval.
 
 ## What it deliberately does not model
 
@@ -80,9 +82,11 @@ cabal v2-test spec --test-show-details=direct
 cabal v2-run arc-model-differential -- --cases 200
 ```
 
-The suite exits non-zero on any failed fixture, property, surviving mutant, or
-unreached generator feature. Its library dependencies are `base` and
-`containers`; the test suite adds `QuickCheck`. The package lives outside the
+The suite exits non-zero on any failed fixture, comparator check, property,
+surviving mutant, or unreached generator feature. Its library dependencies
+are `base` and `containers`; the test suite adds `QuickCheck`, and compiles
+the differential's plan, driver, and comparator modules with their
+dependencies so the comparator is checked without running arc. The package lives outside the
 arc repository and is named by none of its gates, so no arc change needs a
 Haskell toolchain to build. The differential needs `git` and an `arc` binary
 on `PATH` (or `--arc PATH`); it is not one of this package's gates either,
@@ -110,7 +114,12 @@ A run compares one channel, named by `--channel` and on its summary line:
   scenario makes between the decision and the integration: a commit on the
   target, an edit to the policy file the worktree reads, and integration
   authority offered to a paired replica. Six histories named for those moves
-  run after the others on this channel.
+  run after the others on this channel;
+- `coverage` — `historicalAuthorization` and `coverageAfterIntegration`
+  against what `arc show --json`, `arc findings --audit`, and `arc query
+  --debt` report after the same moves, a real `arc integrate`, and the
+  scenario's `arc audit`. Eleven histories named for integrations and audits run
+  after the others on this channel.
 
 Each row is one of:
 
@@ -215,8 +224,9 @@ scenarios/Scenario.hs                the scenario plan, the named histories, gen
 scenarios/Generators.hs              building a scenario, mutations, features
 scenarios/Mutants.hs                 the eighteen deliberate faults
 test/Fixtures.hs                     unit fixtures
+test/Comparator.hs                   the differential's adjudication rules, pinned to their exact answers
 test/Render.hs                       the check harness
-test/Main.hs                         spec driver: fixtures, properties, mutants, coverage
+test/Main.hs                         spec driver: fixtures, comparator, properties, mutants, coverage
 differential/Differential/Plan.hs    a scenario as arc commands, or the reason it has none
 differential/Differential/Arc.hs     running a plan against the arc binary in a sandbox
 differential/Differential/Compare.hs the grounds-to-blockers mapping and adjudication

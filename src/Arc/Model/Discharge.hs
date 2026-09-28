@@ -10,12 +10,17 @@ module Arc.Model.Discharge
     , auditRefusalText
     , Discharge(..)
     , auditDischarges
+    , admitAudit
     ) where
 
 import Arc.Model.Coverage ( ReadEvidence(..), auditIsIndependent, debtKindFor )
 import Arc.Model.Identifiers
 import Arc.Model.Ledger
+import Arc.Model.Policy ( Policy )
+import Arc.Model.Policy qualified as Policy
 import Arc.Model.State
+
+import Data.Maybe ( isNothing )
 
 
 data AuditRefusal = AuditWhileOpen
@@ -41,6 +46,21 @@ data Discharge = Discharge
   , openFindings :: ![FindingId]
   }
   deriving stock (Eq, Ord, Show)
+
+{- | Whether an audit is recorded at all. A change that did not integrate
+has no shipped revision to audit. Where policy forbids self-approval, an
+approving audit that is not independent would clear the obligation its own
+author owes, and is refused; elsewhere it is recorded and discharges
+nothing, since 'auditDischarges' still asks for independence.
+-}
+admitAudit :: Policy -> ChangeState -> Audit -> Either AuditRefusal ()
+admitAudit policy state audit
+  | isNothing (latestIntegration state) = Left AuditWhileOpen
+  | audit.kind == Approved
+  , policy.forbidSelfApproval
+  , not (auditIsIndependent state audit)
+  = Left (if audit.assumed then AuditAssumedAuditor else AuditAuditorNotIndependent)
+  | otherwise = Right ()
 
 -- | Decide what an audit does to a recorded obligation. The state must
 -- already include the audit event and any findings it raised.

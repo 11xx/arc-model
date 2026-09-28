@@ -23,6 +23,7 @@ module Scenario
     , shrinkScenario
     , namedScenarios
     , namedExecutionScenarios
+    , namedCoverageScenarios
     ) where
 
 import Arc.Model ( DebtKind(..), ExternalKind(..), Policy(..), VerdictKind(..) )
@@ -205,6 +206,23 @@ namedExecutionScenarios =
   , ("execute-authority-withheld",     defaultScenario { authorityWithheld = True })
   , ("execute-authority-over-refusal", defaultScenario { verdict = ChangesRequested, authorityWithheld = True })
   , ("execute-target-and-authority",   defaultScenario { targetAfter = True, authorityWithheld = True })
+  ]
+
+-- | Histories that integrate and are then audited, named for the coverage
+-- channel.
+namedCoverageScenarios :: [(String, Scenario)]
+namedCoverageScenarios =
+  [ ("cover-approved",                   defaultScenario)
+  , ("cover-approved-negative-audit",    defaultScenario { audit = Just (ChangesRequested, True) })
+  , ("cover-approved-approving-audit",   defaultScenario { audit = Just (Approved, True) })
+  , ("cover-waived",                     defaultScenario { reviewer = Nothing, debt = Just (1, Nothing) })
+  , ("cover-waived-negative-audit",      defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), audit = Just (ChangesRequested, True) })
+  , ("cover-waived-author-audit",        defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), audit = Just (Approved, False) })
+  , ("cover-self-under-waiver",          defaultScenario { reviewer = Just ActorContributor, debt = Just (1, Nothing) })
+  , ("cover-external-only",              defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = openPolicy })
+  , ("cover-external-beside-local",      defaultScenario { externalVerdict = Just ExternalApproved, policy = openPolicy })
+  , ("cover-external-beside-local-danger", defaultScenario { externalVerdict = Just ExternalApproved })
+  , ("cover-undeclared-reviewer-waived", defaultScenario { reviewer = Just ActorAssumed, debt = Just (1, Nothing), policy = requireDeclaredPolicy })
   ]
 
 -- generation
