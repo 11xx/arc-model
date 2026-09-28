@@ -340,13 +340,14 @@ debtAuthorizedNothing =
 
 {- | A stale patchset is refused; a target or policy that moves between the
 decision and the execution stands the action down rather than reusing the
-basis.
+basis. A moved target moves the tree that would ship with it: the head is
+behind the new target, and the merge is new.
 -}
 staleAndMovedBases :: [Check]
 staleAndMovedBases =
   [ expectRefusedWith "fixture/stale: head moved" "head-moved" (build defaultScenario { Scenario.headMoved = True }).decision
   , expectTrue "fixture/target-moved: decision permits" "the decision is made against target-1" (isPermitted targetBuilt.decision)
-  , expectEq "fixture/target-moved: execution stands down" (Left (RefusedBasisMoved [MovedTarget (Revision "target-1") (Revision "target-2")])) targetBuilt.execution
+  , expectEq "fixture/target-moved: execution stands down" (Left (RefusedBasisMoved [MovedTarget (Revision "target-1") (Revision "target-2"), MovedTree (TreeId "tree1") (TreeId "merged-after")])) targetBuilt.execution
   , expectTrue "fixture/policy-moved: decision permits" "the decision is made under the danger policy" (isPermitted policyBuilt.decision)
   , expectEq "fixture/policy-moved: execution stands down" (Left (RefusedBasisMoved [MovedPolicy dangerPolicy openPolicy])) policyBuilt.execution
   ]

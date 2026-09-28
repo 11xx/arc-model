@@ -101,7 +101,18 @@ reproducible from its index: `generated-i` draws the fields the decision
 rests on (`--cases`), and `check-time-i` draws the same fields from the same
 seed and then the facts arc's check reports beside them — dirty evidence, a
 target that moved, acceptance probes, a missing branch, conflicting gate
-declarations (`--check-time-cases`). Each row is one of:
+declarations (`--check-time-cases`).
+
+A run compares one channel, named by `--channel` and on its summary line:
+
+- `decision` (the default) — `refusals` against `arc check --json`;
+- `execution` — `execute` against `arc integrate --dry-run`, after the moves a
+  scenario makes between the decision and the integration: a commit on the
+  target, an edit to the policy file the worktree reads, and integration
+  authority offered to a paired replica. Six histories named for those moves
+  run after the others on this channel.
+
+Each row is one of:
 
 - `agreed` — the same blockers, or ready on both sides;
 - `skipped` — a field the CLI cannot record, with the reason: unreadable
@@ -112,11 +123,12 @@ declarations (`--check-time-cases`). Each row is one of:
 - `REPLAY FAILED` — an arc command the plan did not expect to be refused.
 
 The run exits non-zero on the last two and on nothing else. `--mutant NAME`
-expects a permission wherever that deliberate fault permits, so the run
-objects exactly where the fault would let arc's refusal through; it is how a
-reader checks that the comparison can fail at all. `--keep` leaves every
-sandbox on disk, `--verbose` prints each arc command, `--seed`, `--cases`,
-and `--check-time-cases` select the histories.
+names a fault of the channel compared and expects a permission wherever
+that fault permits, so the run objects exactly where the fault would let
+arc's refusal through; it is how a reader checks that the comparison can
+fail at all. `--keep` leaves every sandbox on disk, `--verbose` prints each
+arc command, `--seed`, `--cases`, and `--check-time-cases` select the
+histories.
 
 A quiet run is supporting evidence, not proof of equivalence: it says every
 replayed history agreed, over the fields the CLI can express.

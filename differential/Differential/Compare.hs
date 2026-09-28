@@ -1,4 +1,4 @@
-{- | Comparing the model's grounds with arc's blockers.
+{- | Comparing the model's answers with arc's.
 
 Arc's vocabulary is coarser than the model's: five ways an approval can
 fail to stand are one @no-valid-approval@, and a moved head shows up as an
@@ -6,9 +6,20 @@ invalid approval and missing gate evidence rather than as its own blocker.
 The mapping here is the model's claim about how its grounds appear in
 arc's answer; a case where the claim fails is a disagreement, and a
 disagreement is classified, never dropped.
+
+The execution channel compares 'execute' with @arc integrate --dry-run@.
+arc keeps no decision to re-check: it re-evaluates readiness when asked to
+integrate, after refusing a store without integration authority (exit 17).
+So a permitted plan is a dry run that would integrate, withheld authority
+is exit 17, and any other refusal is a dry run that refuses on the blockers
+the model's own grounds name under the observations of that moment.
 -}
 module Differential.Compare
     ( expected
+    , Execution(..)
+    , expectedExecution
+    , executionText
+    , compareExecution
     , Comparison(..)
     , Kind(..)
     , Adjudication(..)
@@ -17,7 +28,8 @@ module Differential.Compare
     ) where
 
 import Arc.Model
-import Differential.Arc ( Answer(..), checkRefusedConflictingGates )
+import Differential.Arc ( Answer(..), DryRun(..), checkRefusedConflictingGates )
+import Generators ( Built(..) )
 import Scenario ( Scenario(..) )
 
 import Data.Set ( Set )
@@ -55,6 +67,67 @@ expected = Set.fromList . concatMap blockersOf
       RefusedUndeclaredActor           -> []
       RefusedAuthorityWithheld         -> []
       RefusedBasisMoved _              -> []
+
+-- | What an integration attempted after the moves would do, by the model.
+data Execution = WouldIntegrate
+               | AuthorityRefused
+               | StoodDown (Set String)  -- ^ Refused, with the blockers arc's re-evaluation is expected to report.
+  deriving stock (Eq, Show)
+
+executionText :: Execution -> String
+executionText = \case
+  WouldIntegrate    -> "{would integrate}"
+  AuthorityRefused  -> "{exit 17}"
+  StoodDown refused -> "{refused " <> unwords (Set.toList refused) <> "}"
+
+{- | The model's execution, mapped onto what a dry run reports. A refusal is
+expected to show as the blockers of the model's grounds under the
+observations of execution time, since those are what arc reads when it
+re-evaluates.
+-}
+expectedExecution :: Built -> Either Refusal ExecutionPlan -> Execution
+expectedExecution built = \case
+  Right _                       -> WouldIntegrate
+  Left RefusedAuthorityWithheld -> AuthorityRefused
+  Left _                        -> StoodDown (expected (refusals built.executionObservation built.state))
+
+compareExecution :: Scenario -> Built -> Execution -> DryRun -> Comparison
+compareExecution scenario built wanted dry
+  | agrees    = Agreed
+  | otherwise = maybe Disagreed Adjudicated (adjudicateExecution scenario built wanted dry)
+  where
+    agrees = case wanted of
+      WouldIntegrate    -> dry.exit == 0
+      AuthorityRefused  -> dry.exit == 17
+      StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
+
+{- | The execution disagreements that have been read and classified, each
+with the exact shape it applies to.
+-}
+adjudicateExecution :: Scenario -> Built -> Execution -> DryRun -> Maybe Adjudication
+adjudicateExecution scenario built wanted dry
+  -- a policy that moved and now permits: arc decides again under it, and
+  -- the model acts only on the decision made before it moved, whether that
+  -- decision permitted on a basis that no longer holds or refused
+  | StoodDown refused <- wanted
+  , Set.null refused
+  , scenario.policyAfter
+  , dry.exit == 0
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
+      }
+  -- a refused decision in a store without authority: arc refuses the store
+  -- before it reads readiness, the model answers with the decision's refusal
+  | StoodDown _ <- wanted
+  , scenario.authorityWithheld
+  , not (isPermitted built.decision)
+  , dry.exit == 17
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "authority at execution: arc refuses a store without authority before readiness; the model's execute answers a refused decision with its refusal"
+      }
+  | otherwise = Nothing
 
 -- | Which side is wrong, or whether the contract is unsettled. An encoding
 -- difference is a fact about the CLI's shape, not about either decision.
