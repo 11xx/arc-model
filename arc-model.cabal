@@ -125,3 +125,20 @@ executable arc-model-differential
     , process     >= 1.6  && < 2
     , QuickCheck  >= 2.14 && < 2.16
     , unix        >= 2.8  && < 3
+
+test-suite candidate-spec
+  import:           warnings
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   candidate-test
+  main-is:          Main.hs
+  other-modules:
+      Fixtures
+    , Mutants
+    , Plan
+    , Render
+  build-depends:
+      arc-model
+    , arc-model:candidate
+    , base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
+    , QuickCheck  >= 2.14 && < 2.16
