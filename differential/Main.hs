@@ -9,7 +9,10 @@ reports beside them.
 A run compares one channel. The decision channel compares 'refusals' with
 @arc check@; the execution channel compares 'execute' with
 @arc integrate --dry-run@ after the moves a scenario makes between the
-decision and the integration.
+decision and the integration; the coverage channel integrates for real,
+records the scenario's audit, and compares 'historicalAuthorization' and
+'coverageAfterIntegration' with what @arc show@, @arc findings --audit@,
+and @arc query --debt@ report.
 
 Every row is one of: agreed, skipped with the field the CLI cannot record,
 adjudicated with its class and reason, disagreed, or failed to replay. The
@@ -42,12 +45,14 @@ import Test.QuickCheck.Random ( mkQCGen )
 -- | Which of the model's answers a run compares with arc.
 data Compared = ComparedDecision
               | ComparedExecution
+              | ComparedCoverage
   deriving stock (Eq, Show)
 
 comparedText :: Compared -> String
 comparedText = \case
   ComparedDecision  -> "decision"
   ComparedExecution -> "execution"
+  ComparedCoverage  -> "coverage"
 
 data Settings = Settings
   { seed           :: !Int
@@ -74,11 +79,12 @@ defaults = Settings
 
 usage :: String
 usage = unlines
-  [ "arc-model-differential [--channel decision|execution] [--seed N] [--cases N] [--check-time-cases N]"
+  [ "arc-model-differential [--channel decision|execution|coverage] [--seed N] [--cases N] [--check-time-cases N]"
   , "                       [--arc PATH] [--mutant NAME] [--keep] [--verbose]"
   , ""
   , "  --channel C   decision: refusals against arc check (default);"
-  , "                execution: execute against arc integrate --dry-run"
+  , "                execution: execute against arc integrate --dry-run;"
+  , "                coverage: the recorded authorization and audit coverage against arc show, findings, and query"
   , "  --seed N      the generator seed (default 20260907)"
   , "  --cases N     generated histories after the named ones (default 60)"
   , "  --check-time-cases N"
@@ -96,6 +102,7 @@ parseSettings = go defaults
       []                                  -> Right settings
       "--channel" : "decision" : rest     -> go settings { compared = ComparedDecision } rest
       "--channel" : "execution" : rest    -> go settings { compared = ComparedExecution } rest
+      "--channel" : "coverage" : rest     -> go settings { compared = ComparedCoverage } rest
       "--seed" : value : rest             -> go settings { seed = read value } rest
       "--cases" : value : rest            -> go settings { cases = read value } rest
       "--check-time-cases" : value : rest -> go settings { checkTimeCases = read value } rest
@@ -107,8 +114,10 @@ parseSettings = go defaults
 
 -- | What the comparison expects of a built scenario, on each channel.
 data Oracle = Oracle
-  { grounds   :: !(Built -> [Refusal])
-  , execution :: !(Built -> Either Refusal ExecutionPlan)
+  { grounds    :: !(Built -> [Refusal])
+  , execution  :: !(Built -> Either Refusal ExecutionPlan)
+  , historical :: !(Built -> Maybe Authorization)
+  , coverage   :: !(Built -> CoverageAfterIntegration)
   }
 
 -- | How one scenario's comparison ended. Expected and actual answers are
@@ -131,13 +140,13 @@ main = do
   scratch  <- getTemporaryDirectory
   root     <- mkdtemp (scratch </> "arc-model-differential-")
   putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
-  putStrLn ("channel " <> comparedText settings.compared <> ", seed " <> show settings.seed <> ", " <> show (length namedScenarios + if settings.compared == ComparedExecution then length namedExecutionScenarios else 0) <> " named + " <> show settings.cases <> " generated + " <> show settings.checkTimeCases <> " check-time cases, arc = " <> settings.binary)
+  putStrLn ("channel " <> comparedText settings.compared <> ", seed " <> show settings.seed <> ", " <> show (length namedScenarios + length (channelScenarios settings.compared)) <> " named + " <> show settings.cases <> " generated + " <> show settings.checkTimeCases <> " check-time cases, arc = " <> settings.binary)
   maybe (pure ()) (\name -> putStrLn ("expecting the answers of mutant " <> name)) settings.mutant
   putStrLn ""
   let draw generator index = unGen generator (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)
       generated = [ ("generated-" <> show index, draw genDecisionScenario index) | index <- [0 .. settings.cases - 1] ]
       checkTime = [ ("check-time-" <> show index, draw genAnyScenario index) | index <- [0 .. settings.checkTimeCases - 1] ]
-      named = namedScenarios <> [ scenario | settings.compared == ComparedExecution, scenario <- namedExecutionScenarios ]
+      named = namedScenarios <> channelScenarios settings.compared
   rows <- mapM (runCase settings oracle root) (zip [0 :: Int ..] (named <> generated <> checkTime))
   putStrLn ""
   summarize settings.compared rows
@@ -145,6 +154,13 @@ main = do
     then putStrLn ("sandboxes kept under " <> root)
     else removePathForcibly root
   if any objectionable rows then exitFailure else exitSuccess
+
+-- | The histories named for one channel, run after the shared ones.
+channelScenarios :: Compared -> [(String, Scenario)]
+channelScenarios = \case
+  ComparedDecision  -> []
+  ComparedExecution -> namedExecutionScenarios
+  ComparedCoverage  -> namedCoverageScenarios
 
 {- | The answers the comparison expects: the model's, or, under a mutant of
 the channel compared, a permission wherever the fault permits. A fault that
@@ -158,23 +174,41 @@ oracleFor settings = case settings.mutant of
   Just name -> case [ m | m <- allMutants, m.name == name ] of
     found : _
       | found.channel == ChannelDecision, settings.compared == ComparedDecision -> pure Oracle
-          { grounds   = \built -> case found.run built of
+          { grounds    = \built -> case found.run built of
               BehaviourDecision (Permitted _) -> []
               _refused                        -> model.grounds built
-          , execution = model.execution
+          , execution  = model.execution
+          , historical = model.historical
+          , coverage   = model.coverage
           }
       | found.channel == ChannelExecution, settings.compared == ComparedExecution -> pure Oracle
-          { grounds   = model.grounds
-          , execution = \built -> case found.run built of
+          { grounds    = model.grounds
+          , execution  = \built -> case found.run built of
               BehaviourExecution (Right acted) -> Right acted
               _refused                         -> model.execution built
+          , historical = model.historical
+          , coverage   = model.coverage
+          }
+      -- a fault of what shipped or of its coverage is expected as it is:
+      -- there is no permission to expect in its place
+      | found.channel `elem` [ChannelHistorical, ChannelCoverage], settings.compared == ComparedCoverage -> pure Oracle
+          { grounds    = model.grounds
+          , execution  = model.execution
+          , historical = \built -> case found.run built of
+              BehaviourHistorical authorization -> authorization
+              _otherChannel                     -> model.historical built
+          , coverage   = \built -> case found.run built of
+              BehaviourCoverage projected -> projected
+              _otherChannel               -> model.coverage built
           }
       | otherwise -> putStrLn ("mutant " <> name <> " does not fault the " <> comparedText settings.compared <> " channel") >> exitFailure
     [] -> putStrLn ("no mutant named " <> name <> "; the spec's mutants are " <> intercalate ", " (map (.name) allMutants)) >> exitFailure
   where
     model = Oracle
-      { grounds   = \built -> refusals built.observation built.state
-      , execution = (.execution)
+      { grounds    = \built -> refusals built.observation built.state
+      , execution  = (.execution)
+      , historical = \built -> historicalAuthorization built.finalState
+      , coverage   = \built -> coverageAfterIntegration built.finalState
       }
 
 runCase :: Settings -> Oracle -> FilePath -> (Int, (String, Scenario)) -> IO Row
@@ -205,6 +239,18 @@ runCase settings oracle root (index, (label, scenario)) = do
             Agreed                   -> RowAgreed
             Adjudicated adjudication -> RowAdjudicated adjudication (executionText wanted) (dryRunText dry)
             Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry)
+    (Right steps, ComparedCoverage) -> case executionSkip scenario of
+      Just skip -> pure (RowSkipped skip)
+      Nothing   -> do
+        when settings.verbose (putStrLn "" >> print scenario)
+        let wanted = expectedCoverage (oracle.historical built) (oracle.coverage built)
+        outcome <- Arc.runCoverage options dir steps
+        pure $ case outcome of
+          ReplayFailed failure -> RowFailed failure
+          Answered found       -> case compareCoverage scenario built wanted found of
+            Agreed                   -> RowAgreed
+            Adjudicated adjudication -> RowAdjudicated adjudication (recordedText wanted) (recordedText found)
+            Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found)
   putStrLn (describe row.outcome)
   unless (agreeable row.outcome) (print scenario)
   pure row

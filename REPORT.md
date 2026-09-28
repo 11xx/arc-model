@@ -266,7 +266,7 @@ checkout of its own and records none.
 Four scenario fields do not reach the decision: a target or policy moved
 before execution, withheld authority, and a post-integration audit. The
 decision channel does not replay them; the execution channel replays the
-first three.
+first three, and the coverage channel all four.
 
 A rejection of the head is recorded by arc's command together with the
 closure it causes; the scenario builder records both events, as arc does.
@@ -393,13 +393,85 @@ failed to replay.
 | `generated-0` .. `generated-199` | 200 | 150 | 31: 27 authority, 4 policy | 19, as on the decision channel |
 | `check-time-0` .. `check-time-199` | 200 | 143 | 29: 28 authority, 1 policy | 28: the decision channel's 25, and 3 policy moved without a worktree |
 
+### The coverage channel
+
+`--channel coverage` replays the history and the execution moves, runs
+`arc integrate` for real, records the scenario's audit with `arc audit` (by
+`other`, or by `author` when the audit is not independent, with one blocking
+finding when it asks for changes), and reads back what arc recorded. The
+model's side is `historicalAuthorization` and `coverageAfterIntegration` of
+the history the scenario builds, integration and audit included.
+
+| model | arc |
+| --- | --- |
+| an integration recorded | `closure.outcome` is `integrated` in `arc show --json` |
+| `AuthorizedByVerdict` | the closure's authorization names `verdict_event_id` |
+| `AuthorizedByWaiver` | it names `audit_debt_event_id` |
+| `AuthorizedByVerdictUnderWaiver` | it names both |
+| `AuthorizedByExternalVerdict` | it names `external_verdict` |
+| the coverage's audit verdict | the newest of `audit_verdicts` |
+| the coverage's open findings | the audit findings of `arc findings --audit --format json` with no disposition |
+| a debt authorized the merge and no read fulfilled it | `arc query --debt --json` lists the change |
+
+The model's `approved` flag has no field in arc and is not compared. arc
+keeps the two facts it is read from: the authorization's verdict, which no
+later audit rewrites, and the audit verdicts beside it. So "Approval beside
+a later negative audit" is measured as that pair: after an independent
+negative audit, arc's closure still names the verdict and its newest audit
+verdict is `changes-requested`, which is what the model's basis and audit
+verdict say; whether the pair should read as approved stays unsettled.
+
+"External beside local" is measured as a disagreement. Where a witnessed
+approval and an external approval of the head both stand and the policy
+lets an external approval count, arc's basis names both, and the model's
+`AuthorizedByVerdict` names the verdict alone. Under a policy that
+requires independent review the external approval does not count and arc
+names the verdict alone, as the model does. The class is adjudicated
+`unsettled`; policy motion is adjudicated as on the execution channel.
+
+One class is `encoding`. Where policy requires a declared actor, arc
+refuses to record a verdict nobody declared, and the model's ledger holds
+it: `require_declared_actor` is modelled for the invoker only. Both
+decisions agree, since the refused verdict could not have authorized
+anything; the recorded basis differs by that verdict where a waiver
+authorized the merge beside it (`cover-undeclared-reviewer-waived`).
+
+One disagreement class on this channel is a model defect, and the model
+states the rule that answers it: arc refuses a contributor's approving
+audit wherever policy forbids self-approval, and records it, discharging
+nothing, elsewhere. `admitAudit` is that rule, and the scenario builder
+records only the audits it admits. A builder that recorded every audit
+would disagree with arc on `cover-waived-author-audit`: an `approved`
+audit verdict where arc has none.
+
+`--mutant fulfilled-implies-approved` cannot object, since it faults only
+the `approved` flag arc does not record.
+
+At seed `20260907`, `--channel coverage --cases 200 --check-time-cases
+200`: 453 cases, 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed, 0
+failed to replay.
+
+| rows | cases | agreed | adjudicated | skipped |
+| --- | --- | --- | --- | --- |
+| the 42 histories named for the decision | 42 | 42 | 0 | 0 |
+| the 11 histories named for coverage | 11 | 9 | 2: 1 external beside local, 1 undeclared reviewer | 0 |
+| `generated-0` .. `generated-199` | 200 | 175 | 6: 1 external beside local, 4 policy motion, 1 undeclared reviewer | 19, as on the decision channel |
+| `check-time-0` .. `check-time-199` | 200 | 170 | 2: 1 external beside local, 1 policy motion | 28, as on the execution channel |
+
+`--mutant later-audit-rewrites-integration-basis` objects on
+`cover-waived-negative-audit`, where the fault names the audit as a
+verdict and arc's basis names the debt, and exits non-zero; `--mutant
+fulfilled-implies-approved` agrees everywhere and exits zero.
+
 ### What a quiet run means
 
-Every replayed history agreed over the fields the CLI can express. It is
-supporting evidence for the model's characterization of these decisions and
-for arc's implementation of them, and nothing more: the channels `check`
-does not answer, the fields the CLI cannot record, and the operating-system
-behaviour a pure model cannot state remain outside it.
+Every replayed history agreed, or disagreed in a class somebody read and
+named, over the fields the CLI can express and on the channel the run
+compared. It is supporting evidence for the model's characterization of
+these decisions and for arc's implementation of them, and nothing more:
+the fields the CLI cannot record, the answers arc keeps no field for (the
+model's `approved`), and the operating-system behaviour a pure model cannot
+state remain outside it.
 
 ### Recommendation
 
@@ -453,7 +525,9 @@ still choose differently. Each is a deliberate choice, not an oversight.
   correspondence.
 - **External beside local.** When a witnessed approval and an external
   approval both stand, the model's basis names the witnessed verdict.
-  Production records both in its authorization basis.
+  Production records both in its authorization basis where the policy lets
+  the external approval count; the coverage channel adjudicates each such
+  history.
 - **Tree before environment.** Coverage reads the tree before the environment,
   so evidence from another tree in another environment is reported as
   other-tree. Production tests both and reports neither first. The worktree
@@ -486,8 +560,10 @@ still choose differently. Each is a deliberate choice, not an oversight.
 - **Approval beside a later negative audit.** `approved` reports
   whether an independent approving answer exists. An independent approval on
   the shipped patchset makes it true even after a negative audit; the audit's
-  verdict remains its own field. Whether a later negative audit should
-  withdraw the approval flag is open.
+  verdict remains its own field. Production keeps no such flag: it keeps the
+  authorization's verdict unrewritten and the audit verdicts beside it, and
+  the coverage channel compares that pair. Whether a later negative audit
+  should withdraw the approval flag is open.
 - **Policy motion.** A policy that changes between decision and execution
   produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
   the new policy would be a different action, with a different basis.

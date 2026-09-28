@@ -112,7 +112,12 @@ A run compares one channel, named by `--channel` and on its summary line:
   scenario makes between the decision and the integration: a commit on the
   target, an edit to the policy file the worktree reads, and integration
   authority offered to a paired replica. Six histories named for those moves
-  run after the others on this channel.
+  run after the others on this channel;
+- `coverage` — `historicalAuthorization` and `coverageAfterIntegration`
+  against what `arc show --json`, `arc findings --audit`, and `arc query
+  --debt` report after the same moves, a real `arc integrate`, and the
+  scenario's `arc audit`. Eleven histories named for integrations and audits run
+  after the others on this channel.
 
 Each row is one of:
 
