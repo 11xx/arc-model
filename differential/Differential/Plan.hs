@@ -27,10 +27,13 @@ data Identity = Declared String
               | Assumed
   deriving stock (Eq, Show)
 
--- | How a gate run comes out, and what its environment probe prints.
+-- | How a gate run comes out, what its environment probe prints, and where
+-- it runs.
 data GateRun = GateRun
   { fails       :: !Bool
   , probeYields :: !(Maybe String)  -- ^ Nothing makes the probe fail, so the evidence records no identity.
+  , dirty       :: !Bool            -- ^ Run with an uncommitted edit in the worktree, removed afterwards.
+  , against     :: !Bool            -- ^ Run against the merge with the target rather than at the head.
   }
   deriving stock (Eq, Show)
 
@@ -44,6 +47,14 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | External ExternalKind    -- ^ Record an external decision about the current head.
           | CommitUnrecorded         -- ^ Commit after the last snapshot, so the head moves.
           | EditGates                -- ^ Change the gate declaration without committing it.
+          | WaiveDirty               -- ^ Declare a dirty-tree waiver at the worktree's head, through an ad hoc run.
+          | AdvanceTarget            -- ^ Commit on the target a file the change never touches.
+          | ConflictTarget FilePath  -- ^ Commit on the target this file, which the change also adds.
+          | Brief                    -- ^ Record a brief declaring the acceptance probe, based at the worktree's head.
+          | ProbeBaseline Bool       -- ^ Run the probe at the brief's base; True makes it fail.
+          | ProbeFinal Bool          -- ^ Run the probe at the head; True makes it fail.
+          | DeleteBranch             -- ^ Remove the change's worktree and delete its branch.
+          | ConflictDeclarations     -- ^ Declare the required gate again, differently, in the operator's policy layer.
   deriving stock (Eq, Show)
 
 data Plan = Plan
@@ -51,6 +62,7 @@ data Plan = Plan
   , touchesDanger :: !Bool            -- ^ Whether the change edits the declared dangerous path.
   , steps         :: ![Step]
   , probeAtCheck  :: !(Maybe String)  -- ^ What the probe prints where the decision is asked; Nothing fails it.
+  , inWorktree    :: !Bool            -- ^ Ask from the change's worktree; False asks from the main checkout.
   }
   deriving stock (Eq, Show)
 
@@ -58,6 +70,7 @@ data Plan = Plan
 data Skip = UnreadableEvidence
           | OtherTreeNeedsTwoPatchsets
           | FindingWithoutVerdict
+          | DirtAgainstMerge
   deriving stock (Eq, Ord, Show)
 
 skipText :: Skip -> String
@@ -65,20 +78,34 @@ skipText = \case
   UnreadableEvidence         -> "unreadable evidence cannot be recorded through the CLI"
   OtherTreeNeedsTwoPatchsets -> "evidence at another tree needs an earlier patchset to record it at"
   FindingWithoutVerdict      -> "a finding is recorded only with a verdict"
+  DirtAgainstMerge           -> "a run against the merge uses a clean checkout of its own, so it records no dirt"
 
 plan :: Scenario -> Either Skip Plan
 plan scenario
   | scenario.gateMode == EvidenceRecordUnreadable                 = Left UnreadableEvidence
   | scenario.gateMode == EvidenceOtherTree && scenario.patchsets < 2 = Left OtherTreeNeedsTwoPatchsets
   | scenario.blockingFinding && scenario.reviewer == Nothing      = Left FindingWithoutVerdict
+  | scenario.worktree /= WorktreeClean && scenario.targetMode == TargetBehindEvaluated && scenario.gateMode /= EvidenceOmitted
+      = Left DirtAgainstMerge
   | otherwise = Right Plan
       { policy        = scenario.policy
       , touchesDanger = touchesDanger
-      , steps         = concatMap patchset [1 .. scenario.patchsets] <> afterwards
+      , steps         = beforehand <> concatMap patchset [1 .. scenario.patchsets] <> afterwards
       , probeAtCheck  = if scenario.gateMode == EvidenceProbeFailed then Nothing else Just "here"
+      , inWorktree    = not scenario.branchMissing
       }
   where
     touchesDanger = scenario.policy.independentVerdictRequired
+    changed       = if touchesDanger then "danger.txt" else "work.txt"
+    -- a probe based before the first commit runs its baseline there; one
+    -- that cannot be discharged is based at the last patchset's head
+    probeBasedEarly = scenario.probe `notElem` [ProbeNone, ProbeUndischargeable]
+    beforehand = concat
+      [ [ WaiveDirty | scenario.worktree == WorktreeDirtyWaivedElsewhere ]
+      , [ AdvanceTarget | scenario.targetMode `elem` [TargetBehind, TargetBehindEvaluated] ]
+      , [ Brief | probeBasedEarly ]
+      , [ ProbeBaseline (scenario.probe /= ProbeBaselinePassed) | probeBasedEarly ]
+      ]
     target
       | scenario.verdictOnFirst && scenario.patchsets > 1 = 1
       | otherwise                                         = scenario.patchsets
@@ -86,10 +113,13 @@ plan scenario
       | scenario.gateMode == EvidenceOtherTree = scenario.patchsets - 1
       | otherwise                              = scenario.patchsets
     patchset index = concat
-      [ [ Commit (if touchesDanger then "danger.txt" else "work.txt") ]
+      [ [ Commit changed ]
+      , [ step | index == scenario.patchsets, scenario.probe == ProbeUndischargeable, step <- [Brief, ProbeBaseline True] ]
       , [ Snapshot (if scenario.extraContributor then ["author", "other"] else []) ]
       , [ Debt kind | Just (declaredOn, kind) <- [scenario.debt], declaredOn == index ]
       , [ Verify gateRun | index == verifyAt, scenario.gateMode /= EvidenceOmitted ]
+      , [ WaiveDirty | index == verifyAt, scenario.gateMode /= EvidenceOmitted, scenario.worktree == WorktreeDirtyWaived ]
+      , [ ProbeFinal (scenario.probe == ProbeFinalFailed) | index == scenario.patchsets, scenario.probe `notElem` [ProbeNone, ProbeFinalMissing] ]
       , if index == target then review else []
       ]
     review = concat
@@ -100,7 +130,10 @@ plan scenario
     afterwards = concat
       [ [ External kind | Just kind <- [scenario.externalVerdict] ]
       , [ EditGates | scenario.gateMode == EvidenceShapeMoved ]
+      , [ ConflictTarget changed | scenario.targetMode == TargetConflicting ]
       , [ CommitUnrecorded | scenario.headMoved ]
+      , [ ConflictDeclarations | scenario.conflictingGates ]
+      , [ DeleteBranch | scenario.branchMissing ]
       ]
     gateRun = GateRun
       { fails       = scenario.gateMode == EvidenceFailing
@@ -108,6 +141,8 @@ plan scenario
           EvidenceOtherEnvironment      -> Just "elsewhere"
           EvidenceUnrecordedEnvironment -> Nothing
           _here                         -> Just "here"
+      , dirty       = scenario.worktree /= WorktreeClean
+      , against     = scenario.targetMode == TargetBehindEvaluated
       }
     identityOf = \case
       ActorIndependent -> Declared "reviewer"

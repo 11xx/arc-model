@@ -11,6 +11,7 @@ module Differential.Arc
     , Answer(..)
     , Outcome(..)
     , runPlan
+    , checkRefusedConflictingGates
     ) where
 
 import Arc.Model ( DebtKind(..), ExternalKind(..), Policy, VerdictKind(..) )
@@ -93,6 +94,18 @@ gatesToml = unlines
   , "environment = \"test -n \\\"$PROBE_ENV\\\" && echo $PROBE_ENV\""
   ]
 
+-- | The acceptance probe a brief declares: it fails on demand.
+probesJson :: String
+probesJson = "[{\"name\":\"accept\",\"command\":\"test -z \\\"$ACCEPT_FAIL\\\"\"}]"
+
+-- | A second declaration of the required gate, in the operator's layer,
+-- that disagrees with the project's on the command.
+operatorGatesToml :: String
+operatorGatesToml = unlines
+  [ "[gates.build]"
+  , "command = \"true\""
+  ]
+
 policyToml :: Policy -> String
 policyToml policy = unlines
   [ "[policy]"
@@ -113,7 +126,7 @@ runPlan options root planned = do
   outcome <- try (runSteps options sandbox planned.steps) :: IO (Either IOException ())
   case outcome of
     Left failure -> pure (ReplayFailed (show failure))
-    Right ()     -> check options sandbox planned.probeAtCheck
+    Right ()     -> check options sandbox (if planned.inWorktree then sandbox.worktree else sandbox.repo) planned.probeAtCheck
 
 mkSandbox :: Options -> FilePath -> Policy -> IO Sandbox
 mkSandbox options root policy = do
@@ -163,10 +176,37 @@ runSteps options sandbox = mapM_ step
         git sandbox wt ["commit", "-q", "-m", "edit " <> file]
       Snapshot contributors ->
         expect =<< arc options sandbox wt author [] (["snapshot", changeSlug] <> [ "--contributors=" <> commaList contributors | not (null contributors) ]) ""
-      Verify run ->
+      Verify run -> do
         -- a failing gate makes verify exit non-zero after recording the
-        -- evidence, which is the run the plan asked for
-        (if run.fails then allowRefusal else expect) =<< arc options sandbox wt author (gateEnv run) ["verify", changeSlug, "--gate", "build"] ""
+        -- evidence, which is the run the plan asked for, and so does a run
+        -- against the merge whose probe yields nothing
+        when run.dirty (appendFile (wt </> "README.md") "uncommitted\n")
+        let target = if run.against then ["--against", "master"] else ["--gate", "build"]
+        (if run.fails || run.against then allowRefusal else expect) =<< arc options sandbox wt author (gateEnv run) (["verify", changeSlug] <> target) ""
+        when run.dirty (git sandbox wt ["checkout", "--", "README.md"])
+      WaiveDirty ->
+        expect =<< arc options sandbox wt author [] ["verify", changeSlug, "--command", "true", "--waive-dirty", "generated output"] ""
+      AdvanceTarget -> do
+        writeFile (sandbox.repo </> "target.txt") "target\n"
+        git sandbox sandbox.repo ["add", "target.txt"]
+        git sandbox sandbox.repo ["commit", "-q", "-m", "the target moves"]
+      ConflictTarget file -> do
+        writeFile (sandbox.repo </> file) "target\n"
+        git sandbox sandbox.repo ["add", file]
+        git sandbox sandbox.repo ["commit", "-q", "-m", "the target adds " <> file]
+      Brief -> do
+        (_, base, _) <- gitOut sandbox wt ["rev-parse", "HEAD"]
+        expect =<< arc options sandbox wt author [] ["brief", changeSlug, "--body-file", "-", "--base", trim base, "--probes-json", probesJson] "contract\n"
+      ProbeBaseline fails ->
+        allowRefusal =<< arc options sandbox wt author (acceptEnv fails) ["verify", changeSlug, "--probe", "accept", "--probe-phase", "baseline"] ""
+      ProbeFinal fails ->
+        allowRefusal =<< arc options sandbox wt author (acceptEnv fails) ["verify", changeSlug, "--probe", "accept", "--probe-phase", "final"] ""
+      DeleteBranch -> do
+        git sandbox sandbox.repo ["worktree", "remove", "--force", wt]
+        git sandbox sandbox.repo ["branch", "-D", "arc/" <> changeSlug]
+      ConflictDeclarations -> do
+        createDirectoryIfMissing True (sandbox.repo </> ".git" </> "arc")
+        writeFile (sandbox.repo </> ".git" </> "arc" </> "operator-policy.toml") operatorGatesToml
       Review identity kind ->
         -- a verdict nobody declared is refused where policy requires a
         -- declared actor; the plan asks anyway, because the model records it
@@ -197,15 +237,30 @@ runSteps options sandbox = mapM_ step
         declared <- readFile (wt </> ".arc" </> "gates.toml")
         length declared `seq` writeFile (wt </> ".arc" </> "gates.toml") (replaceOnce "test -z" "test  -z" declared)
     gateEnv run = [ ("GATE_FAIL", "1") | run.fails ] <> [ ("PROBE_ENV", identity) | Just identity <- [run.probeYields] ]
+    acceptEnv fails = [ ("ACCEPT_FAIL", "1") | fails ]
     expect (code, _, err) = unless (code == ExitSuccess) (ioError (userError ("arc refused: " <> trim err)))
     allowRefusal (code, _, err) = when (options.verbose && code /= ExitSuccess) (putStrLn ("  (refused as the plan allows: " <> trim err <> ")"))
 
-check :: Options -> Sandbox -> Maybe String -> IO Outcome
-check options sandbox probe = do
-  (_, out, err) <- arc options sandbox sandbox.worktree (Declared "author") [ ("PROBE_ENV", identity) | Just identity <- [probe] ] ["check", changeSlug, "--json"] ""
+{- | Ask arc for its decision from the given checkout. A check arc refuses
+outright answers no blockers; the one such refusal a plan produces, a
+conflicting gate declaration, is recorded under
+'checkRefusedConflictingGates' so it can be compared, and any other is a
+replay that broke.
+-}
+check :: Options -> Sandbox -> FilePath -> Maybe String -> IO Outcome
+check options sandbox dir probe = do
+  (_, out, err) <- arc options sandbox dir (Declared "author") [ ("PROBE_ENV", identity) | Just identity <- [probe] ] ["check", changeSlug, "--json"] ""
   pure $ case eitherDecodeStrict' (BS.pack out) of
     Right (CheckOutput isReady found) -> Answered Answer { ready = isReady, blockers = Set.fromList (map (.blocker) found) }
-    Left failure                      -> ReplayFailed ("check JSON: " <> failure <> "; stderr: " <> trim err)
+    Left failure
+      | "error: conflicting gate declarations" `isPrefixOf` err -> Answered Answer { ready = False, blockers = Set.singleton checkRefusedConflictingGates }
+      | otherwise -> ReplayFailed ("check JSON: " <> failure <> "; stderr: " <> trim err)
+
+-- | The name the differential gives arc's refusal to check at all under
+-- conflicting gate declarations. It is not one of arc's blockers.
+checkRefusedConflictingGates :: String
+checkRefusedConflictingGates = "check-refused:conflicting-gate-declarations"
+
 
 -- processes
 

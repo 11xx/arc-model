@@ -14,19 +14,21 @@ counterexample can be generated for them.
 
 - **Distinct identifiers.** `ChangeId`, `PatchsetId`, `Revision`, `TreeId`,
   `ActorId`, `GateName`, `DeclarationId`, `EventId`, `FindingId`, `DebtId`,
-  `ClaimId`, `HoldId`, `FailureLabel`, `ProbeCommand`, and `EnvironmentId` are
-  separate types. A revision cannot be compared with a tree, a patchset cannot
+  `ClaimId`, `HoldId`, `FailureLabel`, `ProbeCommand`, `EnvironmentId`, and
+  `ProbeName` are separate types. A revision cannot be compared with a tree, a patchset cannot
   be passed where an event is wanted, and an environment identity cannot be
   mistaken for the probe that yields it.
 - **Observation is total.** `Observed a = Omitted | Observed a`. There is no
   default, no `Bool`, and no exception path from a missing observation to a
   result: a gate reading can be `Omitted` in every one of its four fields, and
   a probe that yields nothing where the decision is made is `Omitted`, never
-  an identity.
+  an identity. The observed head is `Observed` too: a change whose branch is
+  gone has no head, not a head nobody compares.
 - **Four gate readings are four fields.** `GateReading` carries the result,
   the coverage (`Covered` / `NeverEvaluated` / `EvaluatedOtherTree` /
   `DeclarationMoved` / `EvaluatedOtherEnvironment` / `EnvironmentUnrecorded`
-  / `EnvironmentUnobserved`), the availability (`NotProduced` / `Recorded
+  / `EnvironmentUnobserved` / `EvaluatedDirtyTree` / `WorktreeUnrecorded`),
+  the availability (`NotProduced` / `Recorded
   execution` / `EvidenceUnreadable`), and the demonstrated falsification
   separately. `gateGreen` reads coverage first, so a pass recorded elsewhere —
   another tree, another declaration, another environment — cannot stand in
@@ -90,11 +92,16 @@ counterexample can be generated for them.
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
 | `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone |
 | `provisional` | a provisional approval gates like any other |
+| `dirty` | a run on a dirty worktree is not coverage and its result stands beside it; a waiver at its revision counts it, one at another revision does not; a run recording nothing about its worktree is refused; attested evidence carries no worktree |
+| `merged-tree` / `needs-rebase` | a merge nobody ran a gate on is refused beside the gate; an evaluated merge permits on the merge's tree; a head that does not merge owes a rebase and nothing else |
+| `probes` | a discharged probe permits; a pass at the base, a missing or failing final run, and a base that is the head are each their own probe refusal |
+| `branch-missing` | a missing branch refuses without a moved head beside it, and refuses execution |
+| `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
 | `demonstration` | the model refuses a contributor reviewer; the deliberate fault permits |
 
 ### Properties
 
-Twelve properties run over generated scenarios; seeds and case counts are
+Thirteen properties run over generated scenarios; seeds and case counts are
 recorded in the README.
 
 | property | statement |
@@ -110,36 +117,45 @@ recorded in the README.
 | debt unused | a debt bound to an approved patchset is reported as recorded debt, not as an authorization input |
 | negative audit does not approve | a negative audit that fulfils the read leaves the approval flag false unless an independent approving answer exists |
 | decision is the first ground | `decide` permits exactly when `refusals` is empty and otherwise refuses on its first element |
-| grounds are facts | every ground `refusals` returns names a fact the history and observations hold, checked constructor by constructor; execution-only refusals never appear |
+| grounds are facts | every ground `refusals` returns names a fact the history and observations hold, checked constructor by constructor, a probe refusal against the probe runs themselves; execution-only refusals never appear |
+| check-time facts refuse | unwaived dirty evidence, a merge nobody evaluated, a head that does not merge, a probe left undischarged, a missing branch, and conflicting declarations never permit |
 
 ### Mutants
 
-Twelve deliberate faults; each must be killed, and each divergence must be of
+Eighteen deliberate faults; each must be killed, and each divergence must be of
 the predicted class. Distinguishing a different refusal from a permission is
 deliberate: dropping one ground of a refusal is a real fault even when another
 ground answers.
 
 | fault | channel | predicted divergence | killed (seed 20260907) |
 | --- | --- | --- | --- |
-| contributor identity ignored | decision | permits, different refusal, different basis | 45 tests, 7 shrinks |
-| gate matched by name | decision | permits, different refusal | 80 tests, 4 shrinks |
-| unknown treated as success | decision | permits, different refusal | 8 tests, 5 shrinks |
-| authorization reused after its basis moved | execution | permits, different refusal | 26 tests, 10 shrinks |
-| fulfilled implies approved | coverage | different value | 13 tests, 1 shrink |
-| latest debt applied to every patchset | decision | permits, different refusal | 34 tests, 7 shrinks |
-| debt clears a refusing verdict | decision | permits, different refusal | 5 tests, 7 shrinks |
-| later audit rewrites the integration basis | historical | different value | 3 tests, 5 shrinks |
-| unreadable evidence counts as review | decision | permits, different refusal | 45 tests, 4 shrinks |
-| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 7 shrinks |
-| environment ignored | decision | permits, different refusal | 49 tests, 7 shrinks |
-| authority ignored | execution | permits, different refusal | 72 tests, 4 shrinks |
+| contributor identity ignored | decision | permits, different refusal, different basis | 45 tests, 8 shrinks |
+| gate matched by name | decision | permits, different refusal | 6 tests, 7 shrinks |
+| unknown treated as success | decision | permits, different refusal | 8 tests, 6 shrinks |
+| authorization reused after its basis moved | execution | permits, different refusal | 48 tests, 6 shrinks |
+| fulfilled implies approved | coverage | different value | 13 tests, 2 shrinks |
+| latest debt applied to every patchset | decision | permits, different refusal | 55 tests, 6 shrinks |
+| debt clears a refusing verdict | decision | permits, different refusal | 34 tests, 4 shrinks |
+| later audit rewrites the integration basis | historical | different value | 3 tests, 6 shrinks |
+| unreadable evidence counts as review | decision | permits, different refusal | 45 tests, 5 shrinks |
+| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 8 shrinks |
+| environment ignored | decision | permits, different refusal | 49 tests, 8 shrinks |
+| authority ignored | execution | permits, different refusal | 201 tests, 7 shrinks |
+| dirty evidence counts | decision | permits, different refusal | 27 tests, 10 shrinks |
+| merge read as the head | decision | permits, refuses, different refusal | 9 tests, 10 shrinks |
+| rebase ignored | decision | permits, different refusal | 10 tests, 6 shrinks |
+| a final probe pass suffices | decision | permits, different refusal | 106 tests, 9 shrinks |
+| missing branch read as the head | decision | permits, different refusal | 3 tests, 8 shrinks |
+| first gate declaration wins | decision | permits, different refusal | 3 tests, 11 shrinks |
 
 A surviving mutant is reported as a failure; the suite exits non-zero. The
 reason a mutant may legitimately exhibit more than one class is the fault
 itself: a ground dropped from a refusal surfaces as a permission when nothing
 else stands in the way, and as a different refusal when something does. The
 external-approval fault also surfaces as a different basis: where an external
-approval already authorizes, the fault names a witnessed verdict instead.
+approval already authorizes, the fault names a witnessed verdict instead. The
+merge-as-head fault also refuses: evidence recorded against the merge does
+not answer for the head's tree it reads instead.
 
 ### Demonstrated counterexample
 
@@ -161,20 +177,31 @@ fixture pins the behaviour and the shrunk case pins the shrinker.
 ### Generator coverage
 
 The coverage sampler generates 4000 scenarios and fails if any required class
-is never reached. At seed `20260907` the counts are: permitted 349, waived
-127, externally authorized 27, external refused 485, self-approval refused
-116, gates refused 335, gate failed 31, environment refused 137, verdict
-stands 818, head moved 820, target moved 68, policy moved 63, authority
-withheld 61, debt unused 100, unknown observation 521, audit fulfilled read
-92, audit negative not approved 19, episode expired 1945, equal-tree
-contributor variation 2026. A class with a count of zero is reported by name,
-so the suite cannot pass on trivial histories.
+is never reached. At seed `20260907` the counts are: permitted 114, waived
+36, externally authorized 9, external refused 138, self-approval refused
+65, gates refused 259, gate failed 15, environment refused 74, verdict
+stands 430, head moved 581, target moved 23, policy moved 19, authority
+withheld 24, debt unused 34, unknown observation 521, audit fulfilled read
+30, audit negative not approved 3, episode expired 1945, equal-tree
+contributor variation 2026, dirty refused 525, dirty waived 22, merged tree
+unevaluated 475, merge evaluated 17, needs rebase 384, probes refused 1315,
+probe discharged 34, branch missing 380, conflicting gates 351. The classes
+the first ground names count a history once it is refused on that ground;
+the check-time classes count every ground, so a history refused first on
+another is still counted. A class with a count of zero is reported by name,
+so the suite cannot pass on trivial histories. The check-time facts refuse
+often, which is why permitted histories are rarer than the decision fields
+alone would make them; the audit and permission classes draw from the
+integratable generator in the properties and mutants that need them.
 
 ## Differential
 
 `arc-model-differential` replays histories through the arc binary and
 compares `arc check --json` with the model's grounds. The comparison is over
 sets, because arc reports every blocker and `refusals` returns every ground.
+`generated-i` rows draw the fields the decision rests on; `check-time-i`
+rows draw the same fields from the same seed and then the check-time facts,
+so a check-time row differs from its generated twin only in those facts.
 
 ### The mapping
 
@@ -184,10 +211,14 @@ appear in arc's answer as follows; the claim is what the run tests.
 | model ground | arc blockers |
 | --- | --- |
 | `closed`, `iterating`, `blocked-by`, `hold-active` | the same, by name |
+| `conflicting-declarations` | none: arc refuses to check at all (`error: conflicting gate declarations`), and the differential records that refusal as `check-refused:conflicting-gate-declarations` |
+| `branch-missing` | `branch-missing`, `no-valid-approval`, and `gates-not-green`: with no head, approval validity and gate lookup have nothing to bind to |
 | `head-moved` | `no-valid-approval` and `gates-not-green`: arc binds approval validity and gate lookup to the head |
+| `needs-rebase`, `merged-tree-unevaluated` | the same, by name |
 | `blocking-findings` | `blocking-findings` |
 | `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
-| `gates` | `gates-not-green` |
+| `gates` | `gates-not-green`, including evidence on a dirty worktree |
+| `acceptance-probes` | `acceptance-probes-not-green` |
 | `undeclared-actor` | nothing: arc refuses the undeclared write, so no such verdict reaches `check` |
 
 ### The encoding
@@ -207,10 +238,30 @@ or nothing when the scenario fails it. Policy is written to
 `.arc/policy.toml` and the change edits the declared dangerous path exactly
 when independent review is required.
 
-Three fields have no command, and a scenario using one is skipped with the
+The check-time facts are commands too. Dirty evidence is `arc verify` with
+an uncommitted edit in the worktree, removed after the run; a dirty-tree
+waiver is `arc verify --command true --waive-dirty`, declared right after
+the dirty run to name its revision, or before the first commit to name the
+change's base (the ad hoc run it records is no gate evidence, and the model
+records nothing for it). A target that moved is a commit on `master` before
+the first patchset; the gate then runs at the head, or with `arc verify
+--against master` when the scenario evaluates the merge. A conflicting
+target is a commit on `master` adding the file the change adds, made just
+before the decision. A probe is `arc brief --probes-json` declaring one probe
+whose command fails on demand, based at the worktree's head before the first
+commit, with its baseline run there and its final run at the last patchset;
+a probe that cannot be discharged is based at the last commit, with both
+runs at that one revision. A missing branch is the worktree removed and the
+branch deleted, and the decision is then asked from the main checkout. A
+conflicting declaration is the same gate declared with another command in
+the operator's layer, `<git-common-dir>/arc/operator-policy.toml`.
+
+Four fields have no command, and a scenario using one is skipped with the
 reason rather than approximated: unreadable evidence, evidence at another
-tree when there is no earlier patchset to record it at, and a finding on a
-history with no verdict, since arc records findings only with one.
+tree when there is no earlier patchset to record it at, a finding on a
+history with no verdict, since arc records findings only with one, and dirt
+on a run against the merge, since `verify --against` runs in a clean
+checkout of its own and records none.
 
 Three scenario fields do not reach the decision and are not replayed: a
 target or policy moved before execution, withheld authority, and a
@@ -222,12 +273,25 @@ closure it causes; the scenario builder records both events, as arc does.
 
 ### Results at the comparison revision
 
-Seed `20260907`, the 29 named histories and 200 generated ones: 210 agreed,
-19 skipped (10 unreadable evidence, 4 other-tree on one patchset, 5 finding
-without verdict), 0 adjudicated, 0 disagreed, 0 failed to replay. No
-disagreement class is on record; `Differential.Compare.adjudicate` is where
-one is named, with the scenario shape and blocker sets it applies to, when a
-run produces one.
+Seed `20260907`, `--cases 200 --check-time-cases 200`: 442 cases, 398
+agreed, 44 skipped, 0 adjudicated, 0 disagreed, 0 failed to replay.
+
+| rows | cases | agreed | skipped |
+| --- | --- | --- | --- |
+| the 29 decision histories named first | 29 | 29 | 0 |
+| `generated-0` .. `generated-199` | 200 | 181 | 19: 10 unreadable evidence, 4 other-tree on one patchset, 5 finding without verdict |
+| the 13 check-time histories named after them | 13 | 13 | 0 |
+| `check-time-0` .. `check-time-199` | 200 | 175 | 25: the same 19, and 6 dirt on a run against the merge |
+
+The generated rows hold every check-time fact at its default, so their
+histories are the decision generator's alone. Of the 200 check-time rows, 165 carry at least one check-time fact: 55 dirty
+evidence runs (21 unwaived, 14 waived at their revision, 20 waived at the
+base), 69 moved targets (22 unevaluated, 27 evaluated, 20 conflicting), 115
+briefs (49 discharged, 16 baseline passed, 12 final missing, 13 final
+failed, 25 undischargeable), 22 missing branches, and 19 conflicting
+declarations. No disagreement class is on record;
+`Differential.Compare.adjudicate` is where one is named, with the scenario
+shape and blocker sets it applies to, when a run produces one.
 
 ### The comparison can object
 
@@ -241,6 +305,22 @@ would let arc's refusal through. At seed `20260907` with 40 generated cases:
 | environment ignored | `gate-other-environment`, `gate-environment-unrecorded`, `gate-probe-failed`, two generated | `gates-not-green` |
 | external approval counts as independent review | `external-approved-danger` | `no-valid-approval` |
 | unknown treated as success | every gate history but `gate-covered`, plus generated | `gates-not-green` |
+
+For the check-time faults, at seed `20260907` with `--cases 0
+--check-time-cases 40`:
+
+| fault | rows that object | what arc refused |
+| --- | --- | --- |
+| dirty evidence counts | `gate-dirty`, `gate-dirty-waived-elsewhere` | `gates-not-green` |
+| merge read as the head | `target-behind` | `merged-tree-unevaluated`, `gates-not-green` |
+| rebase ignored | `target-conflicting` | `needs-rebase` |
+| a final probe pass suffices | `probe-baseline-passed`, `probe-undischargeable` | `acceptance-probes-not-green` |
+| missing branch read as the head | `branch-missing` | `branch-missing`, `no-valid-approval`, `gates-not-green` |
+| first gate declaration wins | `conflicting-gates` | the check itself |
+
+No generated row objects under these faults at 40 cases: a fault permits
+only where every other fact would, and a generated history carrying one
+check-time fact rarely clears the rest.
 
 Each run exits non-zero. The first row of the first table is the
 demonstrated counterexample against the arc binary: one patchset by `author`
@@ -259,10 +339,11 @@ behaviour a pure model cannot state remain outside it.
 
 The evidence supports extracting one pure decision boundary from arc: the
 blocker derivation in `status.rs`, which turns already-computed facts —
-approval validity, gate greenness, open findings, holds, dependency and
-rebase state — into the blocker list. It has an independent twin in
-`evaluate`, the differential protects it on 210 histories plus the named
-ones, and the extraction changes no observable answer. The approval-validity
+approval validity, gate greenness, probe discharge, open findings, holds,
+the branch, dependency and rebase state, and whether the merge was
+evaluated — into the blocker list. It has an independent twin in
+`evaluate`, the differential protects it on 398 agreed histories, named and
+generated, and the extraction changes no observable answer. The approval-validity
 computation above it, where local, external, waiver, and danger interact,
 is the next candidate and the one where the vocabulary differences listed
 under unsettled design would have to be settled first.
@@ -279,7 +360,7 @@ state, not by translating its diff.
 | `eaca714`, `e580393` | verdicts decided outside arc; local refusals kept beside an external approval | modelled: `ExternalVerdict` record, `RefusedExternalVerdictStands`, `AuthorizedByExternalVerdict`; a local refusal is checked before the external decision; the `external` fixture and the external-approval mutant |
 | `be9799c`, `913df16` | gate evidence bound to the environment a probe reports; a failed probe is no identity | modelled: `Declaration.environment`, `Verification.environment`, `Observations.environments`, three coverage constructors; the `environment` fixture and the environment-ignored mutant |
 | `ba7de9d`, `53e70cb`, `c9e029b`, `2143242` | replica pairing and integration authority | modelled at execution: `IntegrationAuthority`, `RefusedAuthorityWithheld`; the protocol that decides who holds authority is an observation, not modelled |
-| `9b6ac80`, `745a27c`, `fb1227b` | operator policy layered with project policy; conflicting gate declarations refused | no change to a modelled answer: the model takes the effective policy and declaration set as observations; a conflicting declaration set is refused before any decision is asked, listed unsupported |
+| `9b6ac80`, `745a27c`, `fb1227b` | operator policy layered with project policy; conflicting gate declarations refused | the model takes the effective policy and declaration set as observations; the gates two layers declare differently are an observation too, refused alone as `RefusedConflictingDeclarations` |
 | `e8e16a3` | `done` with no gate declared reports a check state | already modelled: no required gate yields an empty gate basis |
 | `a6a04a8` | a contribution is recorded ready to send instead of merged | no change to the decision; the effect kind is unsupported |
 | `4eb7200`, `82cfcbb`, `6f4999b`, `081b5d8`, `96f3c17`, `3102eb3` | already-contained heads, checkout guards, squash rollback | Git effects, unsupported |
@@ -309,7 +390,19 @@ still choose differently. Each is a deliberate choice, not an oversight.
   Production records both in its authorization basis.
 - **Tree before environment.** Coverage reads the tree before the environment,
   so evidence from another tree in another environment is reported as
-  other-tree. Production tests both and reports neither first.
+  other-tree. Production tests both and reports neither first. The worktree
+  sits between them: dirty evidence at another tree is other-tree, and dirty
+  evidence at this tree is dirty whatever its environment.
+- **A merge nobody evaluated.** The model names it when the head is behind
+  its target, a gate is required, and no record of a required gate carries
+  the evaluated tree, whatever that record's result. Production reads the
+  evidence its gate lookup selects for the evaluated tree; the two agree on
+  every history the CLI can record, where no record at that tree is ever
+  unreadable.
+- **Conflicting declarations stand alone.** Production refuses to check at
+  all, so no blocker is reported beside the conflict; the model returns that
+  one ground, not every ground, because there is no declaration set to read
+  the rest against.
 - **Authority at execution.** Production refuses a store without integration
   authority when `integrate` starts, before readiness; `check` never asks.
   The model refuses it in `execute`, before comparing the basis, and never in
@@ -353,20 +446,27 @@ about them:
 
 ## Known unsupported semantics
 
-- **Git effects.** Synthesizing a merged tree, verifying that a merge commit's
-  tree is the evaluated one, closing a change the target already contains,
-  the checkout guards, squash rollback, and the reset after a mismatch are
-  outside the model. The evaluated tree and the target before are
-  observations, and the `needs-rebase`, `merged-tree-unevaluated`,
-  `branch-missing`, and `fork-branch` blockers are not modelled.
+- **Git effects.** Synthesizing a merged tree, deciding whether it
+  conflicts, verifying that a merge commit's tree is the evaluated one,
+  closing a change the target already contains, the checkout guards, squash
+  rollback, and the reset after a mismatch are outside the model. The head,
+  the target, how the two merge, and the evaluated tree are observations;
+  the `needs-rebase`, `merged-tree-unevaluated`, and `branch-missing`
+  blockers are grounds read from them.
+- **Fork branches.** The `fork-branch` blocker is not modelled and has no
+  replay: arc refuses to open a change on a fork's branch and refuses a fork
+  marker over an open change's branch, so no command sequence puts a change
+  on one.
+- **A tree that moved during the run.** Production records evidence whose
+  worktree changed while the command ran and never counts it. The model's
+  verifications carry no such flag, and no plan step can move a tree
+  mid-run deterministically.
 - **Durability, locking, races, crash recovery.** A pure model cannot
   establish them; they stay independent OS-level tests.
-- **Conflicting gate declarations.** Two policy layers declaring one gate with
-  different commands or probes make production refuse to evaluate at all. The
-  model takes an effective, unconflicted declaration set as an observation.
-- **Evidence on a dirty tree and its waiver.** Production counts a run
-  recorded on a dirty tree only under a waiver for that revision; the model's
-  verifications carry no dirtiness.
+- **Gate declarations beyond the conflict.** Which layer a declaration
+  comes from, and how two agreeing layers merge, are not modelled: the model
+  takes the effective declaration set, and the names of the gates two layers
+  declare differently, as observations.
 - **Ledger replay of environments.** Where production evaluates without a
   checkout, evidence carrying any identity counts. The model characterizes
   the live decision, where the identity must be observed here and equal.
@@ -375,8 +475,10 @@ about them:
   change request itself is the refusal.
 - **Contribution mode.** Whether a permitted integration merges or is
   recorded ready to send is an effect kind the model does not name.
-- **Acceptance probes.** The `acceptance-probes-not-green` blocker is not
-  modelled.
+- **Acceptance probes beyond discharge.** Brief versions, attested probe
+  runs, and a brief superseding another are not modelled: a patchset names
+  the brief in force when it was recorded, and a probe is read against that
+  brief's base and the patchset's head.
 - **Provenance categories.** `actor_source` values (`flag`, `env`, `derived`,
   `git-fallback`) collapse to a declared/assumed boolean. `require_declared_actor`
   is modelled for the invoker only.

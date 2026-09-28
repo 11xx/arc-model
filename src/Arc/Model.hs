@@ -17,6 +17,7 @@ module Arc.Model
     , module Arc.Model.Policy
     , module Arc.Model.Observations
     , module Arc.Model.Ledger
+    , module Arc.Model.Probe
     , module Arc.Model.State
     , module Arc.Model.Basis
     , module Arc.Model.Decision
@@ -36,6 +37,7 @@ import Arc.Model.Ledger
 import Arc.Model.Observations
 import Arc.Model.Observed
 import Arc.Model.Policy
+import Arc.Model.Probe
 import Arc.Model.State
 
 

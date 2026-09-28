@@ -35,18 +35,22 @@ library
     , Arc.Model.Identifiers
     , Arc.Model.Ledger
     , Arc.Model.Ledger.Audit
+    , Arc.Model.Ledger.Brief
     , Arc.Model.Ledger.Claim
     , Arc.Model.Ledger.Debt
+    , Arc.Model.Ledger.DirtyTreeWaiver
     , Arc.Model.Ledger.Disposition
     , Arc.Model.Ledger.ExternalVerdict
     , Arc.Model.Ledger.Finding
     , Arc.Model.Ledger.Integration
     , Arc.Model.Ledger.Patchset
+    , Arc.Model.Ledger.ProbeRun
     , Arc.Model.Ledger.Verdict
     , Arc.Model.Ledger.Verification
     , Arc.Model.Observations
     , Arc.Model.Observed
     , Arc.Model.Policy
+    , Arc.Model.Probe
     , Arc.Model.State
   build-depends:
       base        >= 4.21 && < 4.22

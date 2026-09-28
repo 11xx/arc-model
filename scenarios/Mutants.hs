@@ -20,6 +20,7 @@ module Mutants
 
 import Arc.Model
 import Arc.Model.Coverage qualified as Coverage
+import Arc.Model.Ledger.Brief qualified as Brief
 import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Debt qualified as Debt
 import Arc.Model.Ledger.Verdict qualified as Verdict
@@ -163,6 +164,44 @@ allMutants =
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
       , run       = \b -> BehaviourExecution (execute (authorityAssumed b.executionObservation) b.state b.decision)
       }
+  , Mutant
+      { name      = "dirty-evidence-counts"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn worktreesCleaned
+      }
+  , Mutant
+      { name      = "merge-read-as-head"
+      , channel   = ChannelDecision
+      -- evidence recorded against the merge no longer answers for the head
+      -- tree the fault reads instead, so the fault also refuses
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceRefuses]
+      , run       = \b -> BehaviourDecision (decide (mergeReadAsHead b) b.state)
+      }
+  , Mutant
+      { name      = "rebase-ignored"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourDecision (decide (conflictIgnored b.observation) b.state)
+      }
+  , Mutant
+      { name      = "final-probe-pass-suffices"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = decisionOn baselinesFabricated
+      }
+  , Mutant
+      { name      = "missing-branch-read-as-head"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourDecision (decide (branchAssumed b) b.state)
+      }
+  , Mutant
+      { name      = "first-gate-declaration-wins"
+      , channel   = ChannelDecision
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , run       = \b -> BehaviourDecision (decide (b.observation { Observations.conflictingGates = [] }) b.state)
+      }
   ]
 
 -- | The decision the model makes on a faulted reading of the built state.
@@ -207,12 +246,14 @@ evidenceFabricated built = case built.decision of
           , gate        = gate
           , declaration = declaration.declarationId
           , shape       = declarationShape declaration
+          , revision    = maybe (Revision "none") (.revision) (latestPatchset built.state)
           , tree        = built.observation.evaluatedTree
           , result      = GatePass
           , execution   = RanLocally
           , answers     = Nothing
           , readable    = True
           , environment = declaration.environment >>= \probe -> lookup probe built.observation.environments >>= observedToMaybe
+          , worktree    = Observed CleanWorktree
           }
       | (gate, wanted) <- take 1 built.observation.requiredGates
       , declaration    <- take 1 [ d | d <- built.observation.declarations, d.declarationId == wanted ]
@@ -274,6 +315,57 @@ probesDropped :: Observations -> Observations
 probesDropped observations = observations
   { Observations.declarations = [ d { Declaration.environment = Nothing } | d <- observations.declarations ]
   }
+
+-- | A state where every run arc observed reads as run on a clean worktree.
+worktreesCleaned :: Built -> ChangeState
+worktreesCleaned built = built.state
+  { State.verifications = [ verification { Verification.worktree = Observed CleanWorktree } | verification <- built.state.verifications ]
+  }
+
+-- | Observations where a change behind its target is decided on its head's
+-- own tree, as if nothing would be merged.
+mergeReadAsHead :: Built -> Observations
+mergeReadAsHead built = case (built.observation.targetRelation, latestPatchset built.state) of
+  (HeadBehindTarget, Just patchset) -> built.observation
+    { Observations.targetRelation = HeadContainsTarget
+    , Observations.evaluatedTree  = patchset.tree
+    }
+  _contained -> built.observation
+
+-- | Observations where a head that does not merge with its target reads as
+-- one that contains it.
+conflictIgnored :: Observations -> Observations
+conflictIgnored observations = case observations.targetRelation of
+  HeadConflictsWithTarget -> observations { Observations.targetRelation = HeadContainsTarget }
+  _merges                 -> observations
+
+-- | A state where every brief has a base apart from the head and every
+-- probe a failing baseline there, so a pass at the head discharges it.
+baselinesFabricated :: Built -> ChangeState
+baselinesFabricated built = built.state
+  { State.briefs    = [ brief { Brief.base = Just faultBase } | brief <- built.state.briefs ]
+  , State.probeRuns = built.state.probeRuns <>
+      [ ProbeRun
+          { event    = EventId 970
+          , brief    = brief.event
+          , probe    = name
+          , phase    = Baseline
+          , revision = faultBase
+          , result   = GateFail
+          }
+      | brief <- built.state.briefs
+      , name  <- brief.probes
+      ]
+  }
+  where
+    faultBase = Revision "fault-base"
+
+-- | Observations where a missing branch reads as the recorded patchset's
+-- head.
+branchAssumed :: Built -> Observations
+branchAssumed built = case (built.observation.head, latestPatchset built.state) of
+  (Omitted, Just patchset) -> built.observation { Observations.head = Observed patchset.revision }
+  _observed                -> built.observation
 
 -- | Observations where the store always holds integration authority.
 authorityAssumed :: Observations -> Observations

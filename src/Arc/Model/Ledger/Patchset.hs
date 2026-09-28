@@ -18,6 +18,7 @@ data Patchset = Patchset
   , tree         :: !TreeId
   , author       :: !ActorId
   , contributors :: !(Set ActorId)
+  , brief        :: !(Maybe EventId)  -- ^ The brief in force when the patchset was recorded.
   }
   deriving stock (Eq, Ord, Show)
 
