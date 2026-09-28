@@ -5,4 +5,4 @@
 command = "cabal v2-build --enable-tests"
 
 [gates.test]
-command = "cabal v2-test spec --test-show-details=direct"
+command = "cabal v2-test --test-show-details=direct"
