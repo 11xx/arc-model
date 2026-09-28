@@ -14,6 +14,7 @@ module Generators
     , build
     , observationsFor
     , executionObservations
+    , flipPolicy
     , isIntegratable
     , mutations
     , Mutation(..)
@@ -240,10 +241,16 @@ build scenario = Built
     events = assignIds (precedingEvents <> probeEvents)
     observations = observationsForOf patchsets scenario
     mergedTree = TreeId "merged"
+    -- a target that moves puts the head behind it, so what would ship is a
+    -- new merge nobody evaluated; a head that conflicts still conflicts,
+    -- and a change without a branch has nothing to merge
+    targetMoves  = scenario.targetAfter && observations.targetRelation /= HeadConflictsWithTarget && not scenario.branchMissing
     executionObs = observations
-      { Observations.target    = if scenario.targetAfter then Revision "target-2" else observations.target
-      , Observations.policy    = if scenario.policyAfter then flipPolicy observations.policy else observations.policy
-      , Observations.authority = if scenario.authorityWithheld then AuthorityWithheld else AuthorityHeld
+      { Observations.target         = if scenario.targetAfter then Revision "target-2" else observations.target
+      , Observations.targetRelation = if targetMoves then HeadBehindTarget else observations.targetRelation
+      , Observations.evaluatedTree  = if targetMoves then TreeId "merged-after" else observations.evaluatedTree
+      , Observations.policy         = if scenario.policyAfter then flipPolicy observations.policy else observations.policy
+      , Observations.authority      = if scenario.authorityWithheld then AuthorityWithheld else AuthorityHeld
       }
     state    = replay scenarioChange events
     decision = decide observations state

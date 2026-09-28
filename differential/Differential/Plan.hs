@@ -3,8 +3,9 @@
 The model's ledger is a list of events; arc's is what its commands append.
 A plan is the sequence of commands whose appended events are the scenario's,
 in the order the model records them, together with the environment the
-decision is then asked in. What the commands cannot express is a skip with
-its reason, never an approximation.
+decision is then asked in, and the moves made between the decision and an
+integration. What the commands cannot express is a skip with its reason,
+never an approximation.
 -}
 module Differential.Plan
     ( Identity(..)
@@ -14,10 +15,12 @@ module Differential.Plan
     , Skip(..)
     , skipText
     , plan
+    , executionSkip
     ) where
 
 import Arc.Model ( DebtKind, ExternalKind, Policy, VerdictKind )
 import Arc.Model.Policy qualified as Policy
+import Generators ( flipPolicy )
 import Scenario
 
 
@@ -55,6 +58,9 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | ProbeFinal Bool          -- ^ Run the probe at the head; True makes it fail.
           | DeleteBranch             -- ^ Remove the change's worktree and delete its branch.
           | ConflictDeclarations     -- ^ Declare the required gate again, differently, in the operator's policy layer.
+          | MoveTarget               -- ^ Commit on the target after the decision.
+          | MovePolicy Policy FilePath  -- ^ Rewrite the policy the worktree reads, with this file dangerous when the policy requires independence.
+          | WithholdAuthority        -- ^ Pair the store with a replica and offer it integration authority.
   deriving stock (Eq, Show)
 
 data Plan = Plan
@@ -63,6 +69,7 @@ data Plan = Plan
   , steps         :: ![Step]
   , probeAtCheck  :: !(Maybe String)  -- ^ What the probe prints where the decision is asked; Nothing fails it.
   , inWorktree    :: !Bool            -- ^ Ask from the change's worktree; False asks from the main checkout.
+  , execution     :: ![Step]          -- ^ What moves between the decision and the integration.
   }
   deriving stock (Eq, Show)
 
@@ -71,6 +78,7 @@ data Skip = UnreadableEvidence
           | OtherTreeNeedsTwoPatchsets
           | FindingWithoutVerdict
           | DirtAgainstMerge
+          | PolicyWithoutWorktree
   deriving stock (Eq, Ord, Show)
 
 skipText :: Skip -> String
@@ -79,6 +87,13 @@ skipText = \case
   OtherTreeNeedsTwoPatchsets -> "evidence at another tree needs an earlier patchset to record it at"
   FindingWithoutVerdict      -> "a finding is recorded only with a verdict"
   DirtAgainstMerge           -> "a run against the merge uses a clean checkout of its own, so it records no dirt"
+  PolicyWithoutWorktree      -> "a policy moved with no worktree left would dirty the target's checkout, which integrate refuses first"
+
+-- | Why a scenario whose decision replays has no integration to compare.
+executionSkip :: Scenario -> Maybe Skip
+executionSkip scenario
+  | scenario.policyAfter && scenario.branchMissing = Just PolicyWithoutWorktree
+  | otherwise                                      = Nothing
 
 plan :: Scenario -> Either Skip Plan
 plan scenario
@@ -93,6 +108,11 @@ plan scenario
       , steps         = beforehand <> concatMap patchset [1 .. scenario.patchsets] <> afterwards
       , probeAtCheck  = if scenario.gateMode == EvidenceProbeFailed then Nothing else Just "here"
       , inWorktree    = not scenario.branchMissing
+      , execution     = concat
+          [ [ MoveTarget | scenario.targetAfter ]
+          , [ MovePolicy (flipPolicy scenario.policy) changed | scenario.policyAfter ]
+          , [ WithholdAuthority | scenario.authorityWithheld ]
+          ]
       }
   where
     touchesDanger = scenario.policy.independentVerdictRequired

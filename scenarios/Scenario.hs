@@ -22,6 +22,7 @@ module Scenario
     , genIntegratable
     , shrinkScenario
     , namedScenarios
+    , namedExecutionScenarios
     ) where
 
 import Arc.Model ( DebtKind(..), ExternalKind(..), Policy(..), VerdictKind(..) )
@@ -192,6 +193,18 @@ namedScenarios =
   , ("probe-undischargeable",      defaultScenario { probe = ProbeUndischargeable })
   , ("branch-missing",             defaultScenario { branchMissing = True })
   , ("conflicting-gates",          defaultScenario { conflictingGates = True })
+  ]
+
+-- | Histories that move something between the decision and the
+-- integration, named for the execution channel.
+namedExecutionScenarios :: [(String, Scenario)]
+namedExecutionScenarios =
+  [ ("execute-target-moved",           defaultScenario { targetAfter = True })
+  , ("execute-policy-loosened",        defaultScenario { policyAfter = True })
+  , ("execute-policy-tightened",       defaultScenario { reviewer = Just ActorContributor, policy = openPolicy, policyAfter = True })
+  , ("execute-authority-withheld",     defaultScenario { authorityWithheld = True })
+  , ("execute-authority-over-refusal", defaultScenario { verdict = ChangesRequested, authorityWithheld = True })
+  , ("execute-target-and-authority",   defaultScenario { targetAfter = True, authorityWithheld = True })
   ]
 
 -- generation

@@ -10,7 +10,9 @@ module Differential.Arc
     ( Options(..)
     , Answer(..)
     , Outcome(..)
+    , DryRun(..)
     , runPlan
+    , runExecution
     , checkRefusedConflictingGates
     ) where
 
@@ -48,8 +50,18 @@ data Answer = Answer
 
 -- | How a replay ended: with arc's answer, or with a command arc refused
 -- that the plan did not expect it to.
-data Outcome = Answered Answer
-             | ReplayFailed String
+data Outcome a = Answered a
+               | ReplayFailed String
+  deriving stock (Eq, Show, Functor)
+
+{- | What @arc integrate --dry-run@ said, and what @arc check@ reports in the
+same world: the dry run's own output is prose, and its refusals are the
+check's blockers with the check's exit code.
+-}
+data DryRun = DryRun
+  { exit  :: !Int
+  , after :: !Answer
+  }
   deriving stock (Eq, Show)
 
 -- json shapes
@@ -73,10 +85,15 @@ newtype FindingRow = FindingRow { id :: String }
   deriving stock (Generic)
   deriving anyclass (FromJSON)
 
+newtype ReplicaId = ReplicaId { repository_id :: String }
+  deriving stock (Generic)
+  deriving anyclass (FromJSON)
+
 -- the sandbox
 
 data Sandbox = Sandbox
   { repo     :: !FilePath
+  , peer     :: !FilePath  -- ^ A second repository, whose store stands in for a paired replica.
   , home     :: !FilePath
   , worktree :: !FilePath
   , baseEnv  :: ![(String, String)]
@@ -106,27 +123,59 @@ operatorGatesToml = unlines
   , "command = \"true\""
   ]
 
-policyToml :: Policy -> String
-policyToml policy = unlines
+-- | The policy file, declaring these paths dangerous.
+policyToml :: Policy -> [FilePath] -> String
+policyToml policy dangerous = unlines
   [ "[policy]"
   , "forbid_self_approval = " <> bool policy.forbidSelfApproval
   , "require_declared_actor = " <> bool policy.requireDeclaredActor
   , ""
   , "[danger]"
-  , "paths = [\"danger.txt\"]"
+  , "paths = [" <> commaList [ show path | path <- dangerous ] <> "]"
   ]
   where
     bool value = if value then "true" else "false"
 
 -- | Run one plan in a fresh sandbox under the given directory and ask
 -- arc for its answer.
-runPlan :: Options -> FilePath -> Plan -> IO Outcome
+runPlan :: Options -> FilePath -> Plan -> IO (Outcome Answer)
 runPlan options root planned = do
   sandbox <- mkSandbox options root planned.policy
   outcome <- try (runSteps options sandbox planned.steps) :: IO (Either IOException ())
   case outcome of
     Left failure -> pure (ReplayFailed (show failure))
-    Right ()     -> check options sandbox (if planned.inWorktree then sandbox.worktree else sandbox.repo) planned.probeAtCheck
+    Right ()     -> check options sandbox (checkDir sandbox planned) planned.probeAtCheck
+
+{- | Run one plan in a fresh sandbox, ask arc for its decision, make the
+plan's moves, and ask @arc integrate --dry-run@ what an integration would
+do now, then @arc check@ why.
+-}
+runExecution :: Options -> FilePath -> Plan -> IO (Outcome DryRun)
+runExecution options root planned = do
+  sandbox <- mkSandbox options root planned.policy
+  let dir = checkDir sandbox planned
+  outcome <- try (runSteps options sandbox planned.steps) :: IO (Either IOException ())
+  case outcome of
+    Left failure -> pure (ReplayFailed (show failure))
+    Right ()     -> check options sandbox dir planned.probeAtCheck >>= \case
+      ReplayFailed failure -> pure (ReplayFailed failure)
+      Answered _           -> do
+        moved <- try (runSteps options sandbox planned.execution) :: IO (Either IOException ())
+        case moved of
+          Left failure -> pure (ReplayFailed (show failure))
+          Right ()     -> do
+            (code, _, _) <- arc options sandbox dir (Declared "author") probeEnv ["integrate", changeSlug, "--dry-run"] ""
+            fmap (DryRun (exitNumber code)) <$> check options sandbox dir planned.probeAtCheck
+  where
+    probeEnv = [ ("PROBE_ENV", identity) | Just identity <- [planned.probeAtCheck] ]
+    exitNumber = \case
+      ExitSuccess      -> 0
+      ExitFailure code -> code
+
+-- | Where the decision is asked: the change's worktree, or the main checkout
+-- once the branch is gone.
+checkDir :: Sandbox -> Plan -> FilePath
+checkDir sandbox planned = if planned.inWorktree then sandbox.worktree else sandbox.repo
 
 mkSandbox :: Options -> FilePath -> Policy -> IO Sandbox
 mkSandbox options root policy = do
@@ -140,9 +189,9 @@ mkSandbox options root policy = do
         , ("GIT_EDITOR", "true"), ("GIT_SEQUENCE_EDITOR", "true")
         ]
         <> [ pair | pair@(key, _) <- ambient, not (inherited key) ]
-      sandbox = Sandbox { repo = repo, home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), baseEnv = baseEnv }
+      sandbox = Sandbox { repo = repo, peer = root </> "peer", home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), baseEnv = baseEnv }
   writeFile (repo </> ".arc" </> "gates.toml") gatesToml
-  writeFile (repo </> ".arc" </> "policy.toml") (policyToml policy)
+  writeFile (repo </> ".arc" </> "policy.toml") (policyToml policy ["danger.txt"])
   writeFile (repo </> "README.md") "differential fixture\n"
   git sandbox repo ["init", "-q", "-b", "master"]
   git sandbox repo ["config", "user.name", "Tester"]
@@ -207,6 +256,27 @@ runSteps options sandbox = mapM_ step
       ConflictDeclarations -> do
         createDirectoryIfMissing True (sandbox.repo </> ".git" </> "arc")
         writeFile (sandbox.repo </> ".git" </> "arc" </> "operator-policy.toml") operatorGatesToml
+      MoveTarget -> do
+        writeFile (sandbox.repo </> "target-after.txt") "after\n"
+        git sandbox sandbox.repo ["add", "target-after.txt"]
+        git sandbox sandbox.repo ["commit", "-q", "-m", "the target moves after the decision"]
+      MovePolicy policy file ->
+        -- the file the change edits is dangerous exactly when the policy
+        -- requires independence, as the plan's own policy has danger.txt
+        writeFile (wt </> ".arc" </> "policy.toml") (policyToml policy [ if policy.independentVerdictRequired then file else "untouched.txt" ])
+      -- the store is one for every checkout, so the pairing is made from the
+      -- main checkout, which outlives a deleted branch
+      WithholdAuthority -> do
+        createDirectoryIfMissing True sandbox.peer
+        git sandbox sandbox.peer ["init", "-q", "-b", "master"]
+        git sandbox sandbox.peer ["commit", "-q", "--allow-empty", "-m", "peer"]
+        (_, listed, _) <- arc options sandbox sandbox.peer author [] ["replica", "id", "--json"] ""
+        peerId <- case eitherDecodeStrict' (BS.pack listed) of
+          Right (ReplicaId found) -> pure found
+          Left failure            -> ioError (userError ("replica id JSON: " <> failure))
+        expect =<< arc options sandbox sandbox.repo author [] ["replica", "init", "here"] ""
+        expect =<< arc options sandbox sandbox.repo author [] ["replica", "pair", "elsewhere", "--repository-id", peerId] ""
+        expect =<< arc options sandbox sandbox.repo author [] ["replica", "authority", "offer", "--to", "elsewhere"] ""
       Review identity kind ->
         -- a verdict nobody declared is refused where policy requires a
         -- declared actor; the plan asks anyway, because the model records it
@@ -247,7 +317,7 @@ conflicting gate declaration, is recorded under
 'checkRefusedConflictingGates' so it can be compared, and any other is a
 replay that broke.
 -}
-check :: Options -> Sandbox -> FilePath -> Maybe String -> IO Outcome
+check :: Options -> Sandbox -> FilePath -> Maybe String -> IO (Outcome Answer)
 check options sandbox dir probe = do
   (_, out, err) <- arc options sandbox dir (Declared "author") [ ("PROBE_ENV", identity) | Just identity <- [probe] ] ["check", changeSlug, "--json"] ""
   pure $ case eitherDecodeStrict' (BS.pack out) of
