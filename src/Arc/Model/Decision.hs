@@ -205,12 +205,14 @@ gateEvidence observations state =
       _refused -> Nothing
 
 -- C2, C12, C18, C20
-{- | Re-check a basis against the observations at execution time. A store
-that does not hold integration authority cannot act at all, an invoker
-nobody declared is refused where policy requires a declared actor,
-declarations two policy layers disagree on and a missing branch leave
-nothing to act on, and any moved fact stands the action down; the recorded
-basis is never reused.
+{- | Re-check a basis at execution time. A store that does not hold
+integration authority cannot act at all, an invoker nobody declared is
+refused where policy requires a declared actor, and declarations two
+policy layers disagree on and a missing branch leave nothing to act on.
+Otherwise readiness is computed again from the history and the
+observations, and the basis rebuilt; where it refuses, or the rebuilt basis
+differs from the recorded one, the action stands down on what moved. The
+recorded basis is never reused, and the plan records nothing.
 -}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
@@ -225,7 +227,22 @@ execute observations state = \case
         []    -> Right ExecutionPlan { integration = integration basis }
         facts -> Left (RefusedBasisMoved facts)
   where
-    moved basis = concat
+    moved basis = case evaluate observations state of
+      Right rebuilt -> differences basis rebuilt
+      Left grounds  -> observedMoves basis <> [MovedReadiness (NE.toList grounds)]
+    differences basis rebuilt = concat
+      [ [ MovedHead basis.head rebuilt.head                            | basis.head          /= rebuilt.head ]
+      , [ MovedTarget basis.target rebuilt.target                      | basis.target        /= rebuilt.target ]
+      , [ MovedTree basis.tree rebuilt.tree                            | basis.tree          /= rebuilt.tree ]
+      , [ MovedPolicy basis.policy rebuilt.policy                      | basis.policy        /= rebuilt.policy ]
+      , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
+      , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
+      , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
+      , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
+      ]
+    -- with no basis to rebuild, the observed facts the recorded one named
+    -- are still compared, so a refusal says what moved beside why
+    observedMoves basis = concat
       [ [ MovedHead basis.head seen                         | Observed seen <- [observations.head], basis.head /= seen ]
       , [ MovedTarget basis.target observations.target      | basis.target /= observations.target ]
       , [ MovedTree basis.tree observations.evaluatedTree   | basis.tree   /= observations.evaluatedTree ]

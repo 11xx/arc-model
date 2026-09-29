@@ -47,8 +47,9 @@ counterexample can be generated for them.
   prerequisite's closure, and the finding and hold vectors that had to be
   empty.
 - **Permission and effect are different values.** `execute :: Observations ->
-  ChangeState -> Decision -> Either Refusal ExecutionPlan` re-checks the basis
-  and the store's authority to act; `recordIntegration` is the only function
+  ChangeState -> Decision -> Either Refusal ExecutionPlan` checks the store's
+  authority to act, computes readiness again, and rebuilds the basis, and
+  plans only where it equals the recorded one; `recordIntegration` is the only function
   that appends an `IntegrationRecord`. A `Decision` alone cannot record
   anything.
 - **Authorization is a four-way sum.** `AuthorizedByVerdict`,
@@ -89,7 +90,8 @@ counterexample can be generated for them.
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
 | `episode` | an expired claim ends liveness, not the retained debt and evidence; the waiver still applies |
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
-| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
+| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree and the readiness it refuses |
+| `rebuilt` | a finding, a hold, a refusing verdict, a failing run, or a newer pass recorded after the decision stands the execution down; an unchanged history plans and records nothing |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
 | `prerequisites` | a permission and the integration it records name each prerequisite's closure; an open prerequisite refuses |
 | `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
@@ -358,8 +360,9 @@ So the model's execution maps onto a dry run as follows:
 | any other refusal: the decision's own, `basis-moved`, `branch-missing`, `conflicting-declarations` | a non-zero exit other than 17, with `arc check` in the same world reporting the blockers the model's grounds name under the execution-time observations |
 
 A basis that moved is where the two answer differently in kind. The model
-compares the basis with the observations and names the moved fact; arc
-names the blockers its fresh evaluation finds. The mapping claims the two
+computes readiness again and names what moved against the rebuilt basis,
+with the grounds where readiness now refuses; arc names the blockers its
+fresh evaluation finds. The mapping claims the two
 refuse together and that arc's blockers are the model's own grounds under
 the moved observations: a target that moved leaves the head behind a merge
 nobody evaluated, so `merged-tree-unevaluated` and `gates-not-green`.
@@ -614,13 +617,6 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-- **Execution re-checks the basis (C20).** `execute` compares the basis
-  with the observed head, target, tree, and policy, and with the latest
-  patchset. It does not compute readiness again from the ledger, so a
-  finding opened, a hold set, a verdict recorded, or gate evidence
-  superseded between the decision and the execution leaves the plan
-  standing. The contract rebuilds the basis before acting and writes
-  nothing when the rebuilt basis differs.
 - **The owed-review kind (C21).** `reviewObligation` derives
   `repair-unread` for a history whose verdicts include no change request,
   and `independent-review` wherever a change request exists. The contract
@@ -660,6 +656,16 @@ the model before the fix.
   closure that integrated it, where one did; the open ones refuse, and the
   basis and the integration record name the rest. Fixture `prerequisites`,
   which the model without the slot does not compile.
+- **Execution rebuilds the basis (C20): model defect.** `execute` compared
+  the basis with the observed head, target, tree, and policy and never
+  computed readiness again, so a finding opened, a hold set, a verdict
+  recorded, or gate evidence superseded between the decision and the
+  execution left the plan standing. `docs/changes.md` recomputes readiness
+  and rebuilds the basis before merging. `execute` evaluates again; a
+  refusal stands down with `MovedReadiness` and its grounds beside the
+  observed moves, and a rebuilt basis that differs names each moved slot.
+  Permission is still not effect: the plan records nothing, and policy
+  motion still stands down, the clause's reading (ii). Fixture `rebuilt`.
 
 ## Deferred out of this package
 

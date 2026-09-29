@@ -48,13 +48,18 @@ isPermitted :: Decision -> Bool
 isPermitted (Permitted _) = True
 isPermitted (Refused _)   = False
 
--- | An observation that moved between the decision and the requested
--- execution. The recorded basis is not reusable.
+-- | A fact that moved between the decision and the requested execution,
+-- as the recorded basis against the one rebuilt when execution computes
+-- readiness again. The recorded basis is not reusable.
 data MovedFact = MovedHead Revision Revision
                | MovedTarget Revision Revision
                | MovedTree TreeId TreeId
                | MovedPolicy Policy Policy
                | MovedPatchset PatchsetId PatchsetId
+               | MovedAuthorization Authorization Authorization
+               | MovedGates [(GateName, EventId, DeclarationId)] [(GateName, EventId, DeclarationId)]
+               | MovedPrerequisites [(ChangeId, EventId)] [(ChangeId, EventId)]
+               | MovedReadiness [Refusal]  -- ^ Readiness computed again refuses, on these grounds, so no basis can be rebuilt.
   deriving stock (Eq, Ord, Show)
 
 {- | Why an integration is refused. The last three arise only when a
@@ -154,6 +159,10 @@ refusalText = \case
       MovedTree before after     -> "tree " <> show before <> " -> " <> show after
       MovedPolicy before after   -> "policy " <> show before <> " -> " <> show after
       MovedPatchset before after -> "patchset " <> show before <> " -> " <> show after
+      MovedAuthorization before after -> "authorization " <> show before <> " -> " <> show after
+      MovedGates before after    -> "gates " <> show before <> " -> " <> show after
+      MovedPrerequisites before after -> "prerequisites " <> show before <> " -> " <> show after
+      MovedReadiness grounds     -> "readiness refuses: " <> unwords (map refusalTag grounds)
 
 basisText :: DecisionBasis -> String
 basisText basis = unwords
