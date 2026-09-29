@@ -39,6 +39,7 @@ import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
 import Scenario
 
+import Data.List ( mapAccumL, sortOn )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.List.NonEmpty qualified as NE
 import Data.Set qualified as Set
@@ -109,20 +110,25 @@ build scenario = Built
     verdictTarget
       | scenario.verdictOnFirst && scenario.patchsets > 1 = PatchsetId 1
       | otherwise                                         = latest.patchsetId
-    verdictEvents =
-      [ VerdictRecorded Verdict
-          { event       = EventId 0
-          , patchset    = verdictTarget
-          , kind        = scenario.verdict
-          , actor       = actorForPick pick
-          , onBehalfOf  = Nothing
-          , assumed     = pick == ActorAssumed
-          , provisional = if scenario.provisional then Just "provisional" else Nothing
-          , relation    = Supersedes
-          , supersedes  = Nothing
-          }
-      | pick <- maybe [] pure scenario.reviewer
-      ]
+    -- verdicts are recorded as the plan makes them, patchset by patchset,
+    -- the earlier verdicts on a patchset before the scenario's own; each
+    -- supersedes the one recorded before it, as a review does by default
+    verdictEvents = map snd . sortOn fst $
+      [ (index, verdictBy pick kind (PatchsetId index) Nothing) | (index, pick, kind) <- scenario.priorVerdicts ]
+      <> [ (ordinalOf verdictTarget, verdictBy pick scenario.verdict verdictTarget provisional) | pick <- maybe [] pure scenario.reviewer ]
+    provisional = if scenario.provisional then Just "provisional" else Nothing
+    ordinalOf (PatchsetId index) = index
+    verdictBy pick kind patchset provisionally = VerdictRecorded Verdict
+      { event       = EventId 0
+      , patchset    = patchset
+      , kind        = kind
+      , actor       = actorForPick pick
+      , onBehalfOf  = Nothing
+      , assumed     = pick == ActorAssumed
+      , provisional = provisionally
+      , relation    = Supersedes
+      , supersedes  = Nothing
+      }
     -- a rejection of the head is followed by the closure arc records with
     -- it: the change is abandoned, with the decision as its reason
     externalEvents = concat
@@ -423,12 +429,18 @@ actorForPick ActorIndependent = reviewActor
 actorForPick ActorContributor = authorActor
 actorForPick ActorAssumed     = reviewActor
 
--- | Assign one event id per recorded event, in recording order.
+-- | Assign one event id per recorded event, in recording order. Each verdict
+-- supersedes the verdict recorded before it, the tip it observed.
 assignIds :: [Event] -> [Event]
-assignIds = zipWith withId [EventId 1 ..]
+assignIds = snd . mapAccumL withId (EventId 1, Nothing)
   where
-    withId eventId = \case
-      VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId }
+    withId (eventId@(EventId next), tip) event = ((EventId (next + 1), tipAfter), number eventId tip event)
+      where
+        tipAfter = case event of
+          VerdictRecorded _ -> Just eventId
+          _other            -> tip
+    number eventId tip = \case
+      VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId, Verdict.supersedes = tip }
       ExternalVerdictRecorded value -> ExternalVerdictRecorded value { ExternalVerdict.event = eventId }
       FindingRecorded value         -> FindingRecorded value { Finding.event = eventId }
       FindingDisposed value         -> FindingDisposed value { Disposition.event = eventId }
@@ -564,6 +576,13 @@ data Feature = FeaturePermitted
              | FeatureProbeDischarged
              | FeatureBranchMissing
              | FeatureConflictingGates
+             | FeatureSeveralVerdicts
+             | FeatureSeveralDebts
+             | FeatureWaiverPerPatchset
+             | FeatureOlderEvidenceAnswers
+             | FeatureEvidenceInherited
+             | FeatureIterating
+             | FeatureRepairUnreadDerived
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 allFeatures :: [Feature]
@@ -600,7 +619,24 @@ featureOf scenario built = \case
   FeatureProbeDischarged               -> isPermitted built.decision && scenario.probe == ProbeDischarged
   FeatureBranchMissing                 -> groundedOn "branch-missing"
   FeatureConflictingGates              -> groundedOn "conflicting-declarations"
+  FeatureSeveralVerdicts               -> length built.state.verdicts >= 2
+  FeatureSeveralDebts                  -> length built.state.debts >= 2
+  -- a debt on an earlier patchset beside the latest one's waiver, which
+  -- is the one that authorizes
+  FeatureWaiverPerPatchset             -> permittedBy isWaiver && any (\debt -> debt.patchset /= latestId) built.state.debts
+  -- the evidence that answers is older than a record under another key
+  FeatureOlderEvidenceAnswers          -> any (\(_, event, _) -> Just event /= newestRun) answering
+  -- the evidence that answers was recorded at an earlier commit with the
+  -- same tree
+  FeatureEvidenceInherited             -> any (\(_, event, _) -> any (\v -> v.event == event && Just v.revision /= latestRevision) built.state.verifications) answering
+  FeatureIterating                     -> groundedOn "iterating"
+  FeatureRepairUnreadDerived           -> reviewObligation built.state == OwedReview RepairUnread || any (\debt -> debt.declaredKind == Nothing && debtKindFor built.state debt == RepairUnread) built.state.debts
   where
+    latest         = latestPatchset built.state
+    latestId       = (.patchsetId) <$> latest
+    latestRevision = (.revision) <$> latest
+    newestRun      = (.event) <$> newest built.state.verifications
+    answering      = either (const []) id (gateEvidence built.observation built.state)
     -- every ground, so a fact the first ground would hide is still counted
     grounds     = refusals built.observation built.state
     groundedOn tag = any ((== tag) . refusalTag) grounds

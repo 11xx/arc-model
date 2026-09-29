@@ -173,9 +173,12 @@ gateGrounded state tree (gate, event, declaration) = any grounded state.verifica
       && verification.result == GatePass
       && verification.readable
 
+-- | Where the scenario's own run is unknown or answers elsewhere, and no
+-- further run could answer instead, nothing permits.
 prop_unknown_never_permits :: Scenario -> Property
 prop_unknown_never_permits scenario
   | scenario.gateMode `elem` [EvidenceOmitted, EvidenceRecordUnreadable, EvidenceOtherTree, EvidenceShapeMoved, EvidenceOtherEnvironment, EvidenceUnrecordedEnvironment, EvidenceProbeFailed]
+  , null scenario.gateRuns
       = counterexample (show scenario) (not (isPermitted (build scenario).decision))
   | otherwise = property True
 

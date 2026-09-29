@@ -580,5 +580,5 @@ demonstratedCounterexample =
       Just found -> found
       Nothing    -> error "the contributor-identity-ignored mutant is missing"
     mutantDecision = case mutant.run built of
-      BehaviourDecision decision -> decision
-      _otherChannel              -> Refused RefusedNoApproval
+      BehaviourDecision (Right basis) -> Permitted basis
+      _refusedOrOtherChannel          -> Refused RefusedNoApproval

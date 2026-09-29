@@ -29,6 +29,7 @@ module Scenario
 import Arc.Model ( DebtKind(..), ExternalKind(..), GateResult(..), Policy(..), VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 
+import Data.List ( sortOn )
 import Test.QuickCheck
 
 
@@ -80,6 +81,7 @@ data Scenario = Scenario
   , verdictOnFirst    :: !Bool
   , reviewer          :: !(Maybe ActorPick)
   , verdict           :: !VerdictKind
+  , priorVerdicts     :: ![(Int, ActorPick, VerdictKind)]  -- ^ Verdicts recorded before the scenario's own on the same patchset, each on the patchset it names.
   , provisional       :: !Bool
   , extraContributor  :: !Bool
   , externalVerdict   :: !(Maybe ExternalKind)   -- ^ An upstream decision about the latest head.
@@ -111,6 +113,7 @@ defaultScenario = Scenario
   , verdictOnFirst    = False
   , reviewer          = Just ActorIndependent
   , verdict           = Approved
+  , priorVerdicts     = []
   , provisional       = False
   , extraContributor  = False
   , externalVerdict   = Nothing
@@ -257,7 +260,7 @@ genScenarioThen extend = do
   provisional       <- frequency [(4, pure False), (1, pure True)]
   extraContributor  <- arbitrary
   externalVerdict   <- frequency [(3, pure Nothing), (2, pure (Just ExternalApproved)), (1, pure (Just ExternalChangesRequested)), (1, pure (Just ExternalRejected))]
-  debt              <- frequency [(2, pure Nothing), (2, debtFor patchsets)]
+  debts             <- frequency [(4, pure []), (3, maybe [] pure <$> debtFor patchsets), (1, severalDebts patchsets)]
   gateMode          <- frequency ((8, pure EvidenceCovered) : [ (1, pure mode) | mode <- [minBound .. maxBound], mode /= EvidenceCovered ])
   blockingFinding   <- frequency [(3, pure False), (1, pure True)]
   resolveFinding    <- frequency [(4, pure False), (1, pure True)]
@@ -268,6 +271,14 @@ genScenarioThen extend = do
   authorityWithheld <- frequency [(5, pure False), (1, pure True)]
   audit             <- frequency [(2, pure Nothing), (1, Just <$> ((,) <$> elements [Approved, ChangesRequested] <*> arbitrary))]
   episodeExpired    <- arbitrary
+  priorVerdicts     <- frequency [(4, pure []), (1, priorsFor patchsets policy)]
+  (gateRuns, revertLatest) <- frequency
+    [ (6, pure ([], False))
+    , (2, (, False) <$> runsFor patchsets)
+    , (1, (, True) <$> runsFor patchsets)
+    , (1, pure (revisited patchsets))
+    ]
+  iterating         <- frequency [(9, pure False), (1, pure True)]
   extend defaultScenario
     { patchsets         = patchsets
     , verdictOnFirst    = verdictOnFirst
@@ -276,7 +287,11 @@ genScenarioThen extend = do
     , provisional       = provisional
     , extraContributor  = extraContributor
     , externalVerdict   = externalVerdict
-    , debts             = maybe [] pure debt
+    , debts             = debts
+    , priorVerdicts     = priorVerdicts
+    , gateRuns          = gateRuns
+    , revertLatest      = revertLatest
+    , iterating         = iterating
     , gateMode          = gateMode
     , blockingFinding   = blockingFinding
     , resolveFinding    = resolveFinding
@@ -308,13 +323,52 @@ genCheckTime scenario = do
     }
 
 debtFor :: Int -> Gen (Maybe (Int, Maybe DebtKind))
-debtFor count = do
+debtFor count = Just <$> oneDebt count
+
+oneDebt :: Int -> Gen (Int, Maybe DebtKind)
+oneDebt count = do
   index <- choose (1, count)
   kind  <- frequency
     [ (1, pure Nothing)
     , (1, Just <$> elements [NothingRead, MergeResolutionUnread, RepairUnread, ContributorOnly, IndependentReview])
     ]
-  pure (Just (index, kind))
+  pure (index, kind)
+
+-- | Two or three debts, in the order their patchsets were recorded, so two
+-- can bind to one patchset or to two.
+severalDebts :: Int -> Gen [(Int, Maybe DebtKind)]
+severalDebts count = do
+  size <- choose (2, 3)
+  sortOn fst <$> vectorOf size (oneDebt count)
+
+-- | One or two verdicts before the scenario's own, in patchset order. Where
+-- policy requires a declared actor, arc refuses a verdict nobody declared,
+-- so none is drawn there.
+priorsFor :: Int -> Policy -> Gen [(Int, ActorPick, VerdictKind)]
+priorsFor count policy = do
+  size <- choose (1, 2)
+  sortOn (\(index, _, _) -> index) <$> vectorOf size prior
+  where
+    prior = (,,) <$> choose (1, count) <*> elements picks <*> elements [Approved, ChangesRequested, CommentOnly]
+    picks
+      | policy.requireDeclaredActor = [ActorIndependent, ActorContributor]
+      | otherwise                   = [minBound .. maxBound]
+
+-- | One or two further runs, each at a patchset of the history.
+runsFor :: Int -> Gen [(Int, GateResult)]
+runsFor count = do
+  size <- choose (1, 2)
+  sortOn fst <$> vectorOf size ((,) <$> choose (1, count) <*> frequency [(3, pure GatePass), (1, pure GateFail)])
+
+{- | The rare shape the contract names (C14): an older pass at the tree the
+latest patchset returns to, and a newer failing run at the tree between.
+Drawn on purpose, since independent draws of the three fields would reach
+it too rarely to count.
+-}
+revisited :: Int -> ([(Int, GateResult)], Bool)
+revisited count
+  | count >= 3 = ([(count - 2, GatePass), (count - 1, GateFail)], True)
+  | otherwise  = ([], False)
 
 -- | A generator restricted to histories an integration would permit. These
 -- are the histories a one-invalid-transition mutation is applied to.
@@ -381,6 +435,7 @@ shrinkScenario scenario =
       , [ scenario { verdictOnFirst = False }    | scenario.verdictOnFirst ]
       , [ scenario { reviewer = Nothing }        | scenario.reviewer /= Nothing ]
       , [ scenario { verdict = Approved }        | scenario.verdict /= Approved ]
+      , [ scenario { priorVerdicts = dropAt index scenario.priorVerdicts } | index <- [0 .. length scenario.priorVerdicts - 1] ]
       , [ scenario { provisional = False }       | scenario.provisional ]
       , [ scenario { extraContributor = False }  | scenario.extraContributor ]
       , [ scenario { externalVerdict = Nothing } | scenario.externalVerdict /= Nothing ]
@@ -404,5 +459,5 @@ shrinkScenario scenario =
       , [ scenario { branchMissing = False }     | scenario.branchMissing ]
       , [ scenario { conflictingGates = False }  | scenario.conflictingGates ]
       ]
-    referencedPatchsets current = map fst current.debts <> map fst current.gateRuns
+    referencedPatchsets current = map fst current.debts <> map fst current.gateRuns <> [ index | (index, _, _) <- current.priorVerdicts ]
     dropAt index items = take index items <> drop (index + 1) items

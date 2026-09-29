@@ -146,6 +146,7 @@ plan scenario
       , [ WaiveDirty | index == verifyAt, scenario.gateMode /= EvidenceOmitted, scenario.worktree == WorktreeDirtyWaived ]
       , [ Verify (furtherRun result) | (runAt, result) <- scenario.gateRuns, runAt == index ]
       , [ ProbeFinal (scenario.probe == ProbeFinalFailed) | index == scenario.patchsets, scenario.probe `notElem` [ProbeNone, ProbeFinalMissing] ]
+      , [ Review (identityOf pick) kind | (at, pick, kind) <- scenario.priorVerdicts, at == index ]
       , if index == target then review else []
       ]
     review = concat

@@ -177,6 +177,7 @@ observations. Fields (`Scenario`):
 | `verdictOnFirst` | bind the verdict to `ps-01` rather than the latest |
 | `reviewer` | `Nothing`, or `ActorIndependent`, `ActorContributor`, `ActorAssumed` |
 | `verdict` | `Approved`, `ChangesRequested`, `CommentOnly` |
+| `priorVerdicts` | verdicts recorded before the scenario's own, each `(patchset index, reviewer, verdict)`; every verdict supersedes the one recorded before it |
 | `provisional` | record the approval as provisional |
 | `extraContributor` | add a third contributor to every patchset |
 | `externalVerdict` | `Nothing`, or an `ExternalApproved`, `ExternalChangesRequested`, or `ExternalRejected` decision about the latest head |
