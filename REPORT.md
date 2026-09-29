@@ -120,7 +120,8 @@ channel) to its exact answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
 verdict, the open audit findings, the owed review, the readiness and
 blockers of the check beside a dry run — expecting each change to be left
-a disagreement. 33 checks; a rule that accepted an unrelated field would
+a disagreement. A plan agrees with a dry run that would integrate only where
+the check beside it is ready and names no blocker. 37 checks; a rule that accepted an unrelated field would
 fail here without a run against arc.
 
 ### Properties
@@ -380,7 +381,7 @@ So the model's execution maps onto a dry run as follows:
 
 | `execute` | a dry run |
 | --- | --- |
-| a plan | exit 0, would integrate |
+| a plan | exit 0, would integrate, with `arc check` in the same world ready and naming no blocker |
 | `authority-withheld` | exit 17 |
 | any other refusal: the decision's own, `basis-moved`, `branch-missing`, `conflicting-declarations` | a non-zero exit other than 17, with `arc check` in the same world reporting the blockers the model's grounds name under the execution-time observations |
 
@@ -421,7 +422,8 @@ of the same name under "Unsettled design":
   integration, where the model's own grounds under the new policy are none:
   arc decides again under that policy and would integrate; the model acts
   only on the decision made before the policy moved, and stands down. The
-  rule applies only where the check beside the dry run is ready.
+  rule applies only where the check beside the dry run is ready and names
+  no blocker.
 
 `--mutant authority-ignored` objects on `execute-authority-withheld`, and
 `--mutant authorization-reused-after-basis-moved` on
