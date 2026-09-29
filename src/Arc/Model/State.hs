@@ -130,12 +130,15 @@ replay change = foldl' step (emptyState change)
       | value.claimId == claim = value { Claim.expired = True }
       | otherwise              = value
 
+-- C1
 latestPatchset :: ChangeState -> Maybe Patchset
 latestPatchset state = newest state.patchsets
 
+-- C1
 patchsetById :: ChangeState -> PatchsetId -> Maybe Patchset
 patchsetById state identifier = listToMaybe [ p | p <- state.patchsets, p.patchsetId == identifier ]
 
+-- C5
 -- | Verdicts nothing supersedes. A corroborating verdict supports a tip
 -- without replacing it.
 activeVerdicts :: ChangeState -> [Verdict]
@@ -143,6 +146,7 @@ activeVerdicts state = [ v | v <- state.verdicts, not (any (supersedesSubject v)
   where
     supersedesSubject subject other = other.relation == Supersedes && other.supersedes == Just subject.event
 
+-- C5
 {- | Two verdicts replacing the same earlier verdict fork the chain. No
 verdict is authoritative until one supersedes them all, so the state is
 contested rather than unreviewed.
@@ -150,19 +154,23 @@ contested rather than unreviewed.
 verdictContested :: ChangeState -> Bool
 verdictContested state = length (activeVerdicts state) > 1
 
+-- C5
 governingVerdict :: ChangeState -> Maybe Verdict
 governingVerdict state = case activeVerdicts state of
   [v]    -> Just v
   _other -> Nothing
 
+-- C9
 -- | The newest external decision about exactly this revision. A decision
 -- about any other revision says nothing here.
 externalVerdictAt :: ChangeState -> Revision -> Maybe ExternalVerdict
 externalVerdictAt state revision = newest [ e | e <- state.externalVerdicts, e.revision == revision ]
 
+-- C10
 findingResolved :: ChangeState -> FindingId -> Bool
 findingResolved state identifier = any (\d -> d.finding == identifier && d.resolved) state.dispositions
 
+-- C10
 -- | Open blocking findings from the shipped review, never the audit set.
 openBlockingFindings :: ChangeState -> [FindingId]
 openBlockingFindings state =
@@ -173,6 +181,7 @@ openBlockingFindings state =
   , not (findingResolved state f.findingId)
   ]
 
+-- C22
 openAuditFindings :: ChangeState -> [FindingId]
 openAuditFindings state =
   [ f.findingId
@@ -181,20 +190,24 @@ openAuditFindings state =
   , not (findingResolved state f.findingId)
   ]
 
+-- C6, C7
 debtsForPatchset :: ChangeState -> PatchsetId -> [Debt]
 debtsForPatchset state identifier = [ debt | debt <- state.debts, debt.patchset == Just identifier ]
 
+-- C16
 -- | The dirty-tree waiver in force: the newest declared, whichever revision
 -- it names.
 dirtyTreeWaiver :: ChangeState -> Maybe DirtyTreeWaiver
 dirtyTreeWaiver state = newest state.dirtyTreeWaivers
 
+-- C17
 -- | The brief a patchset was recorded under, when it was recorded under one.
 briefOf :: ChangeState -> Patchset -> Maybe Brief
 briefOf state patchset = do
   wanted <- patchset.brief
   listToMaybe [ brief | brief <- state.briefs, brief.event == wanted ]
 
+-- C17
 -- | The newest run of one probe of one brief, in one phase, at exactly this
 -- revision.
 newestProbeRun :: ChangeState -> EventId -> ProbeName -> ProbePhase -> Revision -> Maybe ProbeRun
@@ -207,10 +220,12 @@ newestProbeRun state brief probe phase revision = newest
   , run.revision == revision
   ]
 
+-- C22
 -- | The newest recorded integration, in recording order.
 latestIntegration :: ChangeState -> Maybe IntegrationRecord
 latestIntegration state = newest (sortOn (.event) state.integrations)
 
+-- C22
 -- | What shipped and what it rested on. A later review or audit never
 -- changes this answer.
 historicalAuthorization :: ChangeState -> Maybe Authorization

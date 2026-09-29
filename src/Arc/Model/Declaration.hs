@@ -44,6 +44,7 @@ data DeclarationShape = DeclarationShape
   }
   deriving stock (Eq, Ord, Show)
 
+-- C12
 declarationShape :: Declaration -> DeclarationShape
 declarationShape declaration = DeclarationShape
   { command        = declaration.command

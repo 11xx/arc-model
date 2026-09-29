@@ -22,6 +22,7 @@ data Patchset = Patchset
   }
   deriving stock (Eq, Ord, Show)
 
+-- C1, C4
 -- | A contributor set that was never declared is the author alone. The
 -- synthesized set is a compatibility reading, not a declaration.
 effectiveContributors :: Patchset -> Set ActorId
