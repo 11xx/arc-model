@@ -15,7 +15,6 @@ module Differential.Plan
     , Skip(..)
     , skipText
     , plan
-    , executionSkip
     ) where
 
 import Arc.Model ( DebtKind, ExternalKind, GateResult(..), Policy, VerdictKind )
@@ -50,7 +49,7 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | Debt (Maybe DebtKind)    -- ^ Declare a debt on the current patchset.
           | External ExternalKind    -- ^ Record an external decision about the current head.
           | CommitUnrecorded         -- ^ Commit after the last snapshot, so the head moves.
-          | EditGates                -- ^ Change the gate declaration without committing it.
+          | EditGates                -- ^ Commit on the target a changed declaration of the required gate.
           | WaiveDirty               -- ^ Declare a dirty-tree waiver at the worktree's head, through an ad hoc run.
           | AdvanceTarget            -- ^ Commit on the target a file the change never touches.
           | ConflictTarget FilePath  -- ^ Commit on the target this file, which the change also adds.
@@ -61,7 +60,7 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | ConflictDeclarations     -- ^ Declare the required gate again, differently, in the operator's policy layer.
           | Iterate                  -- ^ Declare that the change is iterating.
           | MoveTarget               -- ^ Commit on the target after the decision.
-          | MovePolicy Policy FilePath  -- ^ Rewrite the policy the worktree reads, with this file dangerous when the policy requires independence.
+          | MovePolicy Policy FilePath  -- ^ Commit on the target this policy, with this file dangerous when the policy requires independence.
           | WithholdAuthority        -- ^ Pair the store with a replica and offer it integration authority.
           | Audit VerdictKind Bool   -- ^ Audit the integrated revision; True audits as somebody other than the author.
   deriving stock (Eq, Show)
@@ -82,7 +81,6 @@ data Skip = UnreadableEvidence
           | OtherTreeNeedsTwoPatchsets
           | FindingWithoutVerdict
           | DirtAgainstMerge
-          | PolicyWithoutWorktree
   deriving stock (Eq, Ord, Show)
 
 skipText :: Skip -> String
@@ -91,13 +89,6 @@ skipText = \case
   OtherTreeNeedsTwoPatchsets -> "evidence at another tree needs an earlier patchset to record it at"
   FindingWithoutVerdict      -> "a finding is recorded only with a verdict"
   DirtAgainstMerge           -> "a run against the merge uses a clean checkout of its own, so it records no dirt"
-  PolicyWithoutWorktree      -> "a policy moved with no worktree left would dirty the target's checkout, which integrate refuses first"
-
--- | Why a scenario whose decision replays has no integration to compare.
-executionSkip :: Scenario -> Maybe Skip
-executionSkip scenario
-  | scenario.policyAfter && scenario.branchMissing = Just PolicyWithoutWorktree
-  | otherwise                                      = Nothing
 
 plan :: Scenario -> Either Skip Plan
 plan scenario

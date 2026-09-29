@@ -25,7 +25,7 @@ comparatorChecks = concat
   , executionAuthority
   , executionWouldIntegrate
   , decisionIterating
-  , arcMovedSincePin
+  , committedOnTarget
   , hiddenByNewerRun
   ]
 
@@ -98,7 +98,7 @@ executionPolicyMotion :: [Check]
 executionPolicyMotion =
   [ expectTrue "comparator/execution policy motion: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared 0 True Set.empty))
   , expectEq "comparator/execution policy motion: a refusing check is not adjudicated" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
-  , expectTrue "comparator/execution policy motion: a refusal under the unmoved policy is arc's movement, not policy motion" "" (adjudicatedAs ArcMoved (compared 3 False (Set.singleton "no-valid-approval")))
+  , expectEq "comparator/execution policy motion: a refusal under the unmoved policy is not adjudicated" Disagreed (compared 3 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a ready check naming a blocker is not adjudicated" Disagreed (compared 0 True (Set.singleton "no-valid-approval"))
   ]
   where
@@ -147,35 +147,40 @@ decisionIterating =
     wantedFor s = let built = build s in expected (refusals built.observation built.state)
     compared isReady blockers = compareAnswer scenario (wantedFor scenario) (Answer isReady blockers)
 
-{- | An arc that reads declarations from the target's commits answers a
-history whose declaration or policy the plan moved in the worktree as the
-model answers it with nothing moved; any other answer stays a disagreement.
+{- | A declaration or policy the plan commits on the target moves the target
+too: arc's answer is the model's for the scenario with the target moved as
+well, and any other answer stays a disagreement. Each expected answer is
+checked to differ from the unmoved scenario's, so the rule is what makes it
+agree.
 -}
-arcMovedSincePin :: [Check]
-arcMovedSincePin =
-  [ expectTrue "comparator/arc moved: decision, a declaration edit read as nothing" "" (adjudicatedAs ArcMoved (compareAnswer shapeMoved (wantedFor shapeMoved) (Answer True Set.empty)))
-  , expectEq "comparator/arc moved: decision, another answer is not adjudicated" Disagreed (compareAnswer shapeMoved (wantedFor shapeMoved) (Answer False (Set.singleton "closed")))
-  , expectTrue "comparator/arc moved: execution, a tightened policy read as nothing" "" (adjudicatedAs ArcMoved (executionComparison tightened 0 True Set.empty))
-  , expectEq "comparator/arc moved: execution, a refusing check is not adjudicated" Disagreed (executionComparison tightened 0 False (Set.singleton "no-valid-approval"))
-  , expectTrue "comparator/arc moved: coverage, a declaration edit read as nothing" "" (adjudicatedAs ArcMoved (coverageOf shapeMoved (PostIntegration True (Set.singleton "verdict") Nothing 0 False)))
-  , expectEq "comparator/arc moved: coverage, another basis is not adjudicated" Disagreed (coverageOf shapeMoved (PostIntegration True (Set.singleton "debt") Nothing 0 False))
-  , expectEq "comparator/arc moved: a history that moves nothing is not adjudicated" Disagreed (compareAnswer defaultScenario (wantedFor defaultScenario) (Answer False (Set.singleton "closed")))
+committedOnTarget :: [Check]
+committedOnTarget =
+  [ expectTrue "comparator/committed on target: decision, the merge nobody evaluated" (show behind) (Set.member "merged-tree-unevaluated" behind && behind /= wantedFor shapeMoved)
+  , expectTrue "comparator/committed on target: decision, a declaration moved with the target" "" (adjudicatedAs Encoding (compareAnswer shapeMoved (wantedFor shapeMoved) (Answer False behind)))
+  , expectEq "comparator/committed on target: decision, another answer is not adjudicated" Disagreed (compareAnswer shapeMoved (wantedFor shapeMoved) (Answer False (Set.singleton "closed")))
+  , expectTrue "comparator/committed on target: execution, the merge nobody evaluated" (show moved) (Set.member "merged-tree-unevaluated" moved && StoodDown moved /= expectedExecution tightenedBuilt tightenedBuilt.execution)
+  , expectTrue "comparator/committed on target: execution, a policy moved with the target" "" (adjudicatedAs Encoding (executionComparison tightened 1 False moved))
+  , expectEq "comparator/committed on target: execution, a dry run that would integrate is not adjudicated" Disagreed (executionComparison tightened 0 True Set.empty)
+  , expectEq "comparator/committed on target: a history that moves nothing is not adjudicated" Disagreed (compareAnswer defaultScenario (wantedFor defaultScenario) (Answer False (Set.singleton "merged-tree-unevaluated")))
   ]
   where
-    shapeMoved  = defaultScenario { Scenario.gateMode = EvidenceShapeMoved }
-    tightened   = defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.policy = openPolicy, Scenario.policyAfter = True }
-    wantedFor s = let built = build s in expected (refusals built.observation built.state)
-    coverageOf s found = let built = build s in compareCoverage s built (expectedCoverage (historicalAuthorization built.finalState) (coverageAfterIntegration built.finalState)) found
+    shapeMoved     = defaultScenario { Scenario.gateMode = EvidenceShapeMoved }
+    behind         = wantedFor shapeMoved { Scenario.targetMode = TargetBehind }
+    tightened      = defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.policy = openPolicy, Scenario.policyAfter = True }
+    tightenedBuilt = build tightened
+    moved          = let built = build tightened { Scenario.targetAfter = True } in case expectedExecution built built.execution of
+      StoodDown refused -> refused
+      _other            -> Set.empty
+    wantedFor s    = let built = build s in expected (refusals built.observation built.state)
 
--- | A newer run at the evaluated tree that hides an older pass there: from
--- another environment a Rust defect, from none an open reading; any other
--- answer stays a disagreement.
+-- | A newer run at the evaluated tree from another environment, or from
+-- none, hides nothing (C14), so an answer where it hides the older pass is
+-- a disagreement.
 hiddenByNewerRun :: [Check]
 hiddenByNewerRun =
-  [ expectTrue "comparator/hidden: another environment hides the pass" "" (adjudicatedAs RustDefect (decided otherEnvironment (Answer False (Set.singleton "gates-not-green"))))
-  , expectTrue "comparator/hidden: no environment hides the pass" "" (adjudicatedAs Unsettled (decided unrecorded (Answer False (Set.singleton "gates-not-green"))))
-  , expectEq "comparator/hidden: another answer is not adjudicated" Disagreed (decided otherEnvironment (Answer False (Set.singleton "closed")))
-  , expectEq "comparator/hidden: with no older pass, nothing is hidden" Disagreed (decided otherEnvironment { Scenario.gateRuns = [] } (Answer True Set.empty))
+  [ expectEq "comparator/hidden: another environment hiding the pass is a disagreement" Disagreed (decided otherEnvironment (Answer False (Set.singleton "gates-not-green")))
+  , expectEq "comparator/hidden: no environment hiding the pass is a disagreement" Disagreed (decided unrecorded (Answer False (Set.singleton "gates-not-green")))
+  , expectEq "comparator/hidden: the older pass answering agrees" Agreed (decided otherEnvironment (Answer True Set.empty))
   ]
   where
     otherEnvironment = defaultScenario { Scenario.patchsets = 3, Scenario.revertLatest = True, Scenario.gateMode = EvidenceOtherEnvironment, Scenario.gateRuns = [(1, GatePass)] }

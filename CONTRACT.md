@@ -10,14 +10,13 @@ this text; arc's implementation is not a source for it.
 - **Rule** is what a history, together with what is observed when the
   question is asked, must answer.
 - **Status** is *settled*, or *unsettled* with every reading stated. A
-  clause is unsettled where arc's public documentation is silent, where two
-  documents disagree, or where the documentation at the comparison revision
-  and later documentation differ. An unsettled clause names the reading the
-  model takes; that reading is a choice, not a finding.
-- **Source** names the section of arc's public documentation the rule comes
-  from — its `README.md`, a page under `docs/`, the guide `arc` prints with
-  no arguments, or a command's `--help` — or says the contract makes the
-  decision itself.
+  clause is unsettled where arc's documentation at the comparison revision
+  is silent or where two passages of it disagree. An unsettled clause names
+  the reading the model takes; that reading is a choice, not a finding.
+- **Source** names where in arc's documentation at the comparison revision
+  the rule comes from — the guide `arc` prints with no arguments, by its
+  section heading, a command's `--help`, or arc's `README.md` — or says the
+  contract makes the decision itself.
 - **Realized by** names the model functions that implement the rule. Each
   of them carries a comment naming the clause.
 
@@ -47,9 +46,15 @@ nothing to authorize and is refused.
 
 **Status.** Settled. The refusal of a change with no patchset is a decision
 the contract makes: approvals bind to patchsets, so without one nothing can
-be approved.
+be approved. The guide lets a patchset's contributors be amended until the
+first verdict on it; after that they are fixed, which is all C4 reads.
 
-**Source.** `docs/changes.md`, "The model" (patchset, brief).
+**Source.** `arc snapshot --help` (`--base`, `--brief-version`,
+`--contributors`, `--amend`); the guide, "Rules that change what you do" (a
+verdict binds to the exact approved patchset head) and "When no independent
+reviewer is reachable" (coverage is measured against the final patchset;
+attribution is repaired only before any verdict); `README.md`, "One change,
+end to end" (`arc integrate` merges only the patchset a verdict approved).
 
 **Realized by.** `effectiveContributors`, `latestPatchset`,
 `patchsetById`, `evaluateDeclared`.
@@ -66,9 +71,9 @@ anything.
 not green, since both bind to the head; the model names the moved head as
 its own ground. That is vocabulary, and C23 makes it presentation.
 
-**Source.** `README.md`, "One change, end to end"; `docs/changes.md`, "The
-model" (approval staleness, `arc integrate`); `docs/gates.md`, "Exit codes"
-(a missing branch).
+**Source.** `README.md`, "One change, end to end" (a new commit makes the
+approval stale); the guide, "Rules that change what you do" (any new commit
+makes the approval stale) and "Exit codes" (6, a missing branch).
 
 **Realized by.** `evaluateDeclared`, `execute`.
 
@@ -84,9 +89,10 @@ single tree to evaluate and the change is refused as needing a rebase.
 
 **Status.** Settled.
 
-**Source.** `docs/changes.md`, "The model" (a change behind its target must
-evaluate the merge; evidence binds to the tree); `docs/gates.md`, "Exit
-codes" (11, 14).
+**Source.** The guide, "Rules that change what you do" (gate evidence binds
+to a tree; a change behind its target is refused with
+`merged-tree-unevaluated` until the merge is evaluated) and "Exit codes" (11,
+14); `arc verify --help`, `--against`.
 
 **Realized by.** `evaluateDeclared`, `gateEvidence`.
 
@@ -102,24 +108,33 @@ Independence is judged against the patchset the verdict binds to, never
 against a later one. A rejected self-approval is no approval (C5), and a
 waiver bound to the same patchset can rescue it (C6).
 
-**Status.** Unsettled: when independent review is required.
+**Status.** Unsettled on two points.
 
-- (i) A change that touches a declared danger path, or was raised with
-  `arc begin --dangerous`, requires a verdict from somebody other than its
-  author, whatever `forbid_self_approval` says (`docs/review.md`,
-  "Dangerous surfaces"; the guide, "When no independent reviewer is
-  reachable").
-- (ii) Independence is required only where the change is dangerous *and*
-  `forbid_self_approval` is on; with the policy off, a self-approval is
-  recorded, counts, and leaves an independent-review debt owed
-  (`docs/review.md`, "Policy" and "External verdicts": "On a dangerous path,
-  it never satisfies `forbid_self_approval`").
+- *When independent review is required.*
+  - (i) A change that touches a declared danger path, or was raised with
+    `arc begin --dangerous`, requires a verdict from somebody other than its
+    author, whatever `forbid_self_approval` says (the guide, "When no
+    independent reviewer is reachable": "A change touching a declared path
+    needs a verdict from somebody other than its author"; `arc begin
+    --help`, `--dangerous`).
+  - (ii) Independence is required only where the change is dangerous *and*
+    `forbid_self_approval` is on; with the policy off, a self-approval is
+    recorded, counts, and leaves an independent-review debt owed (the same
+    section: "Where `forbid_self_approval` is off, an approving verdict from
+    the identity that wrote the work is recorded rather than refused").
 
-The model reads (ii).
+  The model reads (ii).
+- *Who the effective author is.* The guide names the invoker and the
+  effective author apart in `review_subject`, and `--on-behalf-of` records
+  a subject "beside the invoker", but neither defines the effective author.
+  (i) The subject where one was recorded, otherwise the actor. (ii) The
+  invoker always, with the subject recorded beside it. The model reads (i).
 
-**Source.** `docs/identity.md`, "Identity" (effective author);
-`docs/review.md`, "Policy", "Dangerous surfaces"; the guide, "When no
-independent reviewer is reachable".
+**Source.** The guide, "When no independent reviewer is reachable"
+(`review_subject`; independence is judged against the patchset a reviewer
+read; an assumed reviewing identity cannot be the second party; danger
+paths); `arc begin --help`, `--dangerous`; each command's `--help`,
+`--on-behalf-of`.
 
 **Realized by.** `effectiveActor`, `effectiveContributors`,
 `authorizationFor`.
@@ -135,36 +150,28 @@ governs, binds to the latest patchset, and the head has not moved (C2). A
 provisional approval gates exactly like any other. An approval bound to an
 earlier patchset is stale.
 
-**Status.** Unsettled on two points.
+**Status.** Unsettled on a new patchset at an unchanged head, which the
+guide and `--help` neither describe nor rule out.
 
-- *A new patchset at an unchanged head.* Changing the brief records a new
-  patchset without a new commit.
-  - (i) The approval binds to the patchset, so it is stale on the new one,
-    as a waiver is (`docs/review.md`, "What a debt records": a debt "stops
-    applying the moment `ps-02` is snapshotted, exactly as an approval goes
-    stale").
-  - (ii) The approval is valid while the branch head equals the approved
-    head (`docs/changes.md`, "The model": "a verdict is valid only while the
-    branch head equals the approved patchset head").
+- (i) The approval binds to the patchset, so it is stale on the new one
+  (`README.md`: `arc integrate` "merges only the patchset a verdict
+  approved").
+- (ii) The approval is valid while the branch head equals the approved head
+  (the guide, "Rules that change what you do": "A verdict binds to the
+  exact approved patchset head. Any new commit makes the approval stale").
 
-  The model reads (i).
-- *An approval after a recorded history rewrite.*
-  - (i) An approval never survives a rewrite: only a content comparison
-    could say a rewritten head is the same work (`docs/history.md` at the
-    comparison revision).
-  - (ii) An approval follows a recorded rewrite only when the successor
-    differs from the approved head in nothing but its signature, as judged
-    when the mapping was recorded; any other successor leaves it stale, and
-    once a change has closed its approval follows every rewrite
-    (`docs/history.md`, later revisions).
-  - (iii) An approval follows every recorded rewrite, as patchsets, gate
-    evidence, and waivers do.
+The model reads (i). An approval after a recorded history rewrite follows
+the rewrite only when the successor differs from the approved head in nothing
+but its signature, as judged when the mapping was recorded or imported, and
+any other successor leaves it stale. What happens to the approval of a
+change that has already closed is not stated. The model records no rewrite,
+so rewrites are unsupported.
 
-  The model records no rewrite, so it takes none of the three; rewrites are
-  unsupported.
-
-**Source.** `docs/review.md`, "Verdicts"; `docs/changes.md`, "The model"
-(approval staleness); `docs/history.md`, "History rewrites".
+**Source.** The guide, "When no independent reviewer is reachable" (the
+verdict chain, contested verdicts, provisional verdicts), "Rules that
+change what you do" (staleness), and "History rewrites"; `arc review
+--help`, `--relation`, `--provisional`; `README.md`, "One change, end to
+end".
 
 **Realized by.** `activeVerdicts`, `verdictContested`, `governingVerdict`,
 `authorizationFor`, `evaluateDeclared`.
@@ -180,12 +187,17 @@ integration's recorded basis names the debt only when the waiver is what
 let the approval stand; a debt declared beside an approval that needed no
 waiver authorized nothing and is not an authorization input.
 
-**Status.** Settled.
+**Status.** Settled, except where C5 and C19 are open. The
+guide binds a debt to "the exact patchset head declared", which is C5's
+question for a later patchset at the same head; the model reads the
+patchset there too. That a debt declared after integration waives nothing
+is a decision the contract makes: nothing is left to authorize. What the
+recorded basis names is C19's.
 
-**Source.** `docs/review.md`, "Review coverage and post-integration
-audits", "What a debt records"; `docs/changes.md`, "The model" (the
-authorization basis records the debt declaration when that waiver let the
-approval stand).
+**Source.** The guide, "When no independent reviewer is reachable" (the
+debt "can stand in for an absent verdict or rescue a self-approval rejected
+by repository policy"; it "binds to the exact patchset head declared, so
+new work needs a new declaration"); `arc integrate --help`, `--debt`.
 
 **Realized by.** `debtsForPatchset`, `newestWaiver`, `authorizationFor`,
 `waiverUsed`, `debtsNotUsed`.
@@ -204,12 +216,11 @@ the recorded basis names when several are bound to the one patchset:
 - (ii) the oldest, the first one that let the approval stand;
 - (iii) all of them.
 
-The documentation speaks of "the debt declaration", in the singular. The
-model reads (i).
+The guide and `--help` do not describe the recorded basis (C19). The model
+reads (i).
 
-**Source.** `docs/review.md`, "What a debt records" (the waiver binds to
-the exact patchset head); `docs/changes.md`, "The model" (the authorization
-basis).
+**Source.** The guide, "When no independent reviewer is reachable" (the
+waiver binds to the exact patchset head declared).
 
 **Realized by.** `newestWaiver`, `debtsForPatchset`.
 
@@ -223,10 +234,10 @@ new patchset is what answers it.
 
 **Status.** Settled.
 
-**Source.** `docs/review.md`, "Review coverage and post-integration audits"
-("debt records a missing review and does not override a refusal"); the
-guide, "When no independent reviewer is reachable"; `arc integrate --help`,
-`--debt`.
+**Source.** The guide, "When no independent reviewer is reachable" ("A
+current `changes-requested` or `comment-only` verdict is its own next action
+and offers no debt route: a waiver records a missing review, not a way past
+a refusal"); `arc integrate --help`, `--debt`.
 
 **Realized by.** `authorizationFor`, `reviewObligation`.
 
@@ -255,14 +266,17 @@ current head closes the change as abandoned.
   basis names the local verdict alone. (ii) It names both. The model reads
   (i).
 - *An external verdict after a recorded rewrite.* (i) Its revision follows
-  the rewrite, as other recorded revisions do (`docs/history.md`, "every
-  derived reading answers in the revisions this repository holds"). (ii) It
-  names the old revision and stops matching. Rewrites are unsupported in
-  the model.
+  the rewrite, as other recorded revisions do (the guide, "History
+  rewrites": "every derived reading follows them forward"). (ii) It names
+  the old revision and stops matching. Rewrites are unsupported in the
+  model.
 
-**Source.** `docs/review.md`, "External verdicts"; `docs/gates.md`, "Build
-and gate declaration"; the guide, "When no independent reviewer is
-reachable".
+**Source.** The guide, "When no independent reviewer is reachable" (an
+external decision is recorded "beside, never as, a verdict arc witnessed";
+an approval "gates only the revision it names and never alone on a
+dangerous path"; it "never supersedes a local refusal"; "A change request
+carries findings, and a rejection of the head closes the change"); `arc
+external verdict --help`.
 
 **Realized by.** `externalVerdictAt`, `authorizationFor`,
 `coverageAfterIntegration`.
@@ -284,9 +298,11 @@ Claims are advisory liveness and refuse nothing.
 
 **Status.** Settled.
 
-**Source.** `README.md`, "One change, end to end"; `docs/changes.md`, "The
-model" (`arc integrate`, holds, claims), "Opening a change"; `docs/gates.md`,
-"Exit codes".
+**Source.** `README.md`, "One change, end to end" (no open blocking
+finding, no active hold, every prerequisite integrated); the guide, "Rules
+that change what you do" (claims are advisory, never locks) and "Exit
+codes" (2, 4, 6, 7, 13); `arc release-hold --help` (one hold at a time);
+`arc audit --help` and the guide's `arc findings --audit` (audit findings).
 
 **Realized by.** `findingResolved`, `openBlockingFindings`,
 `evaluateDeclared`.
@@ -300,26 +316,32 @@ until the declaration is cleared.
 
 - (i) Iterating is one more ground. Every other ground still stands beside
   it, so an iterating change with no approval is refused on both.
-- (ii) Iterating replaces the review request: `arc check` "reports the
-  typed `iterating` blocker instead of requesting a review", and the review
-  guidance applies only to non-iterating changes, so the missing approval is
-  not reported while the change iterates.
+- (ii) Iterating replaces the review request: the check reports the
+  iterating blocker instead of requesting a review, so the missing approval
+  is not reported while the change iterates.
 
-The model reads (i).
+The guide and `--help` state the iterating refusal and say nothing about
+the review request beside it. The model reads (i).
 
-**Source.** `docs/changes.md`, "Opening a change"; `docs/review.md`,
-"Review coverage and post-integration audits" (`review_options` for a
-"non-iterating change").
+**Source.** The guide, "Exit codes" (13); `arc iterating --help`; `arc
+begin --help`, `--iterating`.
 
 **Realized by.** `evaluateDeclared`.
 
 ### C12. Gate declarations
 
 **Rule.** A gate is declared by name with a command, an optional timeout,
-optional profiles, and an optional environment probe. Evidence is
-recognized by the command and timeout it ran under, so a declaration edited
-after its evidence was recorded is a check that has not run
-(`declaration_changed`). Which gates are required follows the change's
+optional profiles, and an optional environment probe. The declarations in
+force are `.arc/gates.toml` as committed on the change's target branch at
+its current head, together with the operator's gates, plus gates the
+change's own head declares under names the target does not; a change can
+add gates but can neither delete nor weaken one. A declaration is part of
+the target's tree, so moving it moves the target (C3); only the operator's
+layer, outside every tree, moves a declaration alone. A change whose target
+branch cannot be resolved is refused (`target-unreadable`), since nothing
+says what it owes. Evidence answers only the declaration it ran under, so a
+declaration edited after its evidence was recorded is a check that has not
+run (`declaration_changed`). Which gates are required follows the change's
 profile; a change whose profile requires no gate owes no gate evidence and
 integrates on its approval alone. A gate that is required but has no
 declaration is refused like missing evidence. Two policy layers declaring
@@ -327,24 +349,25 @@ one gate name with a different command or a different environment probe are
 in conflict. The check refuses, and no other ground is evaluated, because
 there is no declaration set to evaluate against. Execution refuses too.
 
-**Status.** Settled, except where declarations are read from:
-
-- (i) The invoking checkout's `.arc/gates.toml`, together with the
-  operator's gates (`docs/gates.md` at the comparison revision).
-- (ii) `.arc/gates.toml` committed on the change's target branch at its
-  current head, together with the operator's gates, plus gates the change's
-  own head declares under names the target does not. A change can add gates
-  but can neither delete nor weaken one, and a target that cannot be
-  resolved leaves the change blocked (`docs/gates.md`, later revisions).
+**Status.** Settled, except which fields of a declaration its evidence
+answers. The guide says the run "under the declared gate" decides, and that
+two layers agreeing on command and probe combine with the shorter timeout.
+(i) The command and the timeout: evidence run under another timeout is
+under another declaration. (ii) The command alone, with the probe read
+through C15. The model reads (i).
 
 The model takes the effective declaration set, the required gates, and the
-conflicting names as observations, so it is neutral between the readings.
-That a required gate with no declaration is refused is a decision the
-contract makes: an unknown is never success (C13).
+conflicting names as observations. That a required gate with no declaration
+is refused is a decision the contract makes: an unknown is never success
+(C13).
 
-**Source.** `docs/gates.md`, "Build and gate declaration";
-`docs/configuration.md`, "Repository policy"; `docs/changes.md`, "The model"
-(a gate is green for the declaration it ran).
+**Source.** The guide, "Run a change" (required gates are read from the
+target branch plus the gates the change adds; `target-unreadable`; a
+profile with no declared gate runs none), "When no independent reviewer is
+reachable" (layers combine by name; the same name with a different command
+or probe is a conflict that `arc check` and gate execution refuse), "Rules
+that change what you do" (the run under the declared gate decides), and
+"Files" (the `[gates.<name>]` table); `arc policy --help`.
 
 **Realized by.** `declarationShape`, `evaluate`, `gateEvidence`,
 `execute`.
@@ -364,17 +387,19 @@ A gate is green only when it is covered and passed. Nothing unknown is
 success: an omitted observation, an unreadable record, a run of another
 declaration, tree, or environment, and evidence of unknown cleanliness each
 leave the gate not green. Attested evidence counts like any other, marked as
-attested. Falsification is advisory and never blocks. A gate is
-discriminating when any passing evidence for it at the counted revision
-names a falsification, not only the newest run.
+attested. Falsification is advisory and never blocks.
 
-**Status.** Settled. That an unreadable record is not a result is a
-decision the contract makes; the documentation does not describe unreadable
-records.
+**Status.** Settled, except which passing evidence makes a gate
+discriminating. (i) Any passing evidence for it at the counted revision
+that names a falsification, so a later pass naming none does not retract
+it. (ii) The newest passing run. The guide says only that the gate line
+reads `discriminating` once a pass names the failure it answers. The model
+reads (i). That an unreadable record is not a result is a decision the
+contract makes; the documentation does not describe unreadable records.
 
-**Source.** `docs/gates.md`, "Build and gate declaration" (attested
-evidence, retention, `discrimination`); `docs/changes.md`, "The model"
-(evidence binds to the tree; a gate is green for the declaration it ran).
+**Source.** The guide, "Rules that change what you do" (evidence binds to a
+tree; the run under the declared gate decides; falsification is advisory);
+`arc verify --help`, `--attest`, `--falsified-by`, `--predicted`.
 
 **Realized by.** `readGate`, `gateGreen`, `gateEvidence`.
 
@@ -389,31 +414,20 @@ never hides a record that does. With an older pass at tree A and a newer run
 at tree B, evaluated at A, the run at B says nothing: the answer comes from
 the records at A.
 
-**Status.** Settled for the rule above. Unsettled on two points.
+Among several records under the key, the newest decides: a later failing,
+dirty, or unreadable run replaces an earlier pass. A record at the
+evaluated tree that carries no environment, for a gate that declares a
+probe, is not under the key in force, so it answers nothing (C15) and hides
+nothing.
 
-- *Several records that all match the evaluated tree, declaration, and
-  environment.*
-  - (i) The newest decides: a later failing, dirty, or unreadable run
-    replaces an earlier pass (`docs/gates.md`: evidence already recorded
-    "cannot be repaired by cleaning; only a fresh run replaces it").
-  - (ii) Any matching record that passed and counts suffices.
+**Status.** Settled.
 
-  The model reads (i).
-- *A record at the evaluated tree that carries no environment, for a gate
-  that declares a probe.* It answers nothing (C15); whether it hides an
-  older record that does is not stated.
-  - (i) An unknown environment is not the one in force, so the record is
-    under another key and hides nothing.
-  - (ii) An unknown environment is an unknown reading under the key in
-    force, and the newest record under the key decides, as a later
-    unreadable run does.
-
-  The model reads (i).
-
-**Source.** `docs/changes.md`, "The model" (evidence binds to the tree;
-"two commits with one tree are one evaluation"; an unchanged tree reads
-"inherited from `<revision>`"); `docs/gates.md`, "Build and gate
-declaration".
+**Source.** The guide, "Rules that change what you do": "Gate evidence
+binds to a tree, not to a commit"; the gate line reads "`inherited from
+<revision>` wherever the run that answered was against another commit
+holding that tree"; "The newest run at the evaluated tree under the
+declared gate and applicable environment decides; other runs cannot hide
+it".
 
 **Realized by.** `readGate`.
 
@@ -430,8 +444,9 @@ environment explicitly.
 **Status.** Settled. Which coverage is reported first when evidence is at
 another tree *and* from another environment is presentation (C23).
 
-**Source.** `docs/changes.md`, "The model" (a gate may declare the
-environment its evidence applies to).
+**Source.** The guide, "Rules that change what you do" (a gate may declare
+an environment probe; a failed, empty, or overrunning probe yields no
+identity); `arc verify --help`, `--environment`.
 
 **Realized by.** `readGate`, `gateEvidence`.
 
@@ -444,7 +459,9 @@ Attested evidence carries its own execution context and no worktree state.
 A dirty-tree waiver, declared with a reason, lets dirty evidence count; it
 binds to the head it was declared at, and the next commit ends it.
 
-**Status.** Settled, except:
+**Status.** Settled, except as below. That evidence of unknown cleanliness
+does not count is C13's decision that nothing unknown is success; the
+guide and `--help` do not describe it.
 
 - *Several waivers at different heads.* (i) Only the newest is in force.
   (ii) Each covers the head it names. The model reads (i).
@@ -453,9 +470,10 @@ binds to the head it was declared at, and the next commit ends it.
   answers (C14). (ii) The next commit ends the waiver, so it no longer
   covers that evidence. The model reads (i).
 
-**Source.** `arc verify --help`, `--waive-dirty`; `docs/gates.md`, "Build
-and gate declaration" (dirty evidence, unknown cleanliness, attested
-evidence).
+**Source.** `arc verify --help`, `--waive-dirty` ("Dirt is fatal by
+default: a passing run whose tree no checkout reproduces is recorded and
+declines to satisfy the gate"; the waiver binds "to this head alone — so
+the next commit ends it") and `--attest`.
 
 **Realized by.** `dirtyTreeWaiver`, `readGate`, `gateEvidence`.
 
@@ -466,7 +484,13 @@ blocks until evidence bound to that brief fails at the brief's base
 (baseline) and passes at the patchset's head (final). The pair proves
 discrimination, not relevance.
 
-**Status.** Settled, except:
+**Status.** Settled that a declared probe blocks until it discriminates,
+through a baseline failure and a final pass. Unsettled where the two runs
+must be: `arc verify --help` names the phases, and the guide says only that
+a finding's probe "must fail against the affected revision". (i) The
+baseline at the brief's base, the final at the patchset's head. (ii) The
+phases name no revision; one failing baseline run and one passing final run
+suffice. The model reads (i), and under it:
 
 - *A brief whose base is the head, or that names no base.* (i) Nothing can
   fail at the base apart from the head, and a failure and a pass at one
@@ -477,8 +501,9 @@ discrimination, not relevance.
   decides. (ii) Any run with the expected result suffices. The model reads
   (i).
 
-**Source.** `docs/workspace.md`, "Acceptance probes"; `docs/changes.md`,
-"The model" (brief).
+**Source.** The guide, "Exit codes" (12, "a declared acceptance probe is
+not discriminating") and "Review and repair"; `arc brief --help`,
+`--probes-json`, `--base`; `arc verify --help`, `--probe`, `--probe-phase`.
 
 **Realized by.** `briefOf`, `newestProbeRun`, `probeRefusals`.
 
@@ -489,11 +514,13 @@ nobody claimed is refused. `integrate` checks this before it merges.
 Reading is unaffected, so a readiness check does not refuse an undeclared
 invoker. A declared `--on-behalf-of` subject satisfies the policy.
 
-**Status.** Settled.
+**Status.** Settled. The guide makes an undeclared identity "a refusal
+instead of a record", so a command that records nothing refuses nothing,
+and `integrate`, which records, refuses. That a declared subject satisfies
+the policy follows C4's reading of the effective author.
 
-**Source.** `docs/review.md`, "Contributing to a repository you do not
-own" (the `require_declared_actor` paragraph); `docs/identity.md`,
-"Identity".
+**Source.** The guide, "Say who you are" (the `require_declared_actor`
+paragraph) and "Files" (`[policy] require_declared_actor`).
 
 **Realized by.** `evaluateDeclared`.
 
@@ -507,10 +534,16 @@ per required gate, each prerequisite's closure, and the blocking-finding and
 hold vectors that had to be empty. A refusal names the facts that stood in
 the way.
 
-**Status.** Settled.
+**Status.** Unsettled: the guide and `--help` do not say what an
+integration records as its basis. (i) Every slot above. (ii) The
+authorization alone — the verdict, the debt, or the external decision —
+with the rest read again from the ledger when asked. The model reads (i).
+The coverage channel compares only the authorization slots, which both
+readings share.
 
-**Source.** `docs/changes.md`, "The model" (the authorization basis a
-guarded merge records).
+**Source.** The facts C1 to C18 read, which the contract lists; the guide,
+"Run a change" (the closing summary of `integrate`) and "Exit codes" (a
+refusal names its blocker).
 
 **Realized by.** `evaluateDeclared`, `authorizationFor`, `gateEvidence`.
 
@@ -530,15 +563,22 @@ nothing to act on.
   integration: (i) the integration re-decides under the policy in force when
   it runs, since integration reads policy from the target at its current
   head; (ii) the earlier decision's basis moved, and the integration stands
-  down. The model reads (ii).
+  down. The model reads (ii). Project policy is committed on the target, so
+  moving it moves the target too (C12), and the change then evaluates a
+  merge nobody evaluated (C3) under either reading; the readings part only
+  where no gate is required, or where the operator's layer moves.
 - *A refused decision in a store without authority.* Both refuse; which
   refusal answers first is not stated. (i) The missing authority answers,
   since the store is refused before readiness is read. (ii) The decision's
   own refusal answers. The model reads (ii).
 
-**Source.** `docs/changes.md`, "The model" (`arc integrate`, the
-authorization basis, "readiness is recomputed and the basis rebuilt");
-`docs/replicas.md`, "Move authority"; `docs/review.md`, "Policy".
+**Source.** The guide, "Exit codes" (`integrate` refuses in `check`'s
+vocabulary; exit 17 for a replica without authority), "Rules that change
+what you do" (a single `integrate` checks that its merge carries the
+evaluated tree and undoes it otherwise), "Pair replica stores" ("A paired
+replica without authority is refused by `integrate`"), and "Files" (policy
+is read from the change's target branch); `arc integrate --help`,
+`--dry-run`.
 
 **Realized by.** `execute`, `recordIntegration`.
 
@@ -569,10 +609,10 @@ the general case. (ii) No derived kind; only a declaration answers. The
 model reads (i). `nothing-read` is not a reading: the documentation defines
 it as no verdict on any patchset.
 
-**Source.** `docs/review.md`, "What a debt records" (the table of kinds;
-"only the caller can say a merge resolution was what went unread, because
-the ledger sees a resolution and a repair the same way"); `arc debt
---help`, `--kind`.
+**Source.** The guide, "When no independent reviewer is reachable" (the
+table of kinds; "Only the caller can say a resolution was what went unread,
+because the ledger sees a repair and a merge resolution the same way";
+`review_options`); `arc debt --help`, `--kind`.
 
 **Realized by.** `debtKindFor`, `derivedKind`, `reviewObligation`.
 
@@ -595,11 +635,14 @@ and what the reader concluded stays in its verdict and findings.
 
 - *A non-independent approving audit.* (i) It is refused where policy
   forbids self-approval, and recorded without discharging anything
-  elsewhere. (ii) It is always refused (`docs/review.md`, "What a debt
-  records": "an approving audit must come from another identity"). (iii) An
-  assumed auditor is refused whatever the policy, and a declared contributor
-  is recorded without effect (`docs/review.md`, the `require_declared_actor`
-  paragraph). The model reads (i).
+  elsewhere (the guide: "Where `forbid_self_approval` is off, an approving
+  verdict from the identity that wrote the work is recorded rather than
+  refused, and `arc review` and `arc audit` both name the match"). (ii) It
+  is always refused (the guide: "An approving audit must come from an
+  identity other than the author"). (iii) An assumed auditor is refused
+  whatever the policy, and a declared contributor is recorded without
+  effect (the guide: an assumed reviewing identity "cannot be the second
+  party"). The model reads (i).
 - *Approval beside a later negative audit.* Whether a later negative audit
   withdraws an approval that shipped: (i) the approval stands and the
   audit's verdict is its own fact; (ii) the approval is withdrawn. The model
@@ -607,9 +650,10 @@ and what the reader concluded stays in its verdict and findings.
 - *A repair after a fulfilling audit.* (i) It starts a fresh obligation.
   (ii) The fulfilled read survives. The model reads (i).
 
-**Source.** `docs/review.md`, "Review coverage and post-integration
-audits", "What a debt records"; the guide, "When no independent reviewer is
-reachable" (discharge; "discharging the debt does not mean approval").
+**Source.** The guide, "When no independent reviewer is reachable" (an
+audit "never rewrites what shipped with what review"; "anyone may audit
+into `changes-requested`"; discharge; "discharging the debt does not mean
+approval"); `arc audit --help`.
 
 **Realized by.** `admitAudit`, `auditDischarges`, `auditIsIndependent`,
 `coverageAfterIntegration`, `openAuditFindings`, `latestIntegration`,
@@ -628,12 +672,13 @@ through the vocabulary mapping.
 
 **Status.** Settled; a decision the contract makes. The documentation gives
 each blocker its own exit code and reports every blocker, and derives no
-precedence among them. An order stated without a reason would be a second
-semantics that nothing constrains. Refusals at execution (C20) are a
-separate question and remain unsettled there.
+precedence among them: `arc check --help` has the exit code name "the first
+blocker", which fixes a display order and states no reason for it. An order
+stated without a reason would be a second semantics that nothing
+constrains. Refusals at execution (C20) are a separate question and remain
+unsettled there.
 
-**Source.** A decision the contract makes; `docs/gates.md`, "Exit codes";
-`docs/changes.md`, "Context awareness" (`check --json` reports every
-blocker).
+**Source.** A decision the contract makes; the guide, "Exit codes"; `arc
+check --help` (`--json` emits all blockers).
 
 **Realized by.** `evaluate`, `refusals`, `decide`.
