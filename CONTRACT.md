@@ -398,6 +398,8 @@ environment:
   "cannot be repaired by cleaning; only a fresh run replaces it").
 - (ii) Any matching record that passed and counts suffices.
 
+The model reads (i).
+
 **Source.** `docs/changes.md`, "The model" (evidence binds to the tree;
 "two commits with one tree are one evaluation"; an unchanged tree reads
 "inherited from `<revision>`"); `docs/gates.md`, "Build and gate

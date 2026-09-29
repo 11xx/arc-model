@@ -7,6 +7,7 @@ module Fixtures ( fixtureChecks ) where
 import Arc.Model
 import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Audit qualified as Audit
+import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
 import Generators
 import Mutants ( Behaviour(..), Mutant(..), allMutants )
@@ -24,6 +25,7 @@ fixtureChecks = concat
   , repairFollowedByDeeperReview
   , unknownCoverage
   , environmentCoverage
+  , evidenceKeyedByTree
   , equalTreeDifferentContributors
   , externalDecisions
   , retainedAcrossEpisodeExpiry
@@ -176,6 +178,26 @@ environmentCoverage =
     unprobed      = declaration { Declaration.environment = Nothing }
     anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True Nothing (Observed CleanWorktree)
     unprobedGreen = either (const False) (const True) (gateGreen gateName (Just unprobed) (TreeId "tree1") Omitted Nothing [anywhere])
+
+{- | Evidence is keyed by the tree the run read, the declaration it ran, and
+the environment it recorded (C14). A newer record under another key says
+nothing at the evaluated tree and does not hide an older one that answers
+there.
+-}
+evidenceKeyedByTree :: [Check]
+evidenceKeyedByTree =
+  [ expectEq "fixture/keyed: a newer run at another tree does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, run 2 (Revision "rev2") (TreeId "tree2") GateFail here]).coverage
+  , expectEq "fixture/keyed: the pass here is the result" (Observed GatePass) (keyedAt [passHere, run 2 (Revision "rev2") (TreeId "tree2") GateFail here]).result
+  , expectEq "fixture/keyed: a newer run of another declaration does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, (run 2 (Revision "rev1") (TreeId "tree1") GatePass here) { Verification.shape = DeclarationShape "cargo build --locked" 60 }]).coverage
+  , expectEq "fixture/keyed: a newer run in another environment does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, run 2 (Revision "rev1") (TreeId "tree1") GatePass (Just (EnvironmentId "env-elsewhere"))]).coverage
+  , expectEq "fixture/keyed: an earlier revision with the same tree answers" (Covered (EventId 1)) (keyedAt [passHere { Verification.revision = Revision "rev0" }]).coverage
+  , expectEq "fixture/keyed: with nothing here, the newest record says why" (EvaluatedOtherTree (TreeId "tree2")) (keyedAt [run 2 (Revision "rev2") (TreeId "tree2") GatePass here]).coverage
+  ]
+  where
+    here     = Just (EnvironmentId "env-here")
+    passHere = run 1 (Revision "rev1") (TreeId "tree1") GatePass here
+    run event revision tree result environment = Verification (EventId event) gateName (DeclarationId "build") (declarationShape declaration) revision tree result RanLocally Nothing True environment (Observed CleanWorktree)
+    keyedAt  = readGate gateName declaration (TreeId "tree1") (Observed (EnvironmentId "env-here")) Nothing
 
 {- | A run on a dirty worktree describes content no checkout of its
 revision reproduces. It counts only under a waiver naming exactly the

@@ -47,7 +47,7 @@ data EvidenceAvailability = NotProduced
 -- | Four independent readings of one required gate.
 data GateReading = GateReading
   { gate         :: !GateName
-  , result       :: !(Observed GateResult)    -- ^ Last result observed for this declaration, wherever it ran.
+  , result       :: !(Observed GateResult)    -- ^ Last result under the key in force, or, where none carries it, wherever it ran.
   , coverage     :: !GateCoverage             -- ^ Whether that observation answers the declaration, tree, and environment in force.
   , availability :: !EvidenceAvailability     -- ^ Whether any record exists, and whether it could be read.
   , falsified    :: !(Observed FailureLabel)  -- ^ The failure this gate was demonstrated to answer, when it was.
@@ -93,15 +93,21 @@ gateRefusalText = \case
 -- C13, C14, C15, C16
 {- | Read one required gate from the recorded verifications, given the
 identity the declaration's probe yields where the decision is made and the
-revision the dirty-tree waiver in force names. Coverage and availability
-are decided by the newest record, so an unreadable newest record leaves the
-gate refused rather than falling back to an older pass; any older result is
-reported beside them as a result, never as coverage.
+revision the dirty-tree waiver in force names.
+
+Evidence is keyed by the tree the run read, the declaration it ran, and the
+environment it recorded. A record under another key neither answers the
+gate nor hides a record that does. Among the records under the key in
+force, the newest decides coverage and availability, so an unreadable,
+failing, or dirty newest record leaves the gate refused rather than falling
+back to an older pass; any older result is reported beside them as a
+result, never as coverage. Where no record carries the key, the newest
+record says why none answers.
 -}
 readGate :: GateName -> Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> GateReading
 readGate gate declaration tree here waived verifications = GateReading
   { gate         = gate
-  , result       = maybe Omitted (Observed . (.result)) newestReadable
+  , result       = maybe Omitted (Observed . (.result)) (newest (filter (.readable) deciding))
   , coverage     = coverage
   , availability = availability
   , falsified    = case newest atTree of
@@ -109,12 +115,17 @@ readGate gate declaration tree here waived verifications = GateReading
       Nothing -> Omitted
   }
   where
-    matching       = [ v | v <- verifications, v.gate == gate, v.declaration == declaration.declarationId ]
-    shape          = declarationShape declaration
-    newestRecord   = newest matching
-    newestReadable = newest (filter (.readable) matching)
-    atTree         = [ v | v <- matching, v.shape == shape, v.tree == tree ]
-    coverage = case newestRecord of
+    matching = [ v | v <- verifications, v.gate == gate, v.declaration == declaration.declarationId ]
+    shape    = declarationShape declaration
+    atTree   = [ v | v <- matching, v.shape == shape, v.tree == tree ]
+    keyed    = [ v | v <- atTree, environmentMatches v ]
+    deciding = if null keyed then matching else keyed
+    -- a gate without a probe takes evidence from any environment
+    environmentMatches v = case (declaration.environment, v.environment, here) of
+      (Nothing, _, _)                         -> True
+      (Just _, Just recorded, Observed now) -> recorded == now
+      (Just _, _, _)                          -> False
+    coverage = case newest deciding of
       Nothing -> NeverEvaluated
       Just v
         | not v.readable   -> NeverEvaluated
@@ -141,7 +152,7 @@ readGate gate declaration tree here waived verifications = GateReading
         (Just recorded, Observed now)
           | recorded == now -> Covered v.event
           | otherwise       -> EvaluatedOtherEnvironment recorded now
-    availability = case newestRecord of
+    availability = case newest deciding of
       Nothing -> NotProduced
       Just v
         | not v.readable -> EvidenceUnreadable
