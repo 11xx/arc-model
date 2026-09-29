@@ -15,6 +15,7 @@ module Generators
     , observationsFor
     , executionObservations
     , flipPolicy
+    , reverts
     , isIntegratable
     , mutations
     , Mutation(..)
@@ -38,6 +39,7 @@ import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
 import Scenario
 
+import Data.List ( mapAccumL, sortOn )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.List.NonEmpty qualified as NE
 import Data.Set qualified as Set
@@ -108,20 +110,25 @@ build scenario = Built
     verdictTarget
       | scenario.verdictOnFirst && scenario.patchsets > 1 = PatchsetId 1
       | otherwise                                         = latest.patchsetId
-    verdictEvents =
-      [ VerdictRecorded Verdict
-          { event       = EventId 0
-          , patchset    = verdictTarget
-          , kind        = scenario.verdict
-          , actor       = actorForPick pick
-          , onBehalfOf  = Nothing
-          , assumed     = pick == ActorAssumed
-          , provisional = if scenario.provisional then Just "provisional" else Nothing
-          , relation    = Supersedes
-          , supersedes  = Nothing
-          }
-      | pick <- maybe [] pure scenario.reviewer
-      ]
+    -- verdicts are recorded as the plan makes them, patchset by patchset,
+    -- the earlier verdicts on a patchset before the scenario's own; each
+    -- supersedes the one recorded before it, as a review does by default
+    verdictEvents = map snd . sortOn fst $
+      [ (index, verdictBy pick kind (PatchsetId index) Nothing) | (index, pick, kind) <- scenario.priorVerdicts ]
+      <> [ (ordinalOf verdictTarget, verdictBy pick scenario.verdict verdictTarget provisional) | pick <- maybe [] pure scenario.reviewer ]
+    provisional = if scenario.provisional then Just "provisional" else Nothing
+    ordinalOf (PatchsetId index) = index
+    verdictBy pick kind patchset provisionally = VerdictRecorded Verdict
+      { event       = EventId 0
+      , patchset    = patchset
+      , kind        = kind
+      , actor       = actorForPick pick
+      , onBehalfOf  = Nothing
+      , assumed     = pick == ActorAssumed
+      , provisional = provisionally
+      , relation    = Supersedes
+      , supersedes  = Nothing
+      }
     -- a rejection of the head is followed by the closure arc records with
     -- it: the change is abandoned, with the decision as its reason
     externalEvents = concat
@@ -155,33 +162,52 @@ build scenario = Built
       | otherwise = []
     debtEvents =
       [ DebtDeclared Debt
-          { debtId       = DebtId 1
+          { debtId       = DebtId ordinal
           , event        = EventId 0
           , patchset     = Just (PatchsetId index)
           , declaredKind = kind
           , reason       = "declared coverage"
           , actor        = authorActor
           }
-      | (index, kind) <- maybe [] pure scenario.debt
+      | (ordinal, (index, kind)) <- zip [1 ..] scenario.debts
       ]
-    verificationEvents = case scenario.gateMode of
-      EvidenceOmitted -> []
-      mode        ->
-        [ VerificationRecorded Verification
-            { event       = EventId 0
-            , gate        = buildGate
-            , declaration = buildDeclaration.declarationId
-            , shape       = shapeFor mode
-            , revision    = verifiedAt.revision
-            , tree        = treeFor mode
-            , result      = if mode == EvidenceFailing then GateFail else GatePass
-            , execution   = RanLocally
-            , answers     = Just (FailureLabel "known-failure")
-            , readable    = mode /= EvidenceRecordUnreadable
-            , environment = environmentFor mode
-            , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
-            }
-        ]
+    -- runs are recorded as the plan makes them: patchset by patchset, the
+    -- scenario's own run first
+    verificationEvents = concat
+      [ [ primaryRun mode | patchset.ordinal == verifiedAt.ordinal, mode <- [scenario.gateMode], mode /= EvidenceOmitted ]
+        <> [ furtherRun patchset result | (index, result) <- scenario.gateRuns, index == patchset.ordinal ]
+      | patchset <- NE.toList patchsets
+      ]
+    primaryRun mode = VerificationRecorded Verification
+      { event       = EventId 0
+      , gate        = buildGate
+      , declaration = buildDeclaration.declarationId
+      , shape       = shapeFor mode
+      , revision    = verifiedAt.revision
+      , tree        = treeFor mode
+      , result      = if mode == EvidenceFailing then GateFail else GatePass
+      , execution   = RanLocally
+      , answers     = Just (FailureLabel "known-failure")
+      , readable    = mode /= EvidenceRecordUnreadable
+      , environment = environmentFor mode
+      , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
+      }
+    -- a further run is clean, at the patchset's own head, in the
+    -- environment here, under the declaration every run was recorded under
+    furtherRun patchset result = VerificationRecorded Verification
+      { event       = EventId 0
+      , gate        = buildGate
+      , declaration = buildDeclaration.declarationId
+      , shape       = shapeFor scenario.gateMode
+      , revision    = patchset.revision
+      , tree        = patchset.tree
+      , result      = result
+      , execution   = RanLocally
+      , answers     = Nothing
+      , readable    = True
+      , environment = Just hereEnvironment
+      , worktree    = Observed CleanWorktree
+      }
     -- the patchset whose head the gate ran at: the one before the latest
     -- when the evidence is for another tree and there is one
     verifiedAt
@@ -206,6 +232,7 @@ build scenario = Built
         ]
       | scenario.episodeExpired
       ]
+    iteratingEvents = [ IteratingChanged True | scenario.iterating ]
     waiverEvents =
       [ DirtyTreeWaived DirtyTreeWaiver { event = EventId 0, revision = revision }
       | revision <- case scenario.worktree of
@@ -224,6 +251,7 @@ build scenario = Built
       , verificationEvents
       , claimEvents
       , waiverEvents
+      , iteratingEvents
       ]
     probeEvents = case briefFor scenario of
       Nothing        -> []
@@ -297,7 +325,8 @@ build scenario = Built
 -- | The patchsets a scenario records: one per ordinal, on its own revision
 -- and tree, all by the author, with the extra contributor declared on each
 -- when the scenario asks for one, and bound to the brief from the patchset
--- recorded after it.
+-- recorded after it. A latest patchset that reverts the one before it
+-- returns to the tree of the patchset before that.
 patchsetsFor :: Scenario -> EventId -> NonEmpty Patchset
 patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
   where
@@ -305,7 +334,7 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
       { patchsetId   = PatchsetId index
       , ordinal      = index
       , revision     = Revision ("rev" <> show index)
-      , tree         = TreeId ("tree" <> show index)
+      , tree         = TreeId ("tree" <> show (treeIndex index))
       , author       = authorActor
       , contributors = contributors
       , brief        = case briefFor scenario of
@@ -315,6 +344,14 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
     contributors
       | scenario.extraContributor = Set.fromList [authorActor, otherActor]
       | otherwise                 = Set.singleton authorActor
+    treeIndex index
+      | reverts scenario, index == scenario.patchsets = index - 2
+      | otherwise                                     = index
+
+-- | Whether the latest patchset reverts the one before it: only where there
+-- is an earlier patchset for it to return to.
+reverts :: Scenario -> Bool
+reverts scenario = scenario.revertLatest && scenario.patchsets >= 3
 
 {- | The brief a scenario records, as its base and the first patchset
 recorded under it. A probe that can be discharged is based where the change
@@ -361,7 +398,7 @@ observationsForOf patchsets scenario = Observations
   , requiredGates    = [(buildGate, buildDeclaration.declarationId)]
   , environments     = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
   , policy           = scenario.policy
-  , blockedBy        = []
+  , prerequisites    = []
   , invokerDeclared  = True
   , authority        = AuthorityHeld
   }
@@ -392,12 +429,18 @@ actorForPick ActorIndependent = reviewActor
 actorForPick ActorContributor = authorActor
 actorForPick ActorAssumed     = reviewActor
 
--- | Assign one event id per recorded event, in recording order.
+-- | Assign one event id per recorded event, in recording order. Each verdict
+-- supersedes the verdict recorded before it, the tip it observed.
 assignIds :: [Event] -> [Event]
-assignIds = zipWith withId [EventId 1 ..]
+assignIds = snd . mapAccumL withId (EventId 1, Nothing)
   where
-    withId eventId = \case
-      VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId }
+    withId (eventId@(EventId next), tip) event = ((EventId (next + 1), tipAfter), number eventId tip event)
+      where
+        tipAfter = case event of
+          VerdictRecorded _ -> Just eventId
+          _other            -> tip
+    number eventId tip = \case
+      VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId, Verdict.supersedes = tip }
       ExternalVerdictRecorded value -> ExternalVerdictRecorded value { ExternalVerdict.event = eventId }
       FindingRecorded value         -> FindingRecorded value { Finding.event = eventId }
       FindingDisposed value         -> FindingDisposed value { Disposition.event = eventId }
@@ -432,11 +475,13 @@ isIntegratable scenario
   && scenario.probe `elem` [ProbeNone, ProbeDischarged]
   && not scenario.branchMissing
   && not scenario.conflictingGates
+  && not scenario.iterating
+  && all ((== GatePass) . snd) scenario.gateRuns
   where
     authorized = case scenario.reviewer of
       Just ActorIndependent -> scenario.verdict == Approved
       Just _contributing    -> False
-      Nothing               -> scenario.debt /= Nothing || externallyApproved
+      Nothing               -> debtBindsLatest scenario || externallyApproved
     externallyApproved
       = scenario.externalVerdict == Just ExternalApproved
       && not (scenario.policy.independentVerdictRequired && scenario.policy.forbidSelfApproval)
@@ -448,12 +493,10 @@ data Mutation = Mutation
   , scenario :: !Scenario
   }
 
--- | Whether the scenario's debt is bound to the newest patchset, where it
+-- | Whether a debt of the scenario is bound to the newest patchset, where it
 -- would rescue a rejected self-approval.
 debtBindsLatest :: Scenario -> Bool
-debtBindsLatest scenario = case scenario.debt of
-  Just (index, _) -> index == scenario.patchsets
-  Nothing         -> False
+debtBindsLatest scenario = any ((== scenario.patchsets) . fst) scenario.debts
 
 mutations :: Scenario -> [Mutation]
 mutations scenario = concat
@@ -487,7 +530,7 @@ mutations scenario = concat
     , not (debtBindsLatest scenario)
     ]
   , [ Mutation "waiver-expired" scenario { Scenario.patchsets = scenario.patchsets + 1 }
-    | scenario.debt /= Nothing
+    | not (null scenario.debts)
     , scenario.reviewer == Nothing
     , scenario.externalVerdict == Nothing
     ]
@@ -499,7 +542,8 @@ mutations scenario = concat
   , [ Mutation "gates-conflict" scenario { Scenario.conflictingGates = True }                           | not scenario.conflictingGates ]
   ]
   where
-    covered  = scenario.gateMode == EvidenceCovered
+    -- a further run could answer where the scenario's own run no longer does
+    covered  = scenario.gateMode == EvidenceCovered && null scenario.gateRuns
     reviewed = scenario.reviewer /= Nothing
 
 -- | The behaviours a generated scenario is expected to reach. A run that
@@ -532,6 +576,13 @@ data Feature = FeaturePermitted
              | FeatureProbeDischarged
              | FeatureBranchMissing
              | FeatureConflictingGates
+             | FeatureSeveralVerdicts
+             | FeatureSeveralDebts
+             | FeatureWaiverPerPatchset
+             | FeatureOlderEvidenceAnswers
+             | FeatureEvidenceInherited
+             | FeatureIterating
+             | FeatureRepairUnreadDerived
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 allFeatures :: [Feature]
@@ -568,7 +619,24 @@ featureOf scenario built = \case
   FeatureProbeDischarged               -> isPermitted built.decision && scenario.probe == ProbeDischarged
   FeatureBranchMissing                 -> groundedOn "branch-missing"
   FeatureConflictingGates              -> groundedOn "conflicting-declarations"
+  FeatureSeveralVerdicts               -> length built.state.verdicts >= 2
+  FeatureSeveralDebts                  -> length built.state.debts >= 2
+  -- a debt on an earlier patchset beside the latest one's waiver, which
+  -- is the one that authorizes
+  FeatureWaiverPerPatchset             -> permittedBy isWaiver && any (\debt -> debt.patchset /= latestId) built.state.debts
+  -- the evidence that answers is older than a record under another key
+  FeatureOlderEvidenceAnswers          -> any (\(_, event, _) -> Just event /= newestRun) answering
+  -- the evidence that answers was recorded at an earlier commit with the
+  -- same tree
+  FeatureEvidenceInherited             -> any (\(_, event, _) -> any (\v -> v.event == event && Just v.revision /= latestRevision) built.state.verifications) answering
+  FeatureIterating                     -> groundedOn "iterating"
+  FeatureRepairUnreadDerived           -> reviewObligation built.state == OwedReview RepairUnread || any (\debt -> debt.declaredKind == Nothing && debtKindFor built.state debt == RepairUnread) built.state.debts
   where
+    latest         = latestPatchset built.state
+    latestId       = (.patchsetId) <$> latest
+    latestRevision = (.revision) <$> latest
+    newestRun      = (.event) <$> newest built.state.verifications
+    answering      = either (const []) id (gateEvidence built.observation built.state)
     -- every ground, so a fact the first ground would hide is still counted
     grounds     = refusals built.observation built.state
     groundedOn tag = any ((== tag) . refusalTag) grounds

@@ -43,11 +43,13 @@ counterexample can be generated for them.
   `refusalText` is a rendering, not the carrier.
 - **A permission carries its basis.** `Decision = Permitted DecisionBasis |
   Refused Refusal`. `DecisionBasis` names the patchset, head, tree, target,
-  policy, authorization, one covered evaluation per required gate, and the
-  finding and hold vectors that had to be empty.
+  policy, authorization, one covered evaluation per required gate, each
+  prerequisite's closure, and the finding and hold vectors that had to be
+  empty.
 - **Permission and effect are different values.** `execute :: Observations ->
-  ChangeState -> Decision -> Either Refusal ExecutionPlan` re-checks the basis
-  and the store's authority to act; `recordIntegration` is the only function
+  ChangeState -> Decision -> Either Refusal ExecutionPlan` checks the store's
+  authority to act, computes readiness again, and rebuilds the basis, and
+  plans only where it equals the recorded one; `recordIntegration` is the only function
   that appends an `IntegrationRecord`. A `Decision` alone cannot record
   anything.
 - **Authorization is a four-way sum.** `AuthorizedByVerdict`,
@@ -79,15 +81,21 @@ counterexample can be generated for them.
 | `waiver-expiry` | a debt waives `ps-01` and not `ps-02` |
 | `debt-beside-refusal` | a changes-requested verdict with an open finding is not permitted; the debt is in no basis; the refusal stands without the finding |
 | `under-debt` | integration under a waiver, then a negative audit: the read is fulfilled, the findings stay open, the basis is untouched, fulfilled is not approved |
+| `debt-kind` | nothing read, contributor-only verdicts, and an approval followed by an unread patchset each derive their kind; a declared kind wins; a comment followed by an unread patchset owes independent review |
 | `repair-review` | an approved first patchset plus an unread repair is a stale approval and an `OwedReview RepairUnread` |
 | `unknown` / `elsewhere` / `changed` / `unreadable` / `failed` | omitted, other-tree, shape-moved, unreadable, and failing gate evidence each produce their own reading and refusal |
 | `environment` | evidence from another environment, evidence recording none, and a probe that fails here are each their own coverage and refusal; a gate without a probe takes evidence from anywhere |
+| `falsified` | any passing run under the key that names a failure makes the gate discriminating; a failing run's label and a pass at another tree do not |
+| `keyed` | a newer run at another tree, under another declaration, or in another environment neither answers nor hides the pass at the evaluated tree; an earlier revision with the same tree answers; with nothing under the key, the newest record says why |
 | `equal-tree` | equal trees with different contributor and obligation scopes decide differently; a waiver rescues the contributor; an unused debt is not named |
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
 | `episode` | an expired claim ends liveness, not the retained debt and evidence; the waiver still applies |
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
-| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
+| `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree and the readiness it refuses |
+| `rebuilt` | a finding, a hold, a refusing verdict, a failing run, or a newer pass recorded after the decision stands the execution down; an unchanged history plans and records nothing |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
+| `prerequisites` | a permission and the integration it records name each prerequisite's closure; an open prerequisite refuses |
+| `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
 | `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone; a contributor's approving audit is not recorded where self-approval is forbidden, and is recorded elsewhere |
@@ -97,6 +105,9 @@ counterexample can be generated for them.
 | `probes` | a discharged probe permits; a pass at the base, a missing or failing final run, and a base that is the head are each their own probe refusal |
 | `branch-missing` | a missing branch refuses without a moved head beside it, and refuses execution |
 | `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
+| `question-a` | an older pass at tree A and a newer failing run at tree B, evaluated at A (a latest patchset that reverts to A): the basis names the pass at A (C14) |
+| `question-b` | two waivers for different patchsets: each applies to its own patchset, and the latest one's authorizes (C7) |
+| `question-c` | an iterating change with no approval is refused as iterating; whether the missing approval stands beside it is C11's open reading, and is not asserted |
 | `demonstration` | the model refuses a contributor reviewer; the deliberate fault permits |
 
 ### Comparator checks
@@ -104,11 +115,15 @@ counterexample can be generated for them.
 `test/Comparator.hs` pins every adjudication rule of the differential
 (policy motion, external beside local, and the undeclared reviewer on the
 coverage channel; policy motion and authority at execution on the
-execution channel) to its exact answer, and changes each other field of
+execution channel; an iterating change without approval on the decision
+and execution channels; and, on every channel, the two readings a history
+is compared again under, arc's movement since the pin and a newer run
+hiding an older pass) to its exact answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
 verdict, the open audit findings, the owed review, the readiness and
 blockers of the check beside a dry run — expecting each change to be left
-a disagreement. 29 checks; a rule that accepted an unrelated field would
+a disagreement. A plan agrees with a dry run that would integrate only where
+the check beside it is ready and names no blocker. 52 checks; a rule that accepted an unrelated field would
 fail here without a run against arc.
 
 ### Properties
@@ -120,8 +135,8 @@ recorded in the README.
 | --- | --- |
 | integratable permits | every history the generator marks integratable permits |
 | mutation flips | each one-invalid-transition mutation of an integratable history either refuses or stands down at execution |
-| basis grounded | every fact in a permitted basis is present in the ledger and observations; an external authorization names an approval of exactly the basis head; the consumed finding and hold vectors were empty |
-| unknown never permits | omitted, unreadable, other-tree, shape-moved, other-environment, environment-unrecorded, and probe-failed evidence never permit |
+| basis grounded | every fact in a permitted basis is present in the ledger and observations; an external authorization names an approval of exactly the basis head; the prerequisite closures are the observed ones; the consumed finding and hold vectors were empty |
+| unknown never permits | omitted, unreadable, other-tree, shape-moved, other-environment, environment-unrecorded, and probe-failed evidence never permit where no further run could answer instead |
 | moved basis stands down | a target or policy moved between decision and execution produces `RefusedBasisMoved`, never a reused basis, unless authority is withheld, which is refused first |
 | waiver exact | a named waiver is bound to the basis patchset and is the newest for it |
 | refusal stands | a changes-requested or comment-only verdict on the current patchset is never permitted |
@@ -135,30 +150,32 @@ recorded in the README.
 ### Mutants
 
 Eighteen deliberate faults; each must be killed, and each divergence must be of
-the predicted class. Distinguishing a different refusal from a permission is
-deliberate: dropping one ground of a refusal is a real fault even when another
-ground answers.
+the predicted class. A decision is compared as `evaluate` answers it, every
+standing ground or the basis, not as the first ground `decide` projects.
+Distinguishing a different refusal from a permission is deliberate: dropping
+one ground of a refusal is a real fault even when another ground answers, and
+even when another ground would be listed first.
 
 | fault | channel | predicted divergence | killed (seed 20260907) |
 | --- | --- | --- | --- |
-| contributor identity ignored | decision | permits, different refusal, different basis | 45 tests, 8 shrinks |
-| gate matched by name | decision | permits, different refusal | 6 tests, 7 shrinks |
-| unknown treated as success | decision | permits, different refusal | 8 tests, 6 shrinks |
-| authorization reused after its basis moved | execution | permits, different refusal | 48 tests, 6 shrinks |
+| contributor identity ignored | decision | permits, different refusal, different basis | 32 tests, 8 shrinks |
+| gate matched by name | decision | permits, different refusal | 1 test, 10 shrinks |
+| unknown treated as success | decision | permits, different refusal | 1 test, 9 shrinks |
+| authorization reused after its basis moved | execution | permits, different refusal | 9 tests, 7 shrinks |
 | fulfilled implies approved | coverage | different value | 13 tests, 2 shrinks |
-| latest debt applied to every patchset | decision | permits, different refusal | 55 tests, 6 shrinks |
-| debt clears a refusing verdict | decision | permits, different refusal | 34 tests, 4 shrinks |
+| latest debt applied to every patchset | decision | permits, different refusal | 1 test, 10 shrinks |
+| debt clears a refusing verdict | decision | permits, different refusal | 9 tests, 8 shrinks |
 | later audit rewrites the integration basis | historical | different value | 3 tests, 5 shrinks |
-| unreadable evidence counts as review | decision | permits, different refusal | 45 tests, 5 shrinks |
-| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 8 shrinks |
-| environment ignored | decision | permits, different refusal | 49 tests, 8 shrinks |
-| authority ignored | execution | permits, different refusal | 201 tests, 7 shrinks |
-| dirty evidence counts | decision | permits, different refusal | 27 tests, 10 shrinks |
-| merge read as the head | decision | permits, refuses, different refusal | 9 tests, 10 shrinks |
-| rebase ignored | decision | permits, different refusal | 10 tests, 6 shrinks |
-| a final probe pass suffices | decision | permits, different refusal | 106 tests, 9 shrinks |
-| missing branch read as the head | decision | permits, different refusal | 3 tests, 8 shrinks |
-| first gate declaration wins | decision | permits, different refusal | 3 tests, 11 shrinks |
+| unreadable evidence counts as review | decision | permits, different refusal | 7 tests, 6 shrinks |
+| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 10 shrinks |
+| environment ignored | decision | permits, different refusal | 9 tests, 9 shrinks |
+| authority ignored | execution | permits, different refusal | 72 tests, 9 shrinks |
+| dirty evidence counts | decision | permits, different refusal | 1 test, 12 shrinks |
+| merge read as the head | decision | permits, refuses, different refusal, different basis | 4 tests, 11 shrinks |
+| rebase ignored | decision | permits, different refusal | 1 test, 10 shrinks |
+| a final probe pass suffices | decision | permits, different refusal | 2 tests, 9 shrinks |
+| missing branch read as the head | decision | permits, different refusal | 3 tests, 10 shrinks |
+| first gate declaration wins | decision | permits, different refusal | 4 tests, 9 shrinks |
 
 A surviving mutant is reported as a failure; the suite exits non-zero. The
 reason a mutant may legitimately exhibit more than one class is the fault
@@ -167,7 +184,8 @@ else stands in the way, and as a different refusal when something does. The
 external-approval fault also surfaces as a different basis: where an external
 approval already authorizes, the fault names a witnessed verdict instead. The
 merge-as-head fault also refuses: evidence recorded against the merge does
-not answer for the head's tree it reads instead.
+not answer for the head's tree it reads instead; and where a further run at
+the head does answer for that tree, it permits on a basis naming it.
 
 ### Demonstrated counterexample
 
@@ -180,31 +198,43 @@ approving verdict:
 - `contributor-identity-ignored` mutant: `Permitted`, because it drops the
   contributor comparison from the independence rule.
 
-The mutant's property also finds its own smallest random counterexample (45
-tests, 7 shrinks): a one-patchset history whose verdict is recorded under an
-assumed identity, under a policy that requires independence. Both are
+The mutant's property also finds its own smallest random counterexample (32
+tests, 8 shrinks): a one-patchset history approved by its own author, under
+a policy that requires independence. Both are
 reported by the suite; neither is committed as a golden string, because the
 fixture pins the behaviour and the shrunk case pins the shrinker.
 
 ### Generator coverage
 
 The coverage sampler generates 4000 scenarios and fails if any required class
-is never reached. At seed `20260907` the counts are: permitted 114, waived
-36, externally authorized 9, external refused 138, self-approval refused
-65, gates refused 259, gate failed 15, environment refused 74, verdict
-stands 430, head moved 581, target moved 23, policy moved 19, authority
-withheld 24, debt unused 34, unknown observation 521, audit fulfilled read
-30, audit negative not approved 3, episode expired 1945, equal-tree
-contributor variation 2026, dirty refused 525, dirty waived 22, merged tree
-unevaluated 475, merge evaluated 17, needs rebase 384, probes refused 1315,
-probe discharged 34, branch missing 380, conflicting gates 351. The classes
-the first ground names count a history once it is refused on that ground;
-the check-time classes count every ground, so a history refused first on
-another is still counted. A class with a count of zero is reported by name,
-so the suite cannot pass on trivial histories. The check-time facts refuse
-often, which is why permitted histories are rarer than the decision fields
-alone would make them; the audit and permission classes draw from the
+is never reached. At seed `20260907` the counts are: permitted 121, waived
+43, externally authorized 7, external refused 127, self-approval refused
+58, gates refused 209, gate failed 23, environment refused 52, verdict
+stands 426, head moved 527, target moved 21, policy moved 27, authority
+withheld 19, debt unused 36, unknown observation 521, audit fulfilled read
+37, audit negative not approved 3, episode expired 1945, equal-tree
+contributor variation 2026, dirty refused 389, dirty waived 13, merged tree
+unevaluated 503, merge evaluated 9, needs rebase 367, probes refused 1298,
+probe discharged 41, branch missing 377, conflicting gates 309, several
+verdicts 715, several debts 504, waiver per patchset 10, older evidence
+answers 48, evidence inherited 29, iterating 410, repair-unread derived
+330. The classes the first ground names count a history once it is refused
+on that ground; the check-time classes, iterating, and the classes of the
+widened history count every ground, so a history refused first on another
+is still counted. A class with a count of zero is reported by name, so the
+suite cannot pass on trivial histories. The check-time facts refuse often,
+which is why permitted histories are rarer than the decision fields alone
+would make them; the audit and permission classes draw from the
 integratable generator in the properties and mutants that need them.
+
+A history holds several verdicts, debts, and gate runs, can return its
+latest patchset to an earlier tree, and can declare itself iterating. Each
+is drawn at a low weight, so most histories stay as small as before, and
+the rare shape the contract names — an older pass at the tree the latest
+patchset returns to, with a newer run at the tree between — is drawn on
+purpose rather than left to independent draws that would reach it too
+rarely to count: `older evidence answers` and `evidence inherited` are the
+classes that reach it.
 
 ## Differential
 
@@ -231,7 +261,6 @@ appear in arc's answer as follows; the claim is what the run tests.
 | `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
 | `gates` | `gates-not-green`, including evidence on a dirty worktree |
 | `acceptance-probes` | `acceptance-probes-not-green` |
-| `undeclared-actor` | nothing: arc refuses the undeclared write, so no such verdict reaches `check` |
 
 ### The encoding
 
@@ -239,13 +268,18 @@ Each scenario field is a command: a patchset is a commit and `arc snapshot`
 (with `--contributors` for the extra contributor); a verdict is `arc review`
 by `reviewer`, by `author`, or by nobody so that arc assumes the harness
 identity; a finding is a blocking finding on a comment-only review by
-`other` that the scenario's verdict then supersedes; a debt is `arc debt` on
-the patchset it names; an external decision is `arc external verdict` at the
+`other` that the scenario's verdict then supersedes; each debt is `arc debt`
+on the patchset it names, in the order the scenario lists them; an external decision is `arc external verdict` at the
 current head; gate evidence is `arc verify` under an environment that makes
 the declared gate fail or its probe print a chosen identity, or print
 nothing so the evidence records none; a changed declaration is an
-uncommitted edit of `gates.toml`; a moved head is a commit after the last
-snapshot. The decision is asked with the probe printing the local identity,
+uncommitted edit of `gates.toml`; a further run is a clean `arc verify` at
+the head of the patchset it names, after that patchset's own run; a latest
+patchset that returns to an earlier tree is `git revert` of the commit
+before it; an iterating change is `arc iterating`; a moved head is a commit
+after the last snapshot. The model records gate runs in the order the plan
+makes them, patchset by patchset, so the newest run is the same run on both
+sides. The decision is asked with the probe printing the local identity,
 or nothing when the scenario fails it. Policy is written to
 `.arc/policy.toml` and the change edits the declared dangerous path exactly
 when independent review is required.
@@ -349,13 +383,14 @@ So the model's execution maps onto a dry run as follows:
 
 | `execute` | a dry run |
 | --- | --- |
-| a plan | exit 0, would integrate |
+| a plan | exit 0, would integrate, with `arc check` in the same world ready and naming no blocker |
 | `authority-withheld` | exit 17 |
 | any other refusal: the decision's own, `basis-moved`, `branch-missing`, `conflicting-declarations` | a non-zero exit other than 17, with `arc check` in the same world reporting the blockers the model's grounds name under the execution-time observations |
 
 A basis that moved is where the two answer differently in kind. The model
-compares the basis with the observations and names the moved fact; arc
-names the blockers its fresh evaluation finds. The mapping claims the two
+computes readiness again and names what moved against the rebuilt basis,
+with the grounds where readiness now refuses; arc names the blockers its
+fresh evaluation finds. The mapping claims the two
 refuse together and that arc's blockers are the model's own grounds under
 the moved observations: a target that moved leaves the head behind a merge
 nobody evaluated, so `merged-tree-unevaluated` and `gates-not-green`.
@@ -389,7 +424,8 @@ of the same name under "Unsettled design":
   integration, where the model's own grounds under the new policy are none:
   arc decides again under that policy and would integrate; the model acts
   only on the decision made before the policy moved, and stands down. The
-  rule applies only where the check beside the dry run is ready.
+  rule applies only where the check beside the dry run is ready and names
+  no blocker.
 
 `--mutant authority-ignored` objects on `execute-authority-withheld`, and
 `--mutant authorization-reused-after-basis-moved` on
@@ -487,6 +523,71 @@ failed to replay.
 verdict and arc's basis names the debt, and exits non-zero; `--mutant
 fulfilled-implies-approved` agrees everywhere and exits zero.
 
+### Results against the installed arc
+
+The same seed and case counts, replayed against the arc installed when the
+run was made, `arc 2026.9.9`, whose binary postdates arc `1170fb4`. The
+model still characterizes `comparisonRevision`. The histories include the
+widened generator's and the five named after the contract's questions.
+
+| channel | earlier run, at the comparison revision | this run, installed arc |
+| --- | --- | --- |
+| decision | 442 cases: 398 agreed, 0 adjudicated, 44 skipped, 0 disagreed | 447 cases: 368 agreed, 39 adjudicated, 40 skipped, 0 disagreed |
+| execution | 448 cases: 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed | 453 cases: 315 agreed, 93 adjudicated, 45 skipped, 0 disagreed |
+| coverage | 453 cases: 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed | 458 cases: 398 agreed, 15 adjudicated, 45 skipped, 0 disagreed |
+
+No replay failed. Every sandbox confines Git's global configuration to its
+own home, so no replay reads the operator's. Before these classes were
+named, a first pass left 16, 37, and 3 rows unclassified on the three
+channels. Each
+adjudicated row falls in one class:
+
+| class | kind | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| a declaration or policy moved by an uncommitted edit, which the installed arc does not read | arc moved since the pin | 24 | 37 | 6 |
+| an iterating change without approval | unsettled (C11) | 11 | 11 | 0 |
+| a newer run from another environment hides the pass at the evaluated tree | Rust defect (C14) | 1 | 1 | 1 |
+| a newer run recording no environment hides the pass at the evaluated tree | unsettled (C14) | 3 | 3 | 3 |
+| authority at execution | unsettled (C20) | – | 41 | – |
+| external beside local | unsettled (C9) | – | – | 4 |
+| undeclared reviewer | encoding | – | – | 1 |
+
+- **Arc moved since the pin.** The installed arc reads `.arc/gates.toml`
+  and `.arc/policy.toml` from the target branch's commits, which is reading
+  (ii) of C12 and reading (i) of C20's policy motion. The plan moves a
+  declaration and a policy by editing the worktree's files without
+  committing them, so for this arc nothing moved. A row is classified this
+  way only where arc's answer is the model's own for the scenario with
+  those moves undone, agreed or adjudicated as that scenario would be. This
+  is not a defect of either side. It does mean that, against this arc, the
+  declaration-changed and policy-motion histories measure nothing about
+  C12 or C20 until the plan commits the move on the target. The policy
+  motion class (C20) therefore no longer appears: every history it
+  classified at the comparison revision is explained by the unmoved
+  reading.
+- **Iterating without approval (C11).** arc's check reports `iterating` and
+  leaves out `no-valid-approval`, which is reading (ii). The model reads
+  (i). On the execution channel the dry run refuses with exit 13 on the
+  same blockers. With withheld authority it exits 17 beside them, which
+  the authority class then covers.
+- **An older pass hidden by a newer run from another environment (C14).**
+  This is `gate-older-pass-newer-other-environment` and the rows that
+  generate its shape. The latest patchset returns to tree A. A pass at A
+  from this environment is followed by a run at A from another
+  environment, and arc refuses the gate. C14 is settled: a record from
+  another environment never hides one that answers. With the newer run
+  left out arc is ready, and with the older pass left out arc refuses as
+  the model does, so the newer record alone is the difference. Filed in
+  arc's journal as the feature request
+  `gate-evidence-hidden-by-other-environment`, with the replay steps.
+- **An older pass hidden by a newer run recording no environment (C14).**
+  This is the same shape with a probe that printed nothing. C14 does not
+  say whether an unknown environment is another key or an unknown reading
+  under the key in force. The contract records both readings; the model
+  reads the first and arc behaves as the second.
+- The authority, external-beside-local, and undeclared-reviewer classes
+  are the ones on record at the comparison revision.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -574,11 +675,11 @@ still choose differently. Each is a deliberate choice, not an oversight.
   The model refuses it in `execute`, before comparing the basis, and never in
   `decide`; a decision that was refused is answered with its own refusal
   whatever the store's authority, where production answers exit 17.
-- **Debt kind derivation.** `nothing-read`, `contributor-only`, and
-  `independent-review` are derived; `merge-resolution-unread` and
-  `repair-unread` are accepted only when declared, because only the caller can
-  say which of the two a ledger sees identically. Whether the ledger itself
-  should distinguish them is open.
+- **Debt kind derivation.** `nothing-read`, `contributor-only`,
+  `repair-unread`, and `independent-review` are derived;
+  `merge-resolution-unread` is accepted only when declared, because the
+  ledger sees a merge resolution and a repair identically. Whether the
+  ledger itself should distinguish them is open.
 - **Coverage after a repair.** A negative audit fulfils the read and leaves
   its findings open. A repair after that audit starts a fresh obligation in
   the model. Whether the fulfilled read should survive a repair is a policy
@@ -590,6 +691,11 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
+- **An unknown environment at the evaluated tree.** A run that recorded no
+  environment answers nothing for a gate with a probe. The model keys it
+  apart, so it does not hide an older pass from this environment either
+  (C14, reading (i)). The installed arc lets it decide as the newest record
+  at the tree.
 - **Policy motion.** A policy that changes between decision and execution
   produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
   the new policy would be a different action, with a different basis.
@@ -605,43 +711,73 @@ still choose differently. Each is a deliberate choice, not an oversight.
 ## Open decisions against the contract
 
 Where the model and a settled clause of [CONTRACT.md](CONTRACT.md) answer
-differently. Each is recorded, not repaired: the model is unchanged, and
-adjudicating each one is separate work that classifies it as a model defect
-or a contract to amend. Where a clause is unsettled, the clause itself names
-the reading the model takes, and nothing is listed here.
+differently. Each is recorded here, not repaired, until it is adjudicated as
+a model defect or a contract to amend; it then moves to
+[Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
+names the reading the model takes, and nothing is listed here.
 
-- **Which verification answers a gate (C14).** `readGate` takes the newest
-  record for the gate and declaration across every tree, and reads coverage
-  from that record alone. With an older pass at tree A and a newer run at
-  tree B, evaluated at A, the model reports `EvaluatedOtherTree B` and
-  refuses. The contract keys evidence by tree: the record at B does not
-  answer at A and does not hide the pass that does. The same selection lets
-  a newer record under another declaration shape report
-  `DeclarationMoved` over a matching record at the evaluated tree.
-- **Falsification (C13).** `readGate` reads `falsified` from the newest
-  record at the evaluated tree. The contract calls a gate discriminating
-  when any passing evidence at the counted revision names a falsification.
-  Advisory only; no decision changes.
-- **Declared actors (C18).** `evaluateDeclared` refuses an undeclared
-  invoker as a decision ground, `RefusedUndeclaredActor`. The contract
-  leaves reading unaffected: a readiness check does not refuse an
-  undeclared invoker, and the integration refuses it before it merges,
-  which in the model is `execute`.
-- **The basis (C19).** `DecisionBasis` names no prerequisite closures; the
-  contract's basis records each prerequisite's closure beside the
-  authorization, gates, findings, and holds.
-- **Execution re-checks the basis (C20).** `execute` compares the basis
-  with the observed head, target, tree, and policy, and with the latest
-  patchset. It does not compute readiness again from the ledger, so a
-  finding opened, a hold set, a verdict recorded, or gate evidence
-  superseded between the decision and the execution leaves the plan
-  standing. The contract rebuilds the basis before acting and writes
-  nothing when the rebuilt basis differs.
-- **The owed-review kind (C21).** `reviewObligation` derives
-  `repair-unread` for a history whose verdicts include no change request,
-  and `independent-review` wherever a change request exists. The contract
-  never derives `repair-unread`, because the ledger cannot tell a repair
-  from a merge resolution.
+None stands.
+
+## Adjudicated
+
+Disagreements between the model and the contract, each with its class and
+the change that settled it. A model defect carries a fixture that fails on
+the model before the fix.
+
+- **Which verification answers a gate (C14): model defect.** `readGate`
+  took the newest record for the gate and declaration across every tree,
+  so a newer run at tree B hid an older pass at the evaluated tree A, and a
+  newer record under another declaration or environment hid a matching one.
+  The model keys evidence by tree, declaration, and environment; the newest
+  record under the key decides, which is the clause's reading (i) for
+  several matching records, and the newest record overall only says why
+  nothing answers. Fixture `keyed`; commit `5b833c8`.
+- **Falsification (C13): model defect.** `readGate` read `falsified` from
+  the newest record at the evaluated tree, so a later pass naming no
+  failure hid an earlier one that did. The model reads it from any
+  readable passing record under the key in force; the counted revision is
+  read through C14, where two commits with one tree are one evaluation.
+  Advisory only; no decision changes. Fixture `falsified`; commit `b7e838a`.
+- **Declared actors (C18): model defect.** `evaluateDeclared` refused an
+  undeclared invoker as a decision ground. The clause, from
+  `docs/review.md` ("Reading is unaffected"; `integrate` checks before it
+  merges), leaves the readiness check alone. `RefusedUndeclaredActor` is an
+  execution refusal, raised by `execute` after withheld authority. Fixture
+  `undeclared-actor`; commit `59b529e`.
+- **The basis (C19): model defect.** `DecisionBasis` named no prerequisite
+  closures, and the observations named only the prerequisites still open.
+  `docs/changes.md` lists each prerequisite's closure in the authorization
+  basis. `Observations.prerequisites` names each prerequisite with the
+  closure that integrated it, where one did; the open ones refuse, and the
+  basis and the integration record name the rest. Fixture `prerequisites`,
+  which the model without the slot does not compile; commit `51fb6b2`.
+- **Execution rebuilds the basis (C20): model defect.** `execute` compared
+  the basis with the observed head, target, tree, and policy and never
+  computed readiness again, so a finding opened, a hold set, a verdict
+  recorded, or gate evidence superseded between the decision and the
+  execution left the plan standing. `docs/changes.md` recomputes readiness
+  and rebuilds the basis before merging. `execute` evaluates again; a
+  refusal stands down with `MovedReadiness` and its grounds beside the
+  observed moves, and a rebuilt basis that differs names each moved slot.
+  Permission is still not effect: the plan records nothing, and policy
+  motion still stands down, the clause's reading (ii). Fixture `rebuilt`;
+  commit `aea73bb`.
+- **Debt kinds and the owed review (C21): contract to amend.** The clause
+  said the ledger derives neither `merge-resolution-unread` nor
+  `repair-unread`. `docs/review.md` defines `repair-unread` in ledger terms
+  ("an approved patchset, then authored work nobody read") and reserves
+  only the merge resolution for the caller, "because the ledger sees a
+  resolution and a repair the same way"; `arc debt --help` says the same.
+  The clause now derives `repair-unread` for a patchset with no verdict
+  after an approved one, and keeps `merge-resolution-unread` declared-only.
+  Its unsettled case narrows to earlier verdicts none of which approves,
+  read as `independent-review`: `nothing-read` is defined as no verdict on
+  any patchset, so it is no reading there. The model disagreed with both
+  texts in different ways — `debtKindFor` derived `nothing-read` after an
+  approval, and `reviewObligation` derived `repair-unread` from the absence
+  of a change request — and answers to the amended clause through one
+  derivation, `derivedKind`, for the debt and the owed review. Fixture
+  `debt-kind`; commit `9e0f0c9`.
 
 ## Deferred out of this package
 
@@ -700,8 +836,9 @@ about them:
 - **Review-map advisories.** `reviewer-behind-final-patchset`,
   `no-independent-reviewer`, and the other advisories are not modelled; they
   never block, and the model's job is the blocking decision.
-- **Dependency status.** `Observations.blockedBy` names blockers; how a chain's
-  readiness is computed is not modelled.
+- **Dependency status.** `Observations.prerequisites` names each prerequisite
+  and the closure that integrated it; how a chain's readiness is computed is
+  not modelled.
 
 ## The proposed candidate protocol
 

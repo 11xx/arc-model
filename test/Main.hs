@@ -134,6 +134,7 @@ prop_basis_grounded scenario = case built.decision of
     , counterexample "the basis tree is the evaluated tree"      (basis.tree == built.observation.evaluatedTree)
     , counterexample "the authorization is recorded"             (authorizationGrounded built.state basis)
     , counterexample "every gate evaluation is recorded"         (all (gateGrounded built.state basis.tree) basis.gates)
+    , counterexample "every prerequisite closure is observed"   (basis.prerequisites == [ (change, closure) | (change, Just closure) <- built.observation.prerequisites ])
     , counterexample "the consumed finding vector was empty"     (null basis.consumedFindings)
     , counterexample "the consumed hold vector was empty"        (null basis.consumedHolds)
     ]
@@ -172,9 +173,12 @@ gateGrounded state tree (gate, event, declaration) = any grounded state.verifica
       && verification.result == GatePass
       && verification.readable
 
+-- | Where the scenario's own run is unknown or answers elsewhere, and no
+-- further run could answer instead, nothing permits.
 prop_unknown_never_permits :: Scenario -> Property
 prop_unknown_never_permits scenario
   | scenario.gateMode `elem` [EvidenceOmitted, EvidenceRecordUnreadable, EvidenceOtherTree, EvidenceShapeMoved, EvidenceOtherEnvironment, EvidenceUnrecordedEnvironment, EvidenceProbeFailed]
+  , null scenario.gateRuns
       = counterexample (show scenario) (not (isPermitted (build scenario).decision))
   | otherwise = property True
 
@@ -308,7 +312,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedClosed closure          -> state.closed == Just closure
       RefusedIterating               -> state.iterating
       RefusedNoPatchset              -> latest == Nothing
-      RefusedBlockedBy blockers      -> not (null blockers) && blockers == observation.blockedBy
+      RefusedBlockedBy blockers      -> not (null blockers) && blockers == [ change | (change, Nothing) <- observation.prerequisites ]
       RefusedConflictingDeclarations gates -> not (null gates) && gates == observation.conflictingGates
       RefusedBranchMissing           -> observation.head == Omitted
       RefusedHeadMoved seen recorded -> Observed seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded
@@ -320,7 +324,6 @@ prop_grounds_are_facts scenario = conjoin
       RefusedAcceptanceProbes refused -> not (null refused) && all probeGrounded refused
       RefusedBlockingFindings open   -> not (null open) && open == openBlockingFindings state
       RefusedContestedVerdict events -> verdictContested state && events == map (.event) (activeVerdicts state)
-      RefusedUndeclaredActor         -> observation.policy.requireDeclaredActor && not observation.invokerDeclared
       RefusedVerdictStands kind event
         -> kind /= Approved
         && any (\v -> v.event == event && v.kind == kind && Just v.patchset == latestId) (activeVerdicts state)
@@ -341,6 +344,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedGates refused           -> not (null refused) && all ((`elem` map fst observation.requiredGates) . gateOf) refused
       RefusedHoldActive hold         -> hold `Set.member` state.holds
       RefusedAuthorityWithheld       -> False
+      RefusedUndeclaredActor         -> False
       RefusedBasisMoved _            -> False
     brief = do
       patchset <- latest

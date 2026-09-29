@@ -54,8 +54,9 @@ evaluate observations state
   | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
   | otherwise                                = evaluateDeclared observations state
 
--- C1, C2, C3, C5, C10, C11, C18, C19
--- | 'evaluate' under one declaration set.
+-- C1, C2, C3, C5, C10, C11, C19
+-- | 'evaluate' under one declaration set. It reads, so it never refuses the
+-- invoker's identity; 'execute' does.
 evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
 evaluateDeclared observations state = case latestPatchset state of
   Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
@@ -72,7 +73,6 @@ evaluateDeclared observations state = case latestPatchset state of
           , [ RefusedMergedTreeUnevaluated observations.evaluatedTree | mergedTreeUnevaluated ]
           , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
           , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | verdictContested state ]
-          , [ RefusedUndeclaredActor | policy.requireDeclaredActor && not observations.invokerDeclared ]
           , either pure (const []) authorization
           , either (pure . RefusedGates) (const []) gates
           , [ RefusedAcceptanceProbes probes | not (null probes) ]
@@ -86,10 +86,11 @@ evaluateDeclared observations state = case latestPatchset state of
   where
     policy       = observations.policy
     openFindings = openBlockingFindings state
+    blockedBy    = [ change | (change, Nothing) <- observations.prerequisites ]
     preliminary  = concat
       [ [ RefusedClosed closure | Just closure <- [state.closed] ]
       , [ RefusedIterating | state.iterating ]
-      , [ RefusedBlockedBy observations.blockedBy | not (null observations.blockedBy) ]
+      , [ RefusedBlockedBy blockedBy | not (null blockedBy) ]
       ]
     -- a merge nobody ran any required gate on: evidence at the head says
     -- nothing about content neither branch committed
@@ -107,6 +108,7 @@ evaluateDeclared observations state = case latestPatchset state of
       , policy           = policy
       , authorization    = authorization
       , gates            = gates
+      , prerequisites    = [ (change, closure) | (change, Just closure) <- observations.prerequisites ]
       , consumedFindings = openFindings
       , consumedHolds    = []
       }
@@ -202,25 +204,45 @@ gateEvidence observations state =
         _uncovered    -> Nothing
       _refused -> Nothing
 
--- C2, C12, C20
-{- | Re-check a basis against the observations at execution time. A store
-that does not hold integration authority cannot act at all, declarations
-two policy layers disagree on and a missing branch leave nothing to act
-on, and any moved fact stands the action down; the recorded basis is never
-reused.
+-- C2, C12, C18, C20
+{- | Re-check a basis at execution time. A store that does not hold
+integration authority cannot act at all, an invoker nobody declared is
+refused where policy requires a declared actor, and declarations two
+policy layers disagree on and a missing branch leave nothing to act on.
+Otherwise readiness is computed again from the history and the
+observations, and the basis rebuilt; where it refuses, or the rebuilt basis
+differs from the recorded one, the action stands down on what moved. The
+recorded basis is never reused, and the plan records nothing.
 -}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
   Refused refusal -> Left refusal
   Permitted basis
     | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
+    | observations.policy.requireDeclaredActor && not observations.invokerDeclared
+                                                  -> Left RefusedUndeclaredActor
     | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
     | observations.head == Omitted                -> Left RefusedBranchMissing
     | otherwise -> case moved basis of
         []    -> Right ExecutionPlan { integration = integration basis }
         facts -> Left (RefusedBasisMoved facts)
   where
-    moved basis = concat
+    moved basis = case evaluate observations state of
+      Right rebuilt -> differences basis rebuilt
+      Left grounds  -> observedMoves basis <> [MovedReadiness (NE.toList grounds)]
+    differences basis rebuilt = concat
+      [ [ MovedHead basis.head rebuilt.head                            | basis.head          /= rebuilt.head ]
+      , [ MovedTarget basis.target rebuilt.target                      | basis.target        /= rebuilt.target ]
+      , [ MovedTree basis.tree rebuilt.tree                            | basis.tree          /= rebuilt.tree ]
+      , [ MovedPolicy basis.policy rebuilt.policy                      | basis.policy        /= rebuilt.policy ]
+      , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
+      , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
+      , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
+      , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
+      ]
+    -- with no basis to rebuild, the observed facts the recorded one named
+    -- are still compared, so a refusal says what moved beside why
+    observedMoves basis = concat
       [ [ MovedHead basis.head seen                         | Observed seen <- [observations.head], basis.head /= seen ]
       , [ MovedTarget basis.target observations.target      | basis.target /= observations.target ]
       , [ MovedTree basis.tree observations.evaluatedTree   | basis.tree   /= observations.evaluatedTree ]
@@ -239,6 +261,7 @@ execute observations state = \case
       , tree             = basis.tree
       , authorization    = basis.authorization
       , gates            = basis.gates
+      , prerequisites    = basis.prerequisites
       , consumedFindings = basis.consumedFindings
       , consumedHolds    = basis.consumedHolds
       , policy           = basis.policy
