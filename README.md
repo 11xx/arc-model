@@ -82,6 +82,9 @@ cabal v2-test spec --test-show-details=direct
 cabal v2-run arc-model-differential -- --cases 200
 ```
 
+`cabal.project` pins the compiler with `with-compiler: ghc-9.12.2`, so a
+`ghc-9.12.2` executable must be on `PATH`.
+
 The suite exits non-zero on any failed fixture, comparator check, property,
 surviving mutant, or unreached generator feature. Its library dependencies
 are `base` and `containers`; the test suite adds `QuickCheck`, and compiles
