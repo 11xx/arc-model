@@ -56,9 +56,9 @@ data MovedFact = MovedHead Revision Revision
                | MovedPatchset PatchsetId PatchsetId
   deriving stock (Eq, Ord, Show)
 
-{- | Why an integration is refused. The last two arise only when a permitted
-decision is executed; every other is a ground a decision can stand on, and
-a missing branch is also refused at execution.
+{- | Why an integration is refused. The last three arise only when a
+permitted decision is executed; every other is a ground a decision can
+stand on, and a missing branch is also refused at execution.
 -}
 data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedClosed Closure
@@ -79,8 +79,8 @@ data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedGates [GateRefusal]
              | RefusedAcceptanceProbes [ProbeRefusal]
              | RefusedHoldActive HoldId
-             | RefusedUndeclaredActor
              | RefusedAuthorityWithheld
+             | RefusedUndeclaredActor
              | RefusedBasisMoved [MovedFact]
   deriving stock (Eq, Ord, Show)
 

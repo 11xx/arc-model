@@ -320,7 +320,6 @@ prop_grounds_are_facts scenario = conjoin
       RefusedAcceptanceProbes refused -> not (null refused) && all probeGrounded refused
       RefusedBlockingFindings open   -> not (null open) && open == openBlockingFindings state
       RefusedContestedVerdict events -> verdictContested state && events == map (.event) (activeVerdicts state)
-      RefusedUndeclaredActor         -> observation.policy.requireDeclaredActor && not observation.invokerDeclared
       RefusedVerdictStands kind event
         -> kind /= Approved
         && any (\v -> v.event == event && v.kind == kind && Just v.patchset == latestId) (activeVerdicts state)
@@ -341,6 +340,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedGates refused           -> not (null refused) && all ((`elem` map fst observation.requiredGates) . gateOf) refused
       RefusedHoldActive hold         -> hold `Set.member` state.holds
       RefusedAuthorityWithheld       -> False
+      RefusedUndeclaredActor         -> False
       RefusedBasisMoved _            -> False
     brief = do
       patchset <- latest
