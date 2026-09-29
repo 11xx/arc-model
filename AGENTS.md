@@ -6,11 +6,9 @@ models and how to run it.
 
 ## Design authority
 
-The design lives in the arc project journal, not in this repository:
-`arc catchup` in the arc checkout for live state, and the feature request
-`haskell-semantic-model-and-oracle` with its owning discussion
-`agent-native-vcs` for the argument. A question that looks open is usually
-settled there.
+The settled design is what `README.md` and `REPORT.md` state. A question
+those two leave open is open, and `REPORT.md` records it among its unsettled
+design and open decisions.
 
 ## Invariants
 
