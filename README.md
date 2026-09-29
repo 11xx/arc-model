@@ -28,8 +28,10 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
   probes of the patchset's brief. Gate declarations two policy layers
   disagree on leave nothing to decide against, and are refused alone.
 - **Every ground, not the first.** `evaluate` answers with every ground on
-  which the integration is refused, in the model's priority order, or with
-  the basis it would rest on; `decide` is the first ground or the basis.
+  which the integration is refused, or with the basis it would rest on. The
+  grounds are a set; the order they are listed in is presentation only
+  (CONTRACT.md, C23), and `decide`, the first listed ground or the basis,
+  is a projection of that set for display.
 - **Four separate gate readings.** Pass/fail, coverage (which declaration,
   tree, and environment an observation answers), availability (whether a
   record exists and could be read), and demonstrated falsification are
