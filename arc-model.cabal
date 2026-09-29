@@ -113,8 +113,10 @@ test-suite spec
     , Differential.Arc
     , Differential.Compare
     , Differential.Plan
+    , Differential.Sandbox
     , Fixtures
     , Render
+    , SandboxChecks
   build-depends:
       arc-model
     , arc-model:scenarios
@@ -126,6 +128,7 @@ test-suite spec
     , filepath    >= 1.5  && < 2
     , process     >= 1.6  && < 2
     , QuickCheck  >= 2.14 && < 2.16
+    , unix        >= 2.8  && < 3
 
 executable arc-model-differential
   import:           warnings
@@ -135,6 +138,7 @@ executable arc-model-differential
       Differential.Arc
     , Differential.Compare
     , Differential.Plan
+    , Differential.Sandbox
   build-depends:
       arc-model
     , arc-model:scenarios

@@ -8,6 +8,7 @@ import Fixtures ( fixtureChecks )
 import Generators
 import Mutants
 import Render
+import SandboxChecks ( sandboxChecks )
 
 import Data.List ( intercalate )
 import Data.Maybe ( listToMaybe )
@@ -38,7 +39,8 @@ main = do
   propertyResults <- propertyChecks seed tests
   mutantResults   <- mutantChecks
   coverage        <- coverageCheck seed tests
-  let checks   = fixtureChecks <> comparatorChecks <> propertyResults <> mutantResults <> [coverage]
+  sandbox         <- sandboxChecks
+  let checks   = fixtureChecks <> comparatorChecks <> sandbox <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""
