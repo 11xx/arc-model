@@ -128,8 +128,15 @@ fail here without a run against arc.
 
 ### Properties
 
-Thirteen properties run over generated scenarios; seeds and case counts are
-recorded in the README.
+Thirteen properties run over generated scenarios, deterministically from one
+seed: by default seed `20260907` and 300 cases each. Property `n` derives seed
+`seed + n * 13`, mutant checks use `1000 + index * 31` and `2000 + index * 31`,
+and the coverage sampler uses `seed + index`. The same seed and case count
+reproduce every case:
+
+```sh
+cabal v2-test spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
+```
 
 | property | statement |
 | --- | --- |

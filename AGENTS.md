@@ -1,12 +1,12 @@
 # arc-model
 
 An independent semantic model of arc's integration authorization, and the
-oracle that compares it with the arc binary. See `README.md` for what it
-models and how to run it.
+oracle that compares it with the arc binary. `CONTRACT.md` states what it
+models, and `README.md` how to run it.
 
 ## Design authority
 
-The settled design is what `README.md` and `REPORT.md` state. A question
+The settled design is what `CONTRACT.md` and `REPORT.md` state. A question
 those two leave open is open, and `REPORT.md` records it among its unsettled
 design and open decisions.
 
