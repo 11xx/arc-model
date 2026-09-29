@@ -116,12 +116,14 @@ counterexample can be generated for them.
 (policy motion, external beside local, and the undeclared reviewer on the
 coverage channel; policy motion and authority at execution on the
 execution channel; an iterating change without approval on the decision
-channel) to its exact answer, and changes each other field of
+and execution channels; and, on every channel, the two readings a history
+is compared again under, arc's movement since the pin and a newer run
+hiding an older pass) to its exact answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
 verdict, the open audit findings, the owed review, the readiness and
 blockers of the check beside a dry run — expecting each change to be left
 a disagreement. A plan agrees with a dry run that would integrate only where
-the check beside it is ready and names no blocker. 37 checks; a rule that accepted an unrelated field would
+the check beside it is ready and names no blocker. 52 checks; a rule that accepted an unrelated field would
 fail here without a run against arc.
 
 ### Properties
@@ -521,6 +523,71 @@ failed to replay.
 verdict and arc's basis names the debt, and exits non-zero; `--mutant
 fulfilled-implies-approved` agrees everywhere and exits zero.
 
+### Results against the installed arc
+
+The same seed and case counts, replayed against the arc installed when the
+run was made, `arc 2026.9.9`, whose binary postdates arc `1170fb4`. The
+model still characterizes `comparisonRevision`. The histories include the
+widened generator's and the five named after the contract's questions.
+
+| channel | earlier run, at the comparison revision | this run, installed arc |
+| --- | --- | --- |
+| decision | 442 cases: 398 agreed, 0 adjudicated, 44 skipped, 0 disagreed | 447 cases: 368 agreed, 39 adjudicated, 40 skipped, 0 disagreed |
+| execution | 448 cases: 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed | 453 cases: 315 agreed, 93 adjudicated, 45 skipped, 0 disagreed |
+| coverage | 453 cases: 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed | 458 cases: 398 agreed, 15 adjudicated, 45 skipped, 0 disagreed |
+
+No replay failed. Every sandbox confines Git's global configuration to its
+own home, so no replay reads the operator's. Before these classes were
+named, a first pass left 16, 37, and 3 rows unclassified on the three
+channels. Each
+adjudicated row falls in one class:
+
+| class | kind | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| a declaration or policy moved by an uncommitted edit, which the installed arc does not read | arc moved since the pin | 24 | 37 | 6 |
+| an iterating change without approval | unsettled (C11) | 11 | 11 | 0 |
+| a newer run from another environment hides the pass at the evaluated tree | Rust defect (C14) | 1 | 1 | 1 |
+| a newer run recording no environment hides the pass at the evaluated tree | unsettled (C14) | 3 | 3 | 3 |
+| authority at execution | unsettled (C20) | – | 41 | – |
+| external beside local | unsettled (C9) | – | – | 4 |
+| undeclared reviewer | encoding | – | – | 1 |
+
+- **Arc moved since the pin.** The installed arc reads `.arc/gates.toml`
+  and `.arc/policy.toml` from the target branch's commits, which is reading
+  (ii) of C12 and reading (i) of C20's policy motion. The plan moves a
+  declaration and a policy by editing the worktree's files without
+  committing them, so for this arc nothing moved. A row is classified this
+  way only where arc's answer is the model's own for the scenario with
+  those moves undone, agreed or adjudicated as that scenario would be. This
+  is not a defect of either side. It does mean that, against this arc, the
+  declaration-changed and policy-motion histories measure nothing about
+  C12 or C20 until the plan commits the move on the target. The policy
+  motion class (C20) therefore no longer appears: every history it
+  classified at the comparison revision is explained by the unmoved
+  reading.
+- **Iterating without approval (C11).** arc's check reports `iterating` and
+  leaves out `no-valid-approval`, which is reading (ii). The model reads
+  (i). On the execution channel the dry run refuses with exit 13 on the
+  same blockers. With withheld authority it exits 17 beside them, which
+  the authority class then covers.
+- **An older pass hidden by a newer run from another environment (C14).**
+  This is `gate-older-pass-newer-other-environment` and the rows that
+  generate its shape. The latest patchset returns to tree A. A pass at A
+  from this environment is followed by a run at A from another
+  environment, and arc refuses the gate. C14 is settled: a record from
+  another environment never hides one that answers. With the newer run
+  left out arc is ready, and with the older pass left out arc refuses as
+  the model does, so the newer record alone is the difference. Filed in
+  arc's journal as the feature request
+  `gate-evidence-hidden-by-other-environment`, with the replay steps.
+- **An older pass hidden by a newer run recording no environment (C14).**
+  This is the same shape with a probe that printed nothing. C14 does not
+  say whether an unknown environment is another key or an unknown reading
+  under the key in force. The contract records both readings; the model
+  reads the first and arc behaves as the second.
+- The authority, external-beside-local, and undeclared-reviewer classes
+  are the ones on record at the comparison revision.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -624,6 +691,11 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
+- **An unknown environment at the evaluated tree.** A run that recorded no
+  environment answers nothing for a gate with a probe. The model keys it
+  apart, so it does not hide an older pass from this environment either
+  (C14, reading (i)). The installed arc lets it decide as the newest record
+  at the tree.
 - **Policy motion.** A policy that changes between decision and execution
   produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
   the new policy would be a different action, with a different basis.

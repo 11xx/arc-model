@@ -104,9 +104,11 @@ cargo install --git https://github.com/11xx/arc --locked
 
 `arc-model-differential` builds each history in a repository and home of its
 own under a scratch root in the temporary directory (`TMPDIR` when set),
-records it through arc's own commands, asks `arc check --json`, and compares
-the blockers with the model's grounds mapped onto arc's vocabulary (the
-mapping is in `Differential.Compare`, and REPORT states it). Forty-five named
+with Git's global configuration confined to that home and its system
+configuration ignored, records it through arc's own commands, asks `arc
+check --json`, and compares the blockers with the model's grounds mapped
+onto arc's vocabulary (the mapping is in `Differential.Compare`, and REPORT
+states it). Forty-seven named
 histories run first, then two generated families, so any row is
 reproducible from its index: `generated-i` draws the fields the decision
 rests on (`--cases`), and `check-time-i` draws the same fields from the same

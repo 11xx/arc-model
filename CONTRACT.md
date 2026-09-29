@@ -389,16 +389,26 @@ never hides a record that does. With an older pass at tree A and a newer run
 at tree B, evaluated at A, the run at B says nothing: the answer comes from
 the records at A.
 
-**Status.** Settled for the rule above. Unsettled for which record answers
-among several that all match the evaluated tree, declaration, and
-environment:
+**Status.** Settled for the rule above. Unsettled on two points.
 
-- (i) The newest decides: a later failing, dirty, or unreadable run
-  replaces an earlier pass (`docs/gates.md`: evidence already recorded
-  "cannot be repaired by cleaning; only a fresh run replaces it").
-- (ii) Any matching record that passed and counts suffices.
+- *Several records that all match the evaluated tree, declaration, and
+  environment.*
+  - (i) The newest decides: a later failing, dirty, or unreadable run
+    replaces an earlier pass (`docs/gates.md`: evidence already recorded
+    "cannot be repaired by cleaning; only a fresh run replaces it").
+  - (ii) Any matching record that passed and counts suffices.
 
-The model reads (i).
+  The model reads (i).
+- *A record at the evaluated tree that carries no environment, for a gate
+  that declares a probe.* It answers nothing (C15); whether it hides an
+  older record that does is not stated.
+  - (i) An unknown environment is not the one in force, so the record is
+    under another key and hides nothing.
+  - (ii) An unknown environment is an unknown reading under the key in
+    force, and the newest record under the key decides, as a later
+    unreadable run does.
+
+  The model reads (i).
 
 **Source.** `docs/changes.md`, "The model" (evidence binds to the tree;
 "two commits with one tree are one evaluation"; an unchanged tree reads

@@ -204,6 +204,8 @@ namedScenarios =
   , ("branch-missing",             defaultScenario { branchMissing = True })
   , ("conflicting-gates",          defaultScenario { conflictingGates = True })
   , ("gate-older-pass-same-tree",  defaultScenario { patchsets = 3, revertLatest = True, gateMode = EvidenceOmitted, gateRuns = [(1, GatePass), (2, GateFail)] })
+  , ("gate-older-pass-newer-other-environment", defaultScenario { patchsets = 3, revertLatest = True, gateMode = EvidenceOtherEnvironment, gateRuns = [(1, GatePass)] })
+  , ("gate-older-pass-newer-unrecorded-environment", defaultScenario { patchsets = 3, revertLatest = True, gateMode = EvidenceUnrecordedEnvironment, gateRuns = [(1, GatePass)] })
   , ("waivers-per-patchset",       defaultScenario { reviewer = Nothing, patchsets = 2, debts = [(1, Nothing), (2, Nothing)] })
   , ("iterating-unreviewed",       defaultScenario { reviewer = Nothing, iterating = True })
   ]
