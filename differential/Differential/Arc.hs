@@ -357,10 +357,12 @@ runSteps options sandbox = mapM_ step
         writeFile (sandbox.repo </> "target-after.txt") "after\n"
         git sandbox sandbox.repo ["add", "target-after.txt"]
         git sandbox sandbox.repo ["commit", "-q", "-m", "the target moves after the decision"]
-      MovePolicy policy file ->
-        -- the file the change edits is dangerous exactly when the policy
-        -- requires independence, as the plan's own policy has danger.txt
-        writeFile (wt </> ".arc" </> "policy.toml") (policyToml policy [ if policy.independentVerdictRequired then file else "untouched.txt" ])
+      -- arc reads policy from the target's commits; the file the change
+      -- edits is dangerous exactly when the policy requires independence,
+      -- as the plan's own policy has danger.txt
+      MovePolicy policy file -> do
+        writeFile (sandbox.repo </> ".arc" </> "policy.toml") (policyToml policy [ if policy.independentVerdictRequired then file else "untouched.txt" ])
+        git sandbox sandbox.repo ["commit", "-q", "-m", "the policy moves after the decision", "--", ".arc/policy.toml"]
       Audit kind independent ->
         -- arc refuses an audit of a change that did not integrate, which is
         -- the answer when the plan's integration was refused
@@ -409,9 +411,11 @@ runSteps options sandbox = mapM_ step
         appendFile (wt </> "later.txt") "later\n"
         git sandbox wt ["add", "later.txt"]
         git sandbox wt ["commit", "-q", "-m", "after the last snapshot"]
+      -- arc reads gate declarations from the target's commits
       EditGates -> do
-        declared <- readFile (wt </> ".arc" </> "gates.toml")
-        length declared `seq` writeFile (wt </> ".arc" </> "gates.toml") (replaceOnce "test -z" "test  -z" declared)
+        declared <- readFile (sandbox.repo </> ".arc" </> "gates.toml")
+        length declared `seq` writeFile (sandbox.repo </> ".arc" </> "gates.toml") (replaceOnce "test -z" "test  -z" declared)
+        git sandbox sandbox.repo ["commit", "-q", "-m", "the gate declaration moves", "--", ".arc/gates.toml"]
     gateEnv run = [ ("GATE_FAIL", "1") | run.fails ] <> [ ("PROBE_ENV", identity) | Just identity <- [run.probeYields] ]
     acceptEnv fails = [ ("ACCEPT_FAIL", "1") | fails ]
     expect (code, _, err) = unless (code == ExitSuccess) (ioError (userError ("arc refused: " <> trim err)))

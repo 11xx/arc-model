@@ -240,30 +240,26 @@ runCase settings oracle root (index, (label, scenario)) = do
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (setText wanted) (answerText answer)
           Disagreed                -> RowDisagreed (setText wanted <> " from " <> show (map refusalTag (oracle.grounds built))) (answerText answer)
-    (Right steps, ComparedExecution) -> case executionSkip scenario of
-      Just skip -> pure (RowSkipped skip)
-      Nothing   -> do
-        when settings.verbose (putStrLn "" >> print scenario)
-        let wanted = expectedExecution built (oracle.execution built)
-        outcome <- Arc.runExecution options dir steps
-        pure $ case outcome of
-          ReplayFailed failure -> RowFailed failure
-          Answered dry         -> case compareExecution scenario built wanted dry of
-            Agreed                   -> RowAgreed
-            Adjudicated adjudication -> RowAdjudicated adjudication (executionText wanted) (dryRunText dry)
-            Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry)
-    (Right steps, ComparedCoverage) -> case executionSkip scenario of
-      Just skip -> pure (RowSkipped skip)
-      Nothing   -> do
-        when settings.verbose (putStrLn "" >> print scenario)
-        let wanted = expectedCoverage (oracle.historical built) (oracle.coverage built)
-        outcome <- Arc.runCoverage options dir steps
-        pure $ case outcome of
-          ReplayFailed failure -> RowFailed failure
-          Answered found       -> case compareCoverage scenario built wanted found of
-            Agreed                   -> RowAgreed
-            Adjudicated adjudication -> RowAdjudicated adjudication (recordedText wanted) (recordedText found)
-            Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found)
+    (Right steps, ComparedExecution) -> do
+      when settings.verbose (putStrLn "" >> print scenario)
+      let wanted = expectedExecution built (oracle.execution built)
+      outcome <- Arc.runExecution options dir steps
+      pure $ case outcome of
+        ReplayFailed failure -> RowFailed failure
+        Answered dry         -> case compareExecution scenario built wanted dry of
+          Agreed                   -> RowAgreed
+          Adjudicated adjudication -> RowAdjudicated adjudication (executionText wanted) (dryRunText dry)
+          Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry)
+    (Right steps, ComparedCoverage) -> do
+      when settings.verbose (putStrLn "" >> print scenario)
+      let wanted = expectedCoverage (oracle.historical built) (oracle.coverage built)
+      outcome <- Arc.runCoverage options dir steps
+      pure $ case outcome of
+        ReplayFailed failure -> RowFailed failure
+        Answered found       -> case compareCoverage scenario built wanted found of
+          Agreed                   -> RowAgreed
+          Adjudicated adjudication -> RowAdjudicated adjudication (recordedText wanted) (recordedText found)
+          Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found)
   putStrLn (describe row.outcome)
   unless (agreeable row.outcome) (print scenario)
   pure row
