@@ -40,6 +40,7 @@ data IntegrationRecord = IntegrationRecord
   , tree             :: !TreeId
   , authorization    :: !Authorization
   , gates            :: ![(GateName, EventId, DeclarationId)]
+  , prerequisites    :: ![(ChangeId, EventId)]
   , consumedFindings :: ![FindingId]
   , consumedHolds    :: ![HoldId]
   , policy           :: !Policy

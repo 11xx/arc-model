@@ -34,6 +34,7 @@ data DecisionBasis = DecisionBasis
   , policy           :: !Policy
   , authorization    :: !Authorization
   , gates            :: ![(GateName, EventId, DeclarationId)]  -- ^ One covered, passing evaluation per required gate.
+  , prerequisites    :: ![(ChangeId, EventId)]                 -- ^ Each prerequisite and the closure that integrated it.
   , consumedFindings :: ![FindingId]                           -- ^ The blocking-finding vector that had to be empty.
   , consumedHolds    :: ![HoldId]                              -- ^ The hold vector that had to be empty.
   }
@@ -47,18 +48,23 @@ isPermitted :: Decision -> Bool
 isPermitted (Permitted _) = True
 isPermitted (Refused _)   = False
 
--- | An observation that moved between the decision and the requested
--- execution. The recorded basis is not reusable.
+-- | A fact that moved between the decision and the requested execution,
+-- as the recorded basis against the one rebuilt when execution computes
+-- readiness again. The recorded basis is not reusable.
 data MovedFact = MovedHead Revision Revision
                | MovedTarget Revision Revision
                | MovedTree TreeId TreeId
                | MovedPolicy Policy Policy
                | MovedPatchset PatchsetId PatchsetId
+               | MovedAuthorization Authorization Authorization
+               | MovedGates [(GateName, EventId, DeclarationId)] [(GateName, EventId, DeclarationId)]
+               | MovedPrerequisites [(ChangeId, EventId)] [(ChangeId, EventId)]
+               | MovedReadiness [Refusal]  -- ^ Readiness computed again refuses, on these grounds, so no basis can be rebuilt.
   deriving stock (Eq, Ord, Show)
 
-{- | Why an integration is refused. The last two arise only when a permitted
-decision is executed; every other is a ground a decision can stand on, and
-a missing branch is also refused at execution.
+{- | Why an integration is refused. The last three arise only when a
+permitted decision is executed; every other is a ground a decision can
+stand on, and a missing branch is also refused at execution.
 -}
 data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedClosed Closure
@@ -79,8 +85,8 @@ data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedGates [GateRefusal]
              | RefusedAcceptanceProbes [ProbeRefusal]
              | RefusedHoldActive HoldId
-             | RefusedUndeclaredActor
              | RefusedAuthorityWithheld
+             | RefusedUndeclaredActor
              | RefusedBasisMoved [MovedFact]
   deriving stock (Eq, Ord, Show)
 
@@ -153,6 +159,10 @@ refusalText = \case
       MovedTree before after     -> "tree " <> show before <> " -> " <> show after
       MovedPolicy before after   -> "policy " <> show before <> " -> " <> show after
       MovedPatchset before after -> "patchset " <> show before <> " -> " <> show after
+      MovedAuthorization before after -> "authorization " <> show before <> " -> " <> show after
+      MovedGates before after    -> "gates " <> show before <> " -> " <> show after
+      MovedPrerequisites before after -> "prerequisites " <> show before <> " -> " <> show after
+      MovedReadiness grounds     -> "readiness refuses: " <> unwords (map refusalTag grounds)
 
 basisText :: DecisionBasis -> String
 basisText basis = unwords

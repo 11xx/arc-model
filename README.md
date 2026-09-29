@@ -28,8 +28,10 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
   probes of the patchset's brief. Gate declarations two policy layers
   disagree on leave nothing to decide against, and are refused alone.
 - **Every ground, not the first.** `evaluate` answers with every ground on
-  which the integration is refused, in the model's priority order, or with
-  the basis it would rest on; `decide` is the first ground or the basis.
+  which the integration is refused, or with the basis it would rest on. The
+  grounds are a set; the order they are listed in is presentation only
+  (CONTRACT.md, C23), and `decide`, the first listed ground or the basis,
+  is a projection of that set for display.
 - **Four separate gate readings.** Pass/fail, coverage (which declaration,
   tree, and environment an observation answers), availability (whether a
   record exists and could be read), and demonstrated falsification are
@@ -48,10 +50,10 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 - **Structured refusals and a decision basis.** A permission names the exact
   events, patchset, tree, target, and policy it relied on. A refusal names the
   facts that stood in the way.
-- **Permission is not effect.** `execute` re-checks the basis against the
-  observations and produces a plan, and a store that does not hold
-  integration authority cannot act at all; only `recordIntegration` puts the
-  effect in the ledger.
+- **Permission is not effect.** `execute` computes readiness again and
+  produces a plan only where the rebuilt basis is the recorded one, and a
+  store that does not hold integration authority cannot act at all; only
+  `recordIntegration` puts the effect in the ledger.
 - **Coverage obligations.** A debt declares a missing read; a waiver binds to
   exactly one patchset; a refusing verdict is not waivable. An independent
   negative audit can fulfil the read and leave its findings open: fulfilled is
@@ -104,9 +106,11 @@ cargo install --git https://github.com/11xx/arc --locked
 
 `arc-model-differential` builds each history in a repository and home of its
 own under a scratch root in the temporary directory (`TMPDIR` when set),
-records it through arc's own commands, asks `arc check --json`, and compares
-the blockers with the model's grounds mapped onto arc's vocabulary (the
-mapping is in `Differential.Compare`, and REPORT states it). Forty-two named
+with Git's global configuration confined to that home and its system
+configuration ignored, records it through arc's own commands, asks `arc
+check --json`, and compares the blockers with the model's grounds mapped
+onto arc's vocabulary (the mapping is in `Differential.Compare`, and REPORT
+states it). Forty-seven named
 histories run first, then two generated families, so any row is
 reproducible from its index: `generated-i` draws the fields the decision
 rests on (`--cases`), and `check-time-i` draws the same fields from the same
@@ -177,11 +181,15 @@ observations. Fields (`Scenario`):
 | `verdictOnFirst` | bind the verdict to `ps-01` rather than the latest |
 | `reviewer` | `Nothing`, or `ActorIndependent`, `ActorContributor`, `ActorAssumed` |
 | `verdict` | `Approved`, `ChangesRequested`, `CommentOnly` |
+| `priorVerdicts` | verdicts recorded before the scenario's own, each `(patchset index, reviewer, verdict)`; every verdict supersedes the one recorded before it |
 | `provisional` | record the approval as provisional |
 | `extraContributor` | add a third contributor to every patchset |
 | `externalVerdict` | `Nothing`, or an `ExternalApproved`, `ExternalChangesRequested`, or `ExternalRejected` decision about the latest head |
-| `debt` | `(patchset index, declared kind)` or `Nothing` |
+| `debts` | debts in recording order, each `(patchset index, declared kind)` |
 | `gateMode` | `EvidenceCovered`, `EvidenceFailing`, `EvidenceOtherTree`, `EvidenceShapeMoved`, `EvidenceOtherEnvironment`, `EvidenceUnrecordedEnvironment`, `EvidenceProbeFailed`, `EvidenceRecordUnreadable`, `EvidenceOmitted` |
+| `gateRuns` | further clean runs of the gate, each `(patchset index, result)`, at that patchset's head in the environment the decision is asked in |
+| `revertLatest` | with three patchsets or more, the latest reverts the one before it and returns to the tree of the patchset before that |
+| `iterating` | the change declares it is iterating |
 | `blockingFinding` / `resolveFinding` | record an open or resolved blocking finding |
 | `headMoved` | the observed head is not the patchset head |
 | `policy` | `dangerPolicy`, `openPolicy`, or `requireDeclaredPolicy` |

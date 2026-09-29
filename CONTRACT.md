@@ -389,14 +389,26 @@ never hides a record that does. With an older pass at tree A and a newer run
 at tree B, evaluated at A, the run at B says nothing: the answer comes from
 the records at A.
 
-**Status.** Settled for the rule above. Unsettled for which record answers
-among several that all match the evaluated tree, declaration, and
-environment:
+**Status.** Settled for the rule above. Unsettled on two points.
 
-- (i) The newest decides: a later failing, dirty, or unreadable run
-  replaces an earlier pass (`docs/gates.md`: evidence already recorded
-  "cannot be repaired by cleaning; only a fresh run replaces it").
-- (ii) Any matching record that passed and counts suffices.
+- *Several records that all match the evaluated tree, declaration, and
+  environment.*
+  - (i) The newest decides: a later failing, dirty, or unreadable run
+    replaces an earlier pass (`docs/gates.md`: evidence already recorded
+    "cannot be repaired by cleaning; only a fresh run replaces it").
+  - (ii) Any matching record that passed and counts suffices.
+
+  The model reads (i).
+- *A record at the evaluated tree that carries no environment, for a gate
+  that declares a probe.* It answers nothing (C15); whether it hides an
+  older record that does is not stated.
+  - (i) An unknown environment is not the one in force, so the record is
+    under another key and hides nothing.
+  - (ii) An unknown environment is an unknown reading under the key in
+    force, and the newest record under the key decides, as a later
+    unreadable run does.
+
+  The model reads (i).
 
 **Source.** `docs/changes.md`, "The model" (evidence binds to the tree;
 "two commits with one tree are one evaluation"; an unchanged tree reads
@@ -535,24 +547,34 @@ authorization basis, "readiness is recomputed and the basis rebuilt");
 **Rule.** A debt names what kind of review is missing: `nothing-read`,
 `merge-resolution-unread`, `repair-unread`, `contributor-only`, or
 `independent-review`. A declared kind wins over the derived one. The ledger
-cannot tell a merge resolution from a repair, so those two kinds are never
-derived. Where no kind is declared, a debt on a change with no verdict on
-any patchset is `nothing-read`, and one whose shipped patchset carries
-verdicts only from its contributors is `contributor-only`. The
-owed-review projection reports, for the latest patchset, a covering read, a
-standing refusal (C8), a waiver in force (C6), or the kind of review still
-owed.
+sees a merge resolution and a repair the same way, so only a declaration
+names `merge-resolution-unread`; the ledger derives the other four. Where no
+kind is declared, the kind of a debt on a patchset is:
 
-**Status.** Settled, except for the derived kind of a debt on a patchset
-with no verdict of its own when earlier patchsets of the change carry
-verdicts. The documented derived kinds do not cover it. (i)
-`nothing-read`. (ii) `independent-review`, the general case. (iii) No
-derived kind; only a declaration answers. The model reads (i).
+- `nothing-read` where no patchset of the change carries a verdict;
+- `contributor-only` where that patchset carries verdicts, all of them from
+  its contributors;
+- `repair-unread` where that patchset carries no verdict and an earlier
+  patchset of the change carries an approval;
+- `independent-review` otherwise.
 
-**Source.** `docs/review.md`, "What a debt records"; `arc debt --help`,
-`--kind`.
+The owed-review projection reports, for the latest patchset, a covering
+read, a standing refusal (C8), a waiver in force (C6), or the kind of
+review still owed, derived the same way for that patchset.
 
-**Realized by.** `debtKindFor`, `reviewObligation`.
+**Status.** Settled, except for a patchset with no verdict of its own when
+earlier patchsets of the change carry verdicts and none of them is an
+approval. No documented kind names that history. (i) `independent-review`,
+the general case. (ii) No derived kind; only a declaration answers. The
+model reads (i). `nothing-read` is not a reading: the documentation defines
+it as no verdict on any patchset.
+
+**Source.** `docs/review.md`, "What a debt records" (the table of kinds;
+"only the caller can say a merge resolution was what went unread, because
+the ledger sees a resolution and a repair the same way"); `arc debt
+--help`, `--kind`.
+
+**Realized by.** `debtKindFor`, `derivedKind`, `reviewObligation`.
 
 ### C22. Audits, and why a fulfilled read is not an approval
 

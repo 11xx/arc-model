@@ -175,7 +175,7 @@ oracleFor settings = case settings.mutant of
     found : _
       | found.channel == ChannelDecision, settings.compared == ComparedDecision -> pure Oracle
           { grounds    = \built -> case found.run built of
-              BehaviourDecision (Permitted _) -> []
+              BehaviourDecision (Right _) -> []
               _refused                        -> model.grounds built
           , execution  = model.execution
           , historical = model.historical

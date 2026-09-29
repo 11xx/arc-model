@@ -29,11 +29,14 @@ import Arc.Model.Observations qualified as Observations
 import Arc.Model.State qualified as State
 import Generators
 
+import Data.List.NonEmpty ( NonEmpty )
 import Data.Maybe ( listToMaybe )
 
 
--- | One observable channel of the model.
-data Behaviour = BehaviourDecision Decision
+-- | One observable channel of the model. A decision is every ground that
+-- stands, or the basis: dropping a ground is a fault even where another
+-- ground would be listed first.
+data Behaviour = BehaviourDecision (Either (NonEmpty Refusal) DecisionBasis)
                | BehaviourExecution (Either Refusal ExecutionPlan)
                | BehaviourHistorical (Maybe Authorization)
                | BehaviourCoverage CoverageAfterIntegration
@@ -48,7 +51,7 @@ data Channel = ChannelDecision
 -- | What the model says on one channel.
 specBehaviour :: Channel -> Built -> Behaviour
 specBehaviour channel built = case channel of
-  ChannelDecision   -> BehaviourDecision built.decision
+  ChannelDecision   -> BehaviourDecision (evaluate built.observation built.state)
   ChannelExecution  -> BehaviourExecution built.execution
   ChannelHistorical -> BehaviourHistorical (historicalAuthorization built.finalState)
   ChannelCoverage   -> BehaviourCoverage (coverageAfterIntegration built.finalState)
@@ -70,9 +73,9 @@ divergenceOf :: Behaviour -> Behaviour -> Divergence
 divergenceOf mutant spec
   | mutant == spec = DivergenceAgrees
   | otherwise = case (mutant, spec) of
-      (BehaviourDecision (Permitted _), BehaviourDecision (Refused _)) -> DivergencePermits
-      (BehaviourDecision (Refused _), BehaviourDecision (Permitted _)) -> DivergenceRefuses
-      (BehaviourDecision (Refused _), BehaviourDecision (Refused _))   -> DivergenceDifferentRefusal
+      (BehaviourDecision (Right _), BehaviourDecision (Left _))       -> DivergencePermits
+      (BehaviourDecision (Left _), BehaviourDecision (Right _))       -> DivergenceRefuses
+      (BehaviourDecision (Left _), BehaviourDecision (Left _))        -> DivergenceDifferentRefusal
       (BehaviourExecution (Right _), BehaviourExecution (Left _))      -> DivergencePermits
       (BehaviourExecution (Left _), BehaviourExecution (Right _))      -> DivergenceRefuses
       (BehaviourExecution (Left _), BehaviourExecution (Left _))       -> DivergenceDifferentRefusal
@@ -156,7 +159,7 @@ allMutants =
       { name      = "environment-ignored"
       , channel   = ChannelDecision
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , run       = \b -> BehaviourDecision (decide (probesDropped b.observation) b.state)
+      , run       = \b -> BehaviourDecision (evaluate (probesDropped b.observation) b.state)
       }
   , Mutant
       { name      = "authority-ignored"
@@ -174,15 +177,17 @@ allMutants =
       { name      = "merge-read-as-head"
       , channel   = ChannelDecision
       -- evidence recorded against the merge no longer answers for the head
-      -- tree the fault reads instead, so the fault also refuses
-      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceRefuses]
-      , run       = \b -> BehaviourDecision (decide (mergeReadAsHead b) b.state)
+      -- tree the fault reads instead, so the fault also refuses; a further
+      -- run at the head does answer for it, so the fault also permits on a
+      -- basis naming the head's tree
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceRefuses, DivergenceDifferentValue]
+      , run       = \b -> BehaviourDecision (evaluate (mergeReadAsHead b) b.state)
       }
   , Mutant
       { name      = "rebase-ignored"
       , channel   = ChannelDecision
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , run       = \b -> BehaviourDecision (decide (conflictIgnored b.observation) b.state)
+      , run       = \b -> BehaviourDecision (evaluate (conflictIgnored b.observation) b.state)
       }
   , Mutant
       { name      = "final-probe-pass-suffices"
@@ -194,19 +199,19 @@ allMutants =
       { name      = "missing-branch-read-as-head"
       , channel   = ChannelDecision
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , run       = \b -> BehaviourDecision (decide (branchAssumed b) b.state)
+      , run       = \b -> BehaviourDecision (evaluate (branchAssumed b) b.state)
       }
   , Mutant
       { name      = "first-gate-declaration-wins"
       , channel   = ChannelDecision
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
-      , run       = \b -> BehaviourDecision (decide (b.observation { Observations.conflictingGates = [] }) b.state)
+      , run       = \b -> BehaviourDecision (evaluate (b.observation { Observations.conflictingGates = [] }) b.state)
       }
   ]
 
 -- | The decision the model makes on a faulted reading of the built state.
 decisionOn :: (Built -> ChangeState) -> Built -> Behaviour
-decisionOn fault built = BehaviourDecision (decide built.observation (fault built))
+decisionOn fault built = BehaviourDecision (evaluate built.observation (fault built))
 
 {- | A state where the reviewer's identity is not compared against the
 contributor set: every verdict reads as if it came from a declared
@@ -236,10 +241,13 @@ evidenceNormalized built = built.state { State.verifications = map normalize bui
 
 -- | A state where a missing observation is answered with a passing record.
 evidenceFabricated :: Built -> ChangeState
-evidenceFabricated built = case built.decision of
-  Refused (RefusedGates _) -> built.state { State.verifications = built.state.verifications <> fabricated }
-  _otherwise               -> built.state
+evidenceFabricated built
+  | any isGates (refusals built.observation built.state) = built.state { State.verifications = built.state.verifications <> fabricated }
+  | otherwise                                            = built.state
   where
+    isGates = \case
+      RefusedGates _ -> True
+      _other         -> False
     fabricated =
       [ Verification
           { event       = EventId 990
@@ -269,8 +277,8 @@ debtsRelocated built = built.state { State.debts = [ debt { Debt.patchset = late
 -- | A state where a refusing verdict has been dropped, as if the debt
 -- cleared it.
 refusalDropped :: Built -> ChangeState
-refusalDropped built = case built.decision of
-  Refused (RefusedVerdictStands _ event)
+refusalDropped built = case [ event | RefusedVerdictStands _ event <- refusals built.observation built.state ] of
+  event : _
     | waiverBindsLatest -> built.state { State.verdicts = filter ((/= event) . (.event)) built.state.verdicts }
   _otherwise -> built.state
   where

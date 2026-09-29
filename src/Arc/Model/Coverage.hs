@@ -28,21 +28,33 @@ import Data.Set qualified as Set
 
 -- C21
 {- | What kind of deficit a debt names. A declared kind wins; otherwise the
-ledger derives one from the verdicts recorded on the shipped patchset.
-Only a caller can say a merge resolution or a repair is what went unread,
-so those two kinds are never derived.
+ledger derives one for the patchset the debt binds to. A debt that binds
+to none has nothing to derive from.
 -}
 debtKindFor :: ChangeState -> Debt -> DebtKind
 debtKindFor state debt = case debt.declaredKind of
   Just kind -> kind
-  Nothing   -> case debt.patchset >>= patchsetById state of
-    Nothing       -> NothingRead
-    Just patchset ->
-      case [ v | v <- state.verdicts, v.patchset == patchset.patchsetId ] of
-        []       -> NothingRead
-        verdicts
-          | all ((`Set.member` effectiveContributors patchset) . effectiveActor) verdicts -> ContributorOnly
-          | otherwise                                                                     -> IndependentReview
+  Nothing   -> maybe NothingRead (derivedKind state) (debt.patchset >>= patchsetById state)
+
+-- C21
+{- | The review a patchset is missing, read from the ledger. The ledger sees
+a merge resolution and a repair the same way, so work after an approval
+that nobody read is a repair; only a declaration says it was a merge
+resolution.
+-}
+derivedKind :: ChangeState -> Patchset -> DebtKind
+derivedKind state patchset
+  | null state.verdicts = NothingRead
+  | otherwise = case [ v | v <- state.verdicts, v.patchset == patchset.patchsetId ] of
+      []
+        | any approvesEarlier state.verdicts -> RepairUnread
+        | otherwise                          -> IndependentReview
+      verdicts
+        | all ((`Set.member` effectiveContributors patchset) . effectiveActor) verdicts -> ContributorOnly
+        | otherwise                                                                     -> IndependentReview
+  where
+    approvesEarlier verdict = verdict.kind == Approved && maybe False earlier (patchsetById state verdict.patchset)
+    earlier other = other.ordinal < patchset.ordinal
 
 -- | A read somebody supplied.
 data ReadEvidence = ReadByVerdict EventId
@@ -68,14 +80,8 @@ reviewObligation state = case (governingVerdict state, latestPatchset state) of
       -> StandingRefusal verdict.kind verdict.event (openBlockingFindings state)
   (_, Just patchset) -> case newestWaiver state patchset.patchsetId of
     Just debt -> ReviewWaived (debtKindFor state debt) debt.debtId
-    Nothing   -> OwedReview owedKind
+    Nothing   -> OwedReview (derivedKind state patchset)
   _noPatchset -> OwedReview NothingRead
-  where
-    owedKind = case state.verdicts of
-      []       -> NothingRead
-      verdicts
-        | any ((== ChangesRequested) . (.kind)) verdicts -> IndependentReview
-        | otherwise                                      -> RepairUnread
 
 {- | The post-integration projection. The read requirement, the verdict the
 audit returned, and the authorization the merge actually rested on are
