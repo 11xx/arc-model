@@ -43,8 +43,9 @@ counterexample can be generated for them.
   `refusalText` is a rendering, not the carrier.
 - **A permission carries its basis.** `Decision = Permitted DecisionBasis |
   Refused Refusal`. `DecisionBasis` names the patchset, head, tree, target,
-  policy, authorization, one covered evaluation per required gate, and the
-  finding and hold vectors that had to be empty.
+  policy, authorization, one covered evaluation per required gate, each
+  prerequisite's closure, and the finding and hold vectors that had to be
+  empty.
 - **Permission and effect are different values.** `execute :: Observations ->
   ChangeState -> Decision -> Either Refusal ExecutionPlan` re-checks the basis
   and the store's authority to act; `recordIntegration` is the only function
@@ -90,6 +91,7 @@ counterexample can be generated for them.
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
 | `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
+| `prerequisites` | a permission and the integration it records name each prerequisite's closure; an open prerequisite refuses |
 | `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
@@ -123,7 +125,7 @@ recorded in the README.
 | --- | --- |
 | integratable permits | every history the generator marks integratable permits |
 | mutation flips | each one-invalid-transition mutation of an integratable history either refuses or stands down at execution |
-| basis grounded | every fact in a permitted basis is present in the ledger and observations; an external authorization names an approval of exactly the basis head; the consumed finding and hold vectors were empty |
+| basis grounded | every fact in a permitted basis is present in the ledger and observations; an external authorization names an approval of exactly the basis head; the prerequisite closures are the observed ones; the consumed finding and hold vectors were empty |
 | unknown never permits | omitted, unreadable, other-tree, shape-moved, other-environment, environment-unrecorded, and probe-failed evidence never permit |
 | moved basis stands down | a target or policy moved between decision and execution produces `RefusedBasisMoved`, never a reused basis, unless authority is withheld, which is refused first |
 | waiver exact | a named waiver is bound to the basis patchset and is the newest for it |
@@ -612,9 +614,6 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-- **The basis (C19).** `DecisionBasis` names no prerequisite closures; the
-  contract's basis records each prerequisite's closure beside the
-  authorization, gates, findings, and holds.
 - **Execution re-checks the basis (C20).** `execute` compares the basis
   with the observed head, target, tree, and policy, and with the latest
   patchset. It does not compute readiness again from the ledger, so a
@@ -654,6 +653,13 @@ the model before the fix.
   merges), leaves the readiness check alone. `RefusedUndeclaredActor` is an
   execution refusal, raised by `execute` after withheld authority. Fixture
   `undeclared-actor`.
+- **The basis (C19): model defect.** `DecisionBasis` named no prerequisite
+  closures, and the observations named only the prerequisites still open.
+  `docs/changes.md` lists each prerequisite's closure in the authorization
+  basis. `Observations.prerequisites` names each prerequisite with the
+  closure that integrated it, where one did; the open ones refuse, and the
+  basis and the integration record name the rest. Fixture `prerequisites`,
+  which the model without the slot does not compile.
 
 ## Deferred out of this package
 
@@ -712,8 +718,9 @@ about them:
 - **Review-map advisories.** `reviewer-behind-final-patchset`,
   `no-independent-reviewer`, and the other advisories are not modelled; they
   never block, and the model's job is the blocking decision.
-- **Dependency status.** `Observations.blockedBy` names blockers; how a chain's
-  readiness is computed is not modelled.
+- **Dependency status.** `Observations.prerequisites` names each prerequisite
+  and the closure that integrated it; how a chain's readiness is computed is
+  not modelled.
 
 ## The proposed candidate protocol
 

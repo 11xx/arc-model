@@ -34,6 +34,7 @@ data DecisionBasis = DecisionBasis
   , policy           :: !Policy
   , authorization    :: !Authorization
   , gates            :: ![(GateName, EventId, DeclarationId)]  -- ^ One covered, passing evaluation per required gate.
+  , prerequisites    :: ![(ChangeId, EventId)]                 -- ^ Each prerequisite and the closure that integrated it.
   , consumedFindings :: ![FindingId]                           -- ^ The blocking-finding vector that had to be empty.
   , consumedHolds    :: ![HoldId]                              -- ^ The hold vector that had to be empty.
   }

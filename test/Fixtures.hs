@@ -33,6 +33,7 @@ fixtureChecks = concat
   , staleAndMovedBases
   , authorityStandsDown
   , undeclaredInvoker
+  , prerequisiteClosures
   , everyGround
   , permissionIsNotEffect
   , auditRefusals
@@ -407,6 +408,22 @@ undeclaredInvoker =
     built      = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
     undeclared = built.observation { Observations.invokerDeclared = False }
     decision   = decide undeclared built.state
+
+-- | A permission names each prerequisite's closure beside the rest of its
+-- basis (C19); a prerequisite that has not integrated refuses.
+prerequisiteClosures :: [Check]
+prerequisiteClosures =
+  [ expectEq "fixture/prerequisites: the basis names each closure" (Just [(ChangeId "groundwork", EventId 50)]) (basisPrerequisites (decide integrated built.state))
+  , expectEq "fixture/prerequisites: the integration records them" (Right [(ChangeId "groundwork", EventId 50)]) ((.integration.prerequisites) <$> execute integrated built.state (decide integrated built.state))
+  , expectEq "fixture/prerequisites: an open prerequisite refuses" [RefusedBlockedBy [ChangeId "groundwork"]] (refusals open built.state)
+  ]
+  where
+    built      = build defaultScenario
+    integrated = built.observation { Observations.prerequisites = [(ChangeId "groundwork", Just (EventId 50))] }
+    open       = built.observation { Observations.prerequisites = [(ChangeId "groundwork", Nothing)] }
+    basisPrerequisites = \case
+      Permitted basis -> Just basis.prerequisites
+      Refused _       -> Nothing
 
 -- | A history refused on more than one ground reports every ground, in the
 -- model's presentation order, and the decision is the first of them.

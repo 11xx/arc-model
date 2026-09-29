@@ -86,10 +86,11 @@ evaluateDeclared observations state = case latestPatchset state of
   where
     policy       = observations.policy
     openFindings = openBlockingFindings state
+    blockedBy    = [ change | (change, Nothing) <- observations.prerequisites ]
     preliminary  = concat
       [ [ RefusedClosed closure | Just closure <- [state.closed] ]
       , [ RefusedIterating | state.iterating ]
-      , [ RefusedBlockedBy observations.blockedBy | not (null observations.blockedBy) ]
+      , [ RefusedBlockedBy blockedBy | not (null blockedBy) ]
       ]
     -- a merge nobody ran any required gate on: evidence at the head says
     -- nothing about content neither branch committed
@@ -107,6 +108,7 @@ evaluateDeclared observations state = case latestPatchset state of
       , policy           = policy
       , authorization    = authorization
       , gates            = gates
+      , prerequisites    = [ (change, closure) | (change, Just closure) <- observations.prerequisites ]
       , consumedFindings = openFindings
       , consumedHolds    = []
       }
@@ -242,6 +244,7 @@ execute observations state = \case
       , tree             = basis.tree
       , authorization    = basis.authorization
       , gates            = basis.gates
+      , prerequisites    = basis.prerequisites
       , consumedFindings = basis.consumedFindings
       , consumedHolds    = basis.consumedHolds
       , policy           = basis.policy
