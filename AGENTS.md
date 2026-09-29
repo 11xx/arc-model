@@ -19,8 +19,8 @@ The model is derived independently of the Rust:
 
 - Model-side work — `src/`, `candidate/`, `scenarios/`, `test/`,
   `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
-  documentation (its README, `docs/`, the guide `arc` prints, and each
-  command's `--help`), never from arc's source.
+  documentation (the guide `arc` prints with no arguments, each command's
+  `--help`, and its README), never from arc's source.
 - Only the differential's encoding, `differential/`, reads arc's behaviour,
   and arc's Rust source is read only there.
 - A task on the model names no Rust file or line, and never requires the

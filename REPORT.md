@@ -633,10 +633,24 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names arc `26f6bdc`. Every commit between the previous
-pin, `df47db0`, and it was read for its effect on the modelled decision. The
-model changes were written from the behaviour each commit's tests and docs
-state, not by translating its diff.
+`comparisonRevision` names arc `b320731`. The contract's sources are that
+revision's guide, which `arc` prints with no arguments, each command's
+`--help`, and its `README.md`; arc keeps no other reference. Every merge
+between the previous pin, `26f6bdc`, and it was read for its effect on the
+modelled decision, from its message and the guide and `--help` it left, not
+from its diff.
+
+| merges | subject | effect on the model |
+| --- | --- | --- |
+| `59a087e`, `b320731` | gate and policy declarations read from the target branch; `target-unreadable` | C12 settled on the target's declarations, and C20 notes that a policy moved on the target moves the target. The model takes declarations as observations and is unchanged. `target-unreadable` has no model ground; see "Open decisions against the contract" |
+| `485529b` | evidence selected within the applicable key | C14 settled on the model's readings: the newest run under the key decides, and a run from another environment, or from none, hides nothing. No model change |
+| `95a3edb` | an approval follows a rewrite only when the signature is all that changed | C5 settled on that reading; rewrites stay unsupported |
+| `80cf202` | `docs/` retired; the guide and `--help` are the reference | every clause re-sourced; a clause whose rule the new sources no longer state is unsettled with its readings |
+| `a7e116d` | the blocker derivation extracted into a pure module | behaviour-preserving, no effect |
+| `365d54e`, `1170fb4`, `7b43168`, `fbbffc6`, `44d83cd`, `b3a3e15`, `e2589d7`, `6f192d9`, `15a4853` | the model's own repository, session links, release, toolchain, changelog, workspace reports | no effect on the decision |
+
+Between `df47db0` and `26f6bdc`, the model changes were written from the
+behaviour each commit's tests and docs state:
 
 | commits | subject | effect on the model |
 | --- | --- | --- |
@@ -711,11 +725,6 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
-- **An unknown environment at the evaluated tree.** A run that recorded no
-  environment answers nothing for a gate with a probe. The model keys it
-  apart, so it does not hide an older pass from this environment either
-  (C14, reading (i)). The installed arc lets it decide as the newest record
-  at the tree.
 - **Policy motion.** A policy that changes between decision and execution
   produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
   the new policy would be a different action, with a different basis.
@@ -736,7 +745,14 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-None stands.
+- **A target that cannot be resolved (C12).** The clause refuses a change
+  whose target branch cannot be resolved (`target-unreadable`), since no
+  declaration says what it owes. The model has no such ground: its
+  observations always carry a target and a declaration set, so a missing
+  target cannot be stated, let alone refused. Open until it is adjudicated
+  as a model defect or as a fact the model leaves to its observations, as
+  it leaves which layer a declaration comes from. No differential history
+  deletes the target, so the run cannot show it.
 
 ## Adjudicated
 
