@@ -23,6 +23,7 @@ fixtureChecks = concat
   , debtBesideRefusal
   , underDebtThenNegativeAudit
   , repairFollowedByDeeperReview
+  , derivedDebtKinds
   , unknownCoverage
   , environmentCoverage
   , evidenceKeyedByTree
@@ -108,6 +109,22 @@ repairFollowedByDeeperReview =
   ]
   where
     built = build defaultScenario { Scenario.patchsets = 2, Scenario.verdictOnFirst = True, Scenario.reviewer = Just ActorIndependent }
+
+{- | The kind a debt names where none is declared (C21). The ledger cannot
+tell a merge resolution from a repair, so a merge resolution is only ever
+declared; an approved patchset followed by one nobody read is a repair.
+-}
+derivedDebtKinds :: [Check]
+derivedDebtKinds =
+  [ expectEq "fixture/debt-kind: nothing read on any patchset" [NothingRead] (kindsIn defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing) })
+  , expectEq "fixture/debt-kind: verdicts only from contributors" [ContributorOnly] (kindsIn defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debt = Just (1, Nothing) })
+  , expectEq "fixture/debt-kind: an approval, then a patchset nobody read" [RepairUnread] (kindsIn afterApproval { Scenario.debt = Just (2, Nothing) })
+  , expectEq "fixture/debt-kind: a declared kind wins" [MergeResolutionUnread] (kindsIn afterApproval { Scenario.debt = Just (2, Just MergeResolutionUnread) })
+  , expectEq "fixture/debt-kind: a comment, then a patchset nobody read, owes independent review" (OwedReview IndependentReview) (reviewObligation (build afterApproval { Scenario.verdict = CommentOnly }).state)
+  ]
+  where
+    afterApproval = defaultScenario { Scenario.patchsets = 2, Scenario.verdictOnFirst = True }
+    kindsIn scenario = let state = (build scenario).state in map (debtKindFor state) state.debts
 
 -- the gate every scenario declares, read the way the decision reads it
 
