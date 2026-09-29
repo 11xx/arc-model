@@ -23,6 +23,7 @@ comparatorChecks = concat
   , coverageUndeclaredReviewer
   , executionPolicyMotion
   , executionAuthority
+  , executionWouldIntegrate
   , decisionIterating
   ]
 
@@ -95,6 +96,7 @@ executionPolicyMotion =
   [ expectTrue "comparator/execution policy motion: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared 0 True Set.empty))
   , expectEq "comparator/execution policy motion: a refusing check is not adjudicated" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a refusing exit is not adjudicated" Disagreed (compared 3 False (Set.singleton "no-valid-approval"))
+  , expectEq "comparator/execution policy motion: a ready check naming a blocker is not adjudicated" Disagreed (compared 0 True (Set.singleton "no-valid-approval"))
   ]
   where
     compared = executionComparison defaultScenario { Scenario.policyAfter = True }
@@ -111,6 +113,17 @@ executionAuthority =
     scenario  = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.authorityWithheld = True }
     compared  = executionComparison scenario
     refusedOn = Set.singleton "no-valid-approval"
+
+-- | A plan agrees with a dry run that would integrate only where the check
+-- beside it is ready and names no blocker.
+executionWouldIntegrate :: [Check]
+executionWouldIntegrate =
+  [ expectEq "comparator/execution would integrate: exit 0 beside a ready check agrees" Agreed (compared 0 True Set.empty)
+  , expectEq "comparator/execution would integrate: a refusing check is not agreement" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
+  , expectEq "comparator/execution would integrate: a ready check naming a blocker is not agreement" Disagreed (compared 0 True (Set.singleton "gates-not-green"))
+  ]
+  where
+    compared = executionComparison defaultScenario
 
 -- | An iterating change with no approval: arc's check names iterating and
 -- nothing for the approval; any other difference stays a disagreement.

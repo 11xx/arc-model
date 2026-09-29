@@ -100,8 +100,10 @@ compareExecution scenario built wanted dry
   | agrees    = Agreed
   | otherwise = maybe Disagreed Adjudicated (adjudicateExecution scenario built wanted dry)
   where
+    -- a dry run that would integrate answers beside a check that is ready
+    -- and names no blocker
     agrees = case wanted of
-      WouldIntegrate    -> dry.exit == 0
+      WouldIntegrate    -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
       AuthorityRefused  -> dry.exit == 17
       StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
 
@@ -118,6 +120,7 @@ adjudicateExecution scenario built wanted dry
   , scenario.policyAfter
   , dry.exit == 0
   , dry.after.ready
+  , Set.null dry.after.blockers
   = Just Adjudication
       { kind   = Unsettled
       , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
