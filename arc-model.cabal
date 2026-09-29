@@ -113,8 +113,10 @@ test-suite spec
     , Differential.Arc
     , Differential.Compare
     , Differential.Plan
+    , Differential.Sandbox
     , Fixtures
     , Render
+    , SandboxChecks
   build-depends:
       arc-model
     , arc-model:scenarios
@@ -126,6 +128,7 @@ test-suite spec
     , filepath    >= 1.5  && < 2
     , process     >= 1.6  && < 2
     , QuickCheck  >= 2.14 && < 2.16
+    , unix        >= 2.8  && < 3
 
 executable arc-model-differential
   import:           warnings
@@ -135,6 +138,7 @@ executable arc-model-differential
       Differential.Arc
     , Differential.Compare
     , Differential.Plan
+    , Differential.Sandbox
   build-depends:
       arc-model
     , arc-model:scenarios
@@ -146,6 +150,21 @@ executable arc-model-differential
     , filepath    >= 1.5  && < 2
     , process     >= 1.6  && < 2
     , QuickCheck  >= 2.14 && < 2.16
+    , unix        >= 2.8  && < 3
+
+-- every command a replay runs by hand, in a sandbox sealed the way the
+-- differential seals its own
+executable arc-model-sandbox
+  import:           warnings
+  hs-source-dirs:   sandbox, differential
+  main-is:          Main.hs
+  other-modules:
+      Differential.Sandbox
+  build-depends:
+      base        >= 4.21 && < 4.22
+    , directory   >= 1.3  && < 2
+    , filepath    >= 1.5  && < 2
+    , process     >= 1.6  && < 2
     , unix        >= 2.8  && < 3
 
 test-suite candidate-spec

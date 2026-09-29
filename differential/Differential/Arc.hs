@@ -2,7 +2,8 @@
 {- | Running a plan against the arc binary.
 
 Every case gets a repository and a home of its own under one scratch root,
-so arc's ledger, worktrees, and configuration never touch the operator's.
+sealed by "Differential.Sandbox", so arc's ledger, worktrees, and
+configuration never touch the operator's.
 The binary is the one on @PATH@ unless the caller names another; the driver
 adds nothing arc does not do on its own.
 -}
@@ -21,8 +22,9 @@ module Differential.Arc
 import Arc.Model ( DebtKind(..), ExternalKind(..), Policy, VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 import Differential.Plan
+import Differential.Sandbox qualified as Sandbox
 
-import Control.Exception ( IOException, try )
+import Control.Exception ( IOException, throwIO, try )
 import Control.Monad ( unless, when )
 import Data.Aeson ( FromJSON, Value, eitherDecodeStrict' )
 import Data.ByteString.Builder ( stringUtf8, toLazyByteString )
@@ -34,10 +36,8 @@ import Data.Set ( Set )
 import Data.Set qualified as Set
 import GHC.Generics ( Generic )
 import System.Directory ( createDirectoryIfMissing )
-import System.Environment ( getEnvironment )
 import System.Exit ( ExitCode(..) )
 import System.FilePath ( (</>) )
-import System.Process ( CreateProcess(..), proc, readCreateProcessWithExitCode )
 
 
 data Options = Options
@@ -151,7 +151,7 @@ data Sandbox = Sandbox
   , peer     :: !FilePath  -- ^ A second repository, whose store stands in for a paired replica.
   , home     :: !FilePath
   , worktree :: !FilePath
-  , baseEnv  :: ![(String, String)]
+  , sealed   :: !Sandbox.Sandbox
   }
 
 changeSlug :: String
@@ -283,23 +283,17 @@ recorded options sandbox = do
 checkDir :: Sandbox -> Plan -> FilePath
 checkDir sandbox planned = if planned.inWorktree then sandbox.worktree else sandbox.repo
 
+-- | Seal a fresh sandbox at the given root and lay out its repository. A
+-- sandbox whose self-check refuses is thrown, so nothing runs in it.
 mkSandbox :: Options -> FilePath -> Policy -> IO Sandbox
 mkSandbox options root policy = do
-  let repo = root </> "repo"
-      home = root </> "home"
+  createDirectoryIfMissing True root
+  sealed <- either throwIO pure =<< Sandbox.seal root
+  let sandboxRoot = Sandbox.root sealed
+      repo        = sandboxRoot </> "repo"
+      home        = sandboxRoot </> "home"
+      sandbox     = Sandbox { repo = repo, peer = sandboxRoot </> "peer", home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), sealed = sealed }
   createDirectoryIfMissing True (repo </> ".arc")
-  createDirectoryIfMissing True home
-  ambient <- getEnvironment
-  -- Git's global and system configuration come from inside the sandbox
-  -- home or nowhere, so a replay neither reads the operator's signing,
-  -- hooks, or safe directories nor can write to them
-  let baseEnv =
-        [ ("HOME", home), ("ARC_SANDBOX", home), ("ARC_HARNESS", "test"), ("ARC_SESSION", "session-a")
-        , ("GIT_EDITOR", "true"), ("GIT_SEQUENCE_EDITOR", "true")
-        , ("GIT_CONFIG_GLOBAL", home </> ".gitconfig"), ("XDG_CONFIG_HOME", home </> ".config"), ("GIT_CONFIG_NOSYSTEM", "1")
-        ]
-        <> [ pair | pair@(key, _) <- ambient, not (inherited key) ]
-      sandbox = Sandbox { repo = repo, peer = root </> "peer", home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), baseEnv = baseEnv }
   writeFile (repo </> ".arc" </> "gates.toml") gatesToml
   writeFile (repo </> ".arc" </> "policy.toml") (policyToml policy ["danger.txt"])
   writeFile (repo </> "README.md") "differential fixture\n"
@@ -311,18 +305,6 @@ mkSandbox options root policy = do
   git sandbox repo ["commit", "-q", "-m", "init"]
   _ <- arc options sandbox repo (Declared "author") [] ["begin", changeSlug] ""
   pure sandbox
-  where
-    -- the harness this runs under exports its own session; the binary under
-    -- test must not detect the runner instead of the fixture
-    inherited key = key `elem`
-      [ "HOME", "ARC_SANDBOX", "ARC_HARNESS", "ARC_SESSION", "ARC_ACTOR", "ARC_ROLE", "ARC_MODEL"
-      , "ARC_ON_BEHALF_OF", "ARC_DATA_DIR", "ARC_DATA_ROOT", "ARC_WORKTREES_DIR", "AI_HOME"
-      , "GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "GATE_FAIL", "PROBE_ENV"
-      , "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM", "XDG_CONFIG_HOME"
-      , "CLAUDE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "OPENCODE_SESSION"
-      , "OPENCODE_TERMINAL", "PI_SESSION_ID", "PI_SESSION_FILE", "PI_MODEL", "PI_REASONING_LEVEL"
-      ]
-      || "CLAUDE" `isPrefixOf` key
 
 runSteps :: Options -> Sandbox -> [Step] -> IO ()
 runSteps options sandbox = mapM_ step
@@ -461,8 +443,7 @@ checkRefusedConflictingGates = "check-refused:conflicting-gate-declarations"
 arc :: Options -> Sandbox -> FilePath -> Identity -> [(String, String)] -> [String] -> String -> IO (ExitCode, String, String)
 arc options sandbox dir identity extra args input = do
   when options.verbose (putStrLn ("  $ arc " <> unwords args))
-  let env = sandbox.baseEnv <> extra <> [ ("ARC_ACTOR", actor) | Declared actor <- [identity] ]
-  readCreateProcessWithExitCode (proc options.arcBinary args) { cwd = Just dir, env = Just env } input
+  Sandbox.readProcess sandbox.sealed dir (extra <> [ ("ARC_ACTOR", actor) | Declared actor <- [identity] ]) options.arcBinary args input
 
 git :: Sandbox -> FilePath -> [String] -> IO ()
 git sandbox dir args = do
@@ -470,7 +451,7 @@ git sandbox dir args = do
   unless (code == ExitSuccess) (ioError (userError ("git " <> unwords args <> ": " <> trim err)))
 
 gitOut :: Sandbox -> FilePath -> [String] -> IO (ExitCode, String, String)
-gitOut sandbox dir args = readCreateProcessWithExitCode (proc "git" args) { cwd = Just dir, env = Just sandbox.baseEnv } ""
+gitOut sandbox dir args = Sandbox.readProcess sandbox.sealed dir [] "git" args ""
 
 -- flags and small strings
 
