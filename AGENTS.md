@@ -19,8 +19,8 @@ The model is derived independently of the Rust:
 
 - Model-side work — `src/`, `candidate/`, `scenarios/`, `test/`,
   `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
-  documentation (its README, `docs/`, the guide `arc` prints, and each
-  command's `--help`), never from arc's source.
+  documentation (the guide `arc` prints with no arguments, each command's
+  `--help`, and its README), never from arc's source.
 - Only the differential's encoding, `differential/`, reads arc's behaviour,
   and arc's Rust source is read only there.
 - A task on the model names no Rust file or line, and never requires the
@@ -31,6 +31,11 @@ The model is derived independently of the Rust:
 The library is pure. It never reads the clock, the filesystem, Git, or an arc
 ledger. Only the differential executable runs `arc`, and it runs the binary
 already on `PATH` in a temporary repository of its own.
+
+Every test and differential binary runs under a heap cap compiled in through
+the `heap-cap` stanza of `arc-model.cabal`, so a runaway structure fails with
+a heap overflow instead of exhausting the host. A new test suite or
+executable imports it.
 
 Every process that runs `arc` or `git` for a scenario, a replay, or the
 reproduction of a disagreement runs inside `Differential.Sandbox`: through

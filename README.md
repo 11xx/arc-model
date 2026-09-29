@@ -9,9 +9,10 @@ or hold. A wrong answer here merges unreviewed or failing work, and a test
 suite written beside the implementation shares its blind spots.
 
 arc-model states the rules on their own terms. [`CONTRACT.md`](CONTRACT.md)
-writes them as numbered clauses, each taken from arc's public documentation or
-decided by the contract where that documentation is silent, and marked settled
-or unsettled. A pure Haskell model, written without reference to arc's source,
+writes them as numbered clauses, each taken from arc's own documentation — the
+guide `arc` prints with no arguments and each command's `--help` — or decided
+by the contract where that documentation is silent, and marked settled or
+unsettled. A pure Haskell model, written without reference to arc's source,
 implements those clauses. A differential then generates histories, replays
 each one through the arc binary, and compares the answers.
 
@@ -19,8 +20,9 @@ No disagreement is repaired before it is classified: as a defect in arc, a
 defect in the model, a question the contract leaves open, a difference in
 encoding, or arc having changed since the revision the contract pins.
 [`REPORT.md`](REPORT.md) records each one. The model has found a defect in arc
-this way: a newer gate run recorded under a different environment hid an older
-pass at the same tree, so arc refused a change the contract accepts.
+this way, since fixed: a newer gate run recorded under a different environment
+hid an older pass at the same tree, so arc refused a change the contract
+accepts.
 
 The package also models a proposed candidate protocol that arc does not
 implement, so its rules can be tested before anyone builds them.
