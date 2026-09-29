@@ -82,6 +82,7 @@ counterexample can be generated for them.
 | `repair-review` | an approved first patchset plus an unread repair is a stale approval and an `OwedReview RepairUnread` |
 | `unknown` / `elsewhere` / `changed` / `unreadable` / `failed` | omitted, other-tree, shape-moved, unreadable, and failing gate evidence each produce their own reading and refusal |
 | `environment` | evidence from another environment, evidence recording none, and a probe that fails here are each their own coverage and refusal; a gate without a probe takes evidence from anywhere |
+| `keyed` | a newer run at another tree, under another declaration, or in another environment neither answers nor hides the pass at the evaluated tree; an earlier revision with the same tree answers; with nothing under the key, the newest record says why |
 | `equal-tree` | equal trees with different contributor and obligation scopes decide differently; a waiver rescues the contributor; an unused debt is not named |
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
 | `episode` | an expired claim ends liveness, not the retained debt and evidence; the waiver still applies |
@@ -605,19 +606,11 @@ still choose differently. Each is a deliberate choice, not an oversight.
 ## Open decisions against the contract
 
 Where the model and a settled clause of [CONTRACT.md](CONTRACT.md) answer
-differently. Each is recorded, not repaired: the model is unchanged, and
-adjudicating each one is separate work that classifies it as a model defect
-or a contract to amend. Where a clause is unsettled, the clause itself names
-the reading the model takes, and nothing is listed here.
+differently. Each is recorded here, not repaired, until it is adjudicated as
+a model defect or a contract to amend; it then moves to
+[Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
+names the reading the model takes, and nothing is listed here.
 
-- **Which verification answers a gate (C14).** `readGate` takes the newest
-  record for the gate and declaration across every tree, and reads coverage
-  from that record alone. With an older pass at tree A and a newer run at
-  tree B, evaluated at A, the model reports `EvaluatedOtherTree B` and
-  refuses. The contract keys evidence by tree: the record at B does not
-  answer at A and does not hide the pass that does. The same selection lets
-  a newer record under another declaration shape report
-  `DeclarationMoved` over a matching record at the evaluated tree.
 - **Falsification (C13).** `readGate` reads `falsified` from the newest
   record at the evaluated tree. The contract calls a gate discriminating
   when any passing evidence at the counted revision names a falsification.
@@ -642,6 +635,21 @@ the reading the model takes, and nothing is listed here.
   and `independent-review` wherever a change request exists. The contract
   never derives `repair-unread`, because the ledger cannot tell a repair
   from a merge resolution.
+
+## Adjudicated
+
+Disagreements between the model and the contract, each with its class and
+the change that settled it. A model defect carries a fixture that fails on
+the model before the fix.
+
+- **Which verification answers a gate (C14): model defect.** `readGate`
+  took the newest record for the gate and declaration across every tree,
+  so a newer run at tree B hid an older pass at the evaluated tree A, and a
+  newer record under another declaration or environment hid a matching one.
+  The model keys evidence by tree, declaration, and environment; the newest
+  record under the key decides, which is the clause's reading (i) for
+  several matching records, and the newest record overall only says why
+  nothing answers. Fixture `keyed`.
 
 ## Deferred out of this package
 
