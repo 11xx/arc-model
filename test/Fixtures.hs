@@ -366,7 +366,7 @@ authorityStandsDown =
     built = build defaultScenario { Scenario.authorityWithheld = True }
 
 -- | A history refused on more than one ground reports every ground, in the
--- model's priority order, and the decision is the first of them.
+-- model's presentation order, and the decision is the first of them.
 everyGround :: [Check]
 everyGround =
   [ expectEq "fixture/every-ground: both grounds reported" [RefusedBlockingFindings [FindingId 1], RefusedGates [GateFailed gateName (EventId 4)]] grounds

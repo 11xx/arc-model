@@ -37,6 +37,7 @@ data Verdict = Verdict
   }
   deriving stock (Eq, Ord, Show)
 
+-- C4
 -- | The identity the verdict speaks for: the subject a lead recorded it on
 -- behalf of, otherwise the recorder.
 effectiveActor :: Verdict -> ActorId

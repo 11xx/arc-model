@@ -26,6 +26,7 @@ import Data.Maybe ( isJust, listToMaybe )
 import Data.Set qualified as Set
 
 
+-- C21
 {- | What kind of deficit a debt names. A declared kind wins; otherwise the
 ledger derives one from the verdicts recorded on the shipped patchset.
 Only a caller can say a merge resolution or a repair is what went unread,
@@ -55,6 +56,7 @@ data ReviewObligation = CoveringRead ReadEvidence
                       | StandingRefusal VerdictKind EventId [FindingId]
   deriving stock (Eq, Ord, Show)
 
+-- C8, C21
 -- | The projection a lead reads: is there a covering read, a standing
 -- refusal, or an owed review, and of what kind.
 reviewObligation :: ChangeState -> ReviewObligation
@@ -90,6 +92,7 @@ data CoverageAfterIntegration = CoverageAfterIntegration
   }
   deriving stock (Eq, Ord, Show)
 
+-- C9, C22
 coverageAfterIntegration :: ChangeState -> CoverageAfterIntegration
 coverageAfterIntegration state = case latestIntegration state of
   Nothing -> CoverageAfterIntegration
@@ -140,6 +143,7 @@ verdictIsIndependent state verdict = do
     then Nothing
     else Just ()
 
+-- C22
 {- | A read recorded after integration is independent when its identity was
 declared and it is not one of the shipped patchset's contributors. The
 same predicate the audit gate consults, so a projection and a refusal
@@ -151,6 +155,7 @@ auditIsIndependent state audit =
     Nothing       -> False
     Just patchset -> not audit.assumed && audit.actor `Set.notMember` effectiveContributors patchset
 
+-- C6
 {- | Whether an authorization actually consumed this debt. A debt recorded
 beside a standing approval authorized nothing and is reported as recorded
 debt, not as an authorization input.
@@ -158,6 +163,7 @@ debt, not as an authorization input.
 waiverUsed :: Authorization -> DebtId -> Bool
 waiverUsed authorization debt = debt `elem` authorizationDebts authorization
 
+-- C6
 -- | Every debt declaration that the given authorization did not consume.
 debtsNotUsed :: ChangeState -> Authorization -> [DebtId]
 debtsNotUsed state authorization = [ debt.debtId | debt <- state.debts, not (waiverUsed authorization debt.debtId) ]

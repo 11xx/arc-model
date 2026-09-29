@@ -43,6 +43,7 @@ probeRefusalText = \case
       Observed GatePass -> "pass"
       Observed GateFail -> "fail"
 
+-- C17
 -- | Every probe of the patchset's brief that is not discharged at the
 -- patchset's head, in the order the brief declares them.
 probeRefusals :: ChangeState -> Patchset -> [ProbeRefusal]
