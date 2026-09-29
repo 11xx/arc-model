@@ -290,9 +290,13 @@ mkSandbox options root policy = do
   createDirectoryIfMissing True (repo </> ".arc")
   createDirectoryIfMissing True home
   ambient <- getEnvironment
+  -- Git's global and system configuration come from inside the sandbox
+  -- home or nowhere, so a replay neither reads the operator's signing,
+  -- hooks, or safe directories nor can write to them
   let baseEnv =
         [ ("HOME", home), ("ARC_SANDBOX", home), ("ARC_HARNESS", "test"), ("ARC_SESSION", "session-a")
         , ("GIT_EDITOR", "true"), ("GIT_SEQUENCE_EDITOR", "true")
+        , ("GIT_CONFIG_GLOBAL", home </> ".gitconfig"), ("XDG_CONFIG_HOME", home </> ".config"), ("GIT_CONFIG_NOSYSTEM", "1")
         ]
         <> [ pair | pair@(key, _) <- ambient, not (inherited key) ]
       sandbox = Sandbox { repo = repo, peer = root </> "peer", home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), baseEnv = baseEnv }
@@ -314,6 +318,7 @@ mkSandbox options root policy = do
       [ "HOME", "ARC_SANDBOX", "ARC_HARNESS", "ARC_SESSION", "ARC_ACTOR", "ARC_ROLE", "ARC_MODEL"
       , "ARC_ON_BEHALF_OF", "ARC_DATA_DIR", "ARC_DATA_ROOT", "ARC_WORKTREES_DIR", "AI_HOME"
       , "GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "GATE_FAIL", "PROBE_ENV"
+      , "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_NOSYSTEM", "XDG_CONFIG_HOME"
       , "CLAUDE_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "OPENCODE_SESSION"
       , "OPENCODE_TERMINAL", "PI_SESSION_ID", "PI_SESSION_FILE", "PI_MODEL", "PI_REASONING_LEVEL"
       ]
@@ -385,6 +390,9 @@ runSteps options sandbox = mapM_ step
       WithholdAuthority -> do
         createDirectoryIfMissing True sandbox.peer
         git sandbox sandbox.peer ["init", "-q", "-b", "master"]
+        git sandbox sandbox.peer ["config", "user.name", "Tester"]
+        git sandbox sandbox.peer ["config", "user.email", "tester@example.invalid"]
+        git sandbox sandbox.peer ["config", "commit.gpgsign", "false"]
         git sandbox sandbox.peer ["commit", "-q", "--allow-empty", "-m", "peer"]
         (_, listed, _) <- arc options sandbox sandbox.peer author [] ["replica", "id", "--json"] ""
         peerId <- case eitherDecodeStrict' (utf8 listed) of
