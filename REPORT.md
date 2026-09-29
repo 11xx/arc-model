@@ -81,6 +81,7 @@ counterexample can be generated for them.
 | `waiver-expiry` | a debt waives `ps-01` and not `ps-02` |
 | `debt-beside-refusal` | a changes-requested verdict with an open finding is not permitted; the debt is in no basis; the refusal stands without the finding |
 | `under-debt` | integration under a waiver, then a negative audit: the read is fulfilled, the findings stay open, the basis is untouched, fulfilled is not approved |
+| `debt-kind` | nothing read, contributor-only verdicts, and an approval followed by an unread patchset each derive their kind; a declared kind wins; a comment followed by an unread patchset owes independent review |
 | `repair-review` | an approved first patchset plus an unread repair is a stale approval and an `OwedReview RepairUnread` |
 | `unknown` / `elsewhere` / `changed` / `unreadable` / `failed` | omitted, other-tree, shape-moved, unreadable, and failing gate evidence each produce their own reading and refusal |
 | `environment` | evidence from another environment, evidence recording none, and a probe that fails here are each their own coverage and refusal; a gate without a probe takes evidence from anywhere |
@@ -581,11 +582,11 @@ still choose differently. Each is a deliberate choice, not an oversight.
   The model refuses it in `execute`, before comparing the basis, and never in
   `decide`; a decision that was refused is answered with its own refusal
   whatever the store's authority, where production answers exit 17.
-- **Debt kind derivation.** `nothing-read`, `contributor-only`, and
-  `independent-review` are derived; `merge-resolution-unread` and
-  `repair-unread` are accepted only when declared, because only the caller can
-  say which of the two a ledger sees identically. Whether the ledger itself
-  should distinguish them is open.
+- **Debt kind derivation.** `nothing-read`, `contributor-only`,
+  `repair-unread`, and `independent-review` are derived;
+  `merge-resolution-unread` is accepted only when declared, because the
+  ledger sees a merge resolution and a repair identically. Whether the
+  ledger itself should distinguish them is open.
 - **Coverage after a repair.** A negative audit fulfils the read and leaves
   its findings open. A repair after that audit starts a fresh obligation in
   the model. Whether the fulfilled read should survive a repair is a policy
@@ -617,11 +618,7 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-- **The owed-review kind (C21).** `reviewObligation` derives
-  `repair-unread` for a history whose verdicts include no change request,
-  and `independent-review` wherever a change request exists. The contract
-  never derives `repair-unread`, because the ledger cannot tell a repair
-  from a merge resolution.
+None stands.
 
 ## Adjudicated
 
@@ -666,6 +663,22 @@ the model before the fix.
   observed moves, and a rebuilt basis that differs names each moved slot.
   Permission is still not effect: the plan records nothing, and policy
   motion still stands down, the clause's reading (ii). Fixture `rebuilt`.
+- **Debt kinds and the owed review (C21): contract to amend.** The clause
+  said the ledger derives neither `merge-resolution-unread` nor
+  `repair-unread`. `docs/review.md` defines `repair-unread` in ledger terms
+  ("an approved patchset, then authored work nobody read") and reserves
+  only the merge resolution for the caller, "because the ledger sees a
+  resolution and a repair the same way"; `arc debt --help` says the same.
+  The clause now derives `repair-unread` for a patchset with no verdict
+  after an approved one, and keeps `merge-resolution-unread` declared-only.
+  Its unsettled case narrows to earlier verdicts none of which approves,
+  read as `independent-review`: `nothing-read` is defined as no verdict on
+  any patchset, so it is no reading there. The model disagreed with both
+  texts in different ways — `debtKindFor` derived `nothing-read` after an
+  approval, and `reviewObligation` derived `repair-unread` from the absence
+  of a change request — and answers to the amended clause through one
+  derivation, `derivedKind`, for the debt and the owed review. Fixture
+  `debt-kind`.
 
 ## Deferred out of this package
 
