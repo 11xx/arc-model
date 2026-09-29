@@ -116,15 +116,17 @@ counterexample can be generated for them.
 (policy motion, external beside local, and the undeclared reviewer on the
 coverage channel; policy motion and authority at execution on the
 execution channel; an iterating change without approval on the decision
-and execution channels; and, on every channel, the two readings a history
-is compared again under, arc's movement since the pin and a newer run
-hiding an older pass) to its exact answer, and changes each other field of
+and execution channels; and the reading a history is compared again
+under, a declaration or policy move committed on the target) to its exact
+answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
 verdict, the open audit findings, the owed review, the readiness and
 blockers of the check beside a dry run — expecting each change to be left
 a disagreement. A plan agrees with a dry run that would integrate only where
-the check beside it is ready and names no blocker. 52 checks; a rule that accepted an unrelated field would
-fail here without a run against arc.
+the check beside it is ready and names no blocker. A newer run that hides
+an older pass at the evaluated tree is pinned as a disagreement, since C14
+settles that it hides nothing. 51 checks; a rule that accepted an unrelated
+field would fail here without a run against arc.
 
 ### Properties
 
@@ -279,8 +281,9 @@ identity; a finding is a blocking finding on a comment-only review by
 on the patchset it names, in the order the scenario lists them; an external decision is `arc external verdict` at the
 current head; gate evidence is `arc verify` under an environment that makes
 the declared gate fail or its probe print a chosen identity, or print
-nothing so the evidence records none; a changed declaration is an
-uncommitted edit of `gates.toml`; a further run is a clean `arc verify` at
+nothing so the evidence records none; a changed declaration is a commit on
+`master` editing the gate's command in `.arc/gates.toml`, which moves the
+target too (C12); a further run is a clean `arc verify` at
 the head of the patchset it names, after that patchset's own run; a latest
 patchset that returns to an earlier tree is `git revert` of the commit
 before it; an iterating change is `arc iterating`; a moved head is a commit
@@ -339,7 +342,7 @@ to lie inside the root. Each command's final environment is checked again
 before it starts. A refusal stops the run with exit 70, so no replay reads
 or writes the operator's configuration.
 
-### Results at the comparison revision
+### Results at arc `26f6bdc`
 
 Seed `20260907`, `--cases 200 --check-time-cases 200`: 442 cases, 398
 agreed, 44 skipped, 0 adjudicated, 0 disagreed, 0 failed to replay.
@@ -418,23 +421,21 @@ the moved observations: a target that moved leaves the head behind a merge
 nobody evaluated, so `merged-tree-unevaluated` and `gates-not-green`.
 
 The moves are commands made after `arc check` answers: a target moved is a
-commit on `master`; a policy moved is the worktree's `.arc/policy.toml`
-rewritten, uncommitted, to the other policy, with the file the change edits
+commit on `master`; a policy moved is a commit on `master` rewriting
+`.arc/policy.toml` to the other policy, with the file the change edits
 declared dangerous exactly when the new policy requires independence;
 withheld authority is the store paired with a second repository's store
 through `arc replica init`, `pair`, and `authority offer`, which relinquishes
-it. The dry run and the second check run where the decision was asked. A
-policy moved on a history whose branch is gone is skipped: the only
-checkout left is the target's, and integrate refuses a target checkout with
-tracked changes before it reads readiness.
+it. The dry run and the second check run where the decision was asked.
 
 What a dry run cannot answer: a moved head or patchset at execution (no
 scenario field moves them), and the facts the model names beside a refusal;
 the comparison is over exit codes and blockers. What it answers that the
 model does not state: the target checkout's own dirt, and contribution mode.
 
-Two disagreement classes are on record, both `unsettled`, both the points
-of the same name under "Unsettled design":
+Three disagreement classes are on record. The first two are `unsettled`,
+the points of the same name under "Unsettled design"; the third is
+`encoding`:
 
 - **Authority at execution.** A refused decision in a store without
   authority: arc answers exit 17, since it refuses the store before reading
@@ -448,6 +449,13 @@ of the same name under "Unsettled design":
   only on the decision made before the policy moved, and stands down. The
   rule applies only where the check beside the dry run is ready and names
   no blocker.
+- **A move committed on the target.** arc reads declarations and policy
+  from the target's commits, so the plan commits a declaration or policy
+  move there, and the target moves with it; the scenario states the
+  declaration or policy move alone. A row is classified this way only where
+  arc's answer is the model's own for the scenario with the target moved as
+  well, agreed or adjudicated as that scenario would be. The reread is
+  compared literally, so the reading never applies to its own output.
 
 `--mutant authority-ignored` objects on `execute-authority-withheld`, and
 `--mutant authorization-reused-after-basis-moved` on
@@ -455,8 +463,8 @@ of the same name under "Unsettled design":
 `execute-authority-withheld`, and `execute-target-and-authority`; each run
 exits non-zero.
 
-At seed `20260907`, `--channel execution --cases 200 --check-time-cases
-200`: 448 cases, 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed, 0
+At arc `26f6bdc`, seed `20260907`, `--channel execution --cases 200
+--check-time-cases 200`: 448 cases, 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed, 0
 failed to replay.
 
 | rows | cases | agreed | adjudicated | skipped |
@@ -529,8 +537,8 @@ audit verdict where arc has none.
 `--mutant fulfilled-implies-approved` cannot object, since it faults only
 the `approved` flag arc does not record.
 
-At seed `20260907`, `--channel coverage --cases 200 --check-time-cases
-200`: 453 cases, 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed, 0
+At arc `26f6bdc`, seed `20260907`, `--channel coverage --cases 200
+--check-time-cases 200`: 453 cases, 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed, 0
 failed to replay.
 
 | rows | cases | agreed | adjudicated | skipped |
@@ -545,7 +553,7 @@ failed to replay.
 verdict and arc's basis names the debt, and exits non-zero; `--mutant
 fulfilled-implies-approved` agrees everywhere and exits zero.
 
-### Results against the installed arc
+### Results against an installed arc
 
 The same seed and case counts, replayed against the arc installed when the
 run was made, `arc 2026.9.9`, whose binary postdates arc `1170fb4`. The
@@ -608,6 +616,62 @@ falls in one class:
 - The authority, external-beside-local, and undeclared-reviewer classes
   are the ones on record at the comparison revision.
 
+### Results at arc `b320731`
+
+The same seed and case counts, against arc `b320731`, the comparison
+revision, built from source, with the plan committing its declaration and
+policy moves on the target. Every channel ran under the compiled-in heap
+cap.
+
+| channel | arc `26f6bdc` | installed arc, `1170fb4` and later | arc `b320731` |
+| --- | --- | --- | --- |
+| decision | 442 cases: 398 agreed, 0 adjudicated, 44 skipped, 0 disagreed | 447 cases: 368 agreed, 39 adjudicated, 40 skipped, 0 disagreed | 447 cases: 362 agreed, 45 adjudicated, 40 skipped, 0 disagreed |
+| execution | 448 cases: 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed | 453 cases: 315 agreed, 93 adjudicated, 45 skipped, 0 disagreed | 453 cases: 288 agreed, 125 adjudicated, 40 skipped, 0 disagreed |
+| coverage | 453 cases: 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed | 458 cases: 398 agreed, 15 adjudicated, 45 skipped, 0 disagreed | 458 cases: 413 agreed, 5 adjudicated, 40 skipped, 0 disagreed |
+
+No replay failed. The 40 skips are the decision channel's on every channel:
+20 unreadable evidence, 8 other-tree on one patchset, 10 finding without
+verdict, 2 dirt on a run against the merge. A policy moved on a history
+whose branch is gone now replays, since the move no longer dirties the
+target's checkout.
+
+| class | kind | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| a move committed on the target | encoding (C12, C3) | 34 | 73 | 0 |
+| an iterating change without approval | unsettled (C11) | 11 | 11 | 0 |
+| authority at execution | unsettled (C20) | – | 41 | – |
+| external beside local | unsettled (C9) | – | – | 4 |
+| undeclared reviewer | encoding | – | – | 1 |
+
+| rows | decision | execution | coverage |
+| --- | --- | --- | --- |
+| named | 47: 45 agreed, 1 target, 1 iterating | 53: 48 agreed, 3 target, 1 authority, 1 iterating | 58: 56 agreed, 1 external, 1 undeclared reviewer |
+| `generated-0` .. `generated-199` | 158 agreed, 18 target, 5 iterating, 19 skipped | 117 agreed, 39 target, 20 authority, 5 iterating, 19 skipped | 179 agreed, 2 external, 19 skipped |
+| `check-time-0` .. `check-time-199` | 159 agreed, 15 target, 5 iterating, 21 skipped | 123 agreed, 31 target, 20 authority, 5 iterating, 21 skipped | 178 agreed, 1 external, 21 skipped |
+
+- **The C14 rows agree.** `gate-older-pass-newer-other-environment` and
+  the generated rows of its shape, filed as a Rust defect against the
+  installed arc, agree: a newer run from another environment no longer
+  hides the pass at the evaluated tree. So do the three rows where the
+  newer run recorded no environment, which the contract now settles on the
+  model's reading. Nothing classifies either shape any more, so its return
+  would be a disagreement.
+- **A move committed on the target.** Every declaration-changed history
+  now answers `merged-tree-unevaluated` beside `gates-not-green`, and every
+  policy-motion history refuses at execution with exit 14 on the merge
+  nobody evaluated. With the declaration in the target's tree, a
+  declaration moved after the evidence cannot leave the evaluated tree
+  where it was, so `declaration_changed` at the evaluated tree is reachable
+  only through the operator's layer, which moves no tree. The plan does not
+  move it there, so C12's `declaration_changed` and C20's policy motion
+  are not measured by this run; the policy-motion classes on the execution
+  and coverage channels match no row. On coverage the moved histories
+  agree outright: the model stands down on the moved policy and arc does
+  not integrate the merge nobody evaluated, so neither records anything.
+- **No Rust defect** is on record at this revision, and nothing was filed.
+- The iterating, authority, external-beside-local, and undeclared-reviewer
+  classes are the ones on record before.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -620,13 +684,12 @@ state remain outside it.
 
 ### Recommendation
 
-The evidence supports extracting one pure decision boundary from arc: the
-blocker derivation in `status.rs`, which turns already-computed facts —
-approval validity, gate greenness, probe discharge, open findings, holds,
-the branch, dependency and rebase state, and whether the merge was
-evaluated — into the blocker list. It has an independent twin in
-`evaluate`, the differential protects it on 398 agreed histories, named and
-generated, and the extraction changes no observable answer. The approval-validity
+The blocker derivation, which turns already-computed facts — approval
+validity, gate greenness, probe discharge, open findings, holds, the
+branch, dependency and rebase state, and whether the merge was evaluated —
+into the blocker list, is a pure module at the comparison revision. It has
+an independent twin in `evaluate`, and the differential agrees with it on
+every history it replays or classifies. The approval-validity
 computation above it, where local, external, waiver, and danger interact,
 is the next candidate and the one where the vocabulary differences listed
 under unsettled design would have to be settled first.
@@ -730,7 +793,10 @@ still choose differently. Each is a deliberate choice, not an oversight.
   the new policy would be a different action, with a different basis.
   Production re-decides: `integrate` evaluates readiness under the policy in
   force when it runs, and the execution channel adjudicates the difference
-  where that re-decision permits.
+  where that re-decision permits. Production reads project policy from the
+  target's commits, so a moved policy moves the target, and the merge
+  nobody evaluated refuses under either reading wherever a gate is
+  required.
 - **Contested verdicts.** The model treats more than one active tip as
   contested and refuses. It does not model the repair of a contested chain
   beyond the arrival of a single superseding verdict.
