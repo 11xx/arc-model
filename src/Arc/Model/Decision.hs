@@ -54,8 +54,9 @@ evaluate observations state
   | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
   | otherwise                                = evaluateDeclared observations state
 
--- C1, C2, C3, C5, C10, C11, C18, C19
--- | 'evaluate' under one declaration set.
+-- C1, C2, C3, C5, C10, C11, C19
+-- | 'evaluate' under one declaration set. It reads, so it never refuses the
+-- invoker's identity; 'execute' does.
 evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
 evaluateDeclared observations state = case latestPatchset state of
   Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
@@ -72,7 +73,6 @@ evaluateDeclared observations state = case latestPatchset state of
           , [ RefusedMergedTreeUnevaluated observations.evaluatedTree | mergedTreeUnevaluated ]
           , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
           , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | verdictContested state ]
-          , [ RefusedUndeclaredActor | policy.requireDeclaredActor && not observations.invokerDeclared ]
           , either pure (const []) authorization
           , either (pure . RefusedGates) (const []) gates
           , [ RefusedAcceptanceProbes probes | not (null probes) ]
@@ -202,18 +202,21 @@ gateEvidence observations state =
         _uncovered    -> Nothing
       _refused -> Nothing
 
--- C2, C12, C20
+-- C2, C12, C18, C20
 {- | Re-check a basis against the observations at execution time. A store
-that does not hold integration authority cannot act at all, declarations
-two policy layers disagree on and a missing branch leave nothing to act
-on, and any moved fact stands the action down; the recorded basis is never
-reused.
+that does not hold integration authority cannot act at all, an invoker
+nobody declared is refused where policy requires a declared actor,
+declarations two policy layers disagree on and a missing branch leave
+nothing to act on, and any moved fact stands the action down; the recorded
+basis is never reused.
 -}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
   Refused refusal -> Left refusal
   Permitted basis
     | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
+    | observations.policy.requireDeclaredActor && not observations.invokerDeclared
+                                                  -> Left RefusedUndeclaredActor
     | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
     | observations.head == Omitted                -> Left RefusedBranchMissing
     | otherwise -> case moved basis of

@@ -32,6 +32,7 @@ fixtureChecks = concat
   , debtAuthorizedNothing
   , staleAndMovedBases
   , authorityStandsDown
+  , undeclaredInvoker
   , everyGround
   , permissionIsNotEffect
   , auditRefusals
@@ -390,6 +391,22 @@ authorityStandsDown =
   ]
   where
     built = build defaultScenario { Scenario.authorityWithheld = True }
+
+{- | Under @require_declared_actor@, reading is unaffected (C18): a readiness
+check does not refuse an undeclared invoker, and the integration refuses
+it before it merges.
+-}
+undeclaredInvoker :: [Check]
+undeclaredInvoker =
+  [ expectEq "fixture/undeclared-actor: the check does not refuse the invoker" [] (refusals undeclared built.state)
+  , expectTrue "fixture/undeclared-actor: the decision permits" "a readiness check reads without refusing" (isPermitted decision)
+  , expectEq "fixture/undeclared-actor: execution refuses" (Left RefusedUndeclaredActor) (execute undeclared built.state decision)
+  , expectTrue "fixture/undeclared-actor: a declared invoker executes" "a declared invoker satisfies the policy" (either (const False) (const True) (execute built.observation built.state built.decision))
+  ]
+  where
+    built      = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
+    undeclared = built.observation { Observations.invokerDeclared = False }
+    decision   = decide undeclared built.state
 
 -- | A history refused on more than one ground reports every ground, in the
 -- model's presentation order, and the decision is the first of them.

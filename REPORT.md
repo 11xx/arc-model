@@ -90,6 +90,7 @@ counterexample can be generated for them.
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
 | `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
+| `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
 | `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone; a contributor's approving audit is not recorded where self-approval is forbidden, and is recorded elsewhere |
@@ -233,7 +234,6 @@ appear in arc's answer as follows; the claim is what the run tests.
 | `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
 | `gates` | `gates-not-green`, including evidence on a dirty worktree |
 | `acceptance-probes` | `acceptance-probes-not-green` |
-| `undeclared-actor` | nothing: arc refuses the undeclared write, so no such verdict reaches `check` |
 
 ### The encoding
 
@@ -612,11 +612,6 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-- **Declared actors (C18).** `evaluateDeclared` refuses an undeclared
-  invoker as a decision ground, `RefusedUndeclaredActor`. The contract
-  leaves reading unaffected: a readiness check does not refuse an
-  undeclared invoker, and the integration refuses it before it merges,
-  which in the model is `execute`.
 - **The basis (C19).** `DecisionBasis` names no prerequisite closures; the
   contract's basis records each prerequisite's closure beside the
   authorization, gates, findings, and holds.
@@ -653,6 +648,12 @@ the model before the fix.
   readable passing record under the key in force; the counted revision is
   read through C14, where two commits with one tree are one evaluation.
   Advisory only; no decision changes. Fixture `falsified`.
+- **Declared actors (C18): model defect.** `evaluateDeclared` refused an
+  undeclared invoker as a decision ground. The clause, from
+  `docs/review.md` ("Reading is unaffected"; `integrate` checks before it
+  merges), leaves the readiness check alone. `RefusedUndeclaredActor` is an
+  execution refusal, raised by `execute` after withheld authority. Fixture
+  `undeclared-actor`.
 
 ## Deferred out of this package
 

@@ -67,9 +67,9 @@ expected = Set.fromList . concatMap blockersOf
       RefusedGates _                   -> ["gates-not-green"]
       RefusedAcceptanceProbes _        -> ["acceptance-probes-not-green"]
       RefusedHoldActive _              -> ["hold-active"]
-      -- arc refuses the undeclared write itself; nothing reaches check
-      RefusedUndeclaredActor           -> []
+      -- refused only at execution, which a check never reaches
       RefusedAuthorityWithheld         -> []
+      RefusedUndeclaredActor           -> []
       RefusedBasisMoved _              -> []
 
 -- | What an integration attempted after the moves would do, by the model.
