@@ -32,9 +32,10 @@ module Differential.Compare
 
 import Arc.Model
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
-import Generators ( Built(..) )
-import Scenario ( ActorPick(..), Scenario(..) )
+import Generators ( Built(..), build, reverts )
+import Scenario ( ActorPick(..), GateMode(..), Scenario(..) )
 
+import Control.Applicative ( (<|>) )
 import Data.Maybe ( fromMaybe, isJust, isNothing )
 import Data.Set ( Set )
 import Data.Set qualified as Set
@@ -97,15 +98,47 @@ expectedExecution built = \case
 
 compareExecution :: Scenario -> Built -> Execution -> DryRun -> Comparison
 compareExecution scenario built wanted dry
-  | agrees    = Agreed
-  | otherwise = maybe Disagreed Adjudicated (adjudicateExecution scenario built wanted dry)
+  | executionAgrees wanted dry = Agreed
+  | otherwise = orAdjudicated (adjudicateExecution scenario built wanted dry <|> iteratingExecution) $ explainedBy scenario $ \reread ->
+      let rebuilt = build reread in compareExecution reread rebuilt (expectedExecution rebuilt rebuilt.execution) dry
   where
-    -- a dry run that would integrate answers beside a check that is ready
-    -- and names no blocker
-    agrees = case wanted of
-      WouldIntegrate    -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
-      AuthorityRefused  -> dry.exit == 17
-      StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
+    -- the refusal arc's check reports for an iterating change leaves the
+    -- approval out; with it left out, the dry run agrees or falls under a
+    -- rule of its own
+    iteratingExecution = do
+      StoodDown refused <- Just wanted
+      withoutApproval   <- iteratingReading scenario refused
+      let reread = StoodDown withoutApproval
+      if executionAgrees reread dry || isJust (adjudicateExecution scenario built reread dry)
+        then Just iteratingAdjudication
+        else Nothing
+
+-- | Whether a dry run is the model's execution. A dry run that would
+-- integrate answers beside a check that is ready and names no blocker.
+executionAgrees :: Execution -> DryRun -> Bool
+executionAgrees wanted dry = case wanted of
+  WouldIntegrate    -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
+  AuthorityRefused  -> dry.exit == 17
+  StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
+
+{- | The blockers an arc that reads C11 as (ii) reports for an iterating
+change: the model's, without the approval, since such an arc reports the
+iterating blocker instead of requesting a review. Nothing where the change
+is not iterating or no approval ground stands.
+-}
+iteratingReading :: Scenario -> Set String -> Maybe (Set String)
+iteratingReading scenario wanted
+  | scenario.iterating
+  , Set.member "iterating" wanted
+  , Set.member "no-valid-approval" wanted
+  = Just (Set.delete "no-valid-approval" wanted)
+  | otherwise = Nothing
+
+iteratingAdjudication :: Adjudication
+iteratingAdjudication = Adjudication
+  { kind   = Unsettled
+  , reason = "iterating without approval: arc reports iterating instead of requesting a review (C11 reading (ii)); the model reads (i), the missing approval beside it"
+  }
 
 {- | The execution disagreements that have been read and classified, each
 with the exact shape it applies to.
@@ -181,7 +214,9 @@ recordedText found
 compareCoverage :: Scenario -> Built -> PostIntegration -> PostIntegration -> Comparison
 compareCoverage scenario built wanted found
   | wanted == found = Agreed
-  | otherwise       = maybe Disagreed Adjudicated (adjudicateCoverage scenario built wanted found)
+  | otherwise       = orAdjudicated (adjudicateCoverage scenario built wanted found) $ explainedBy scenario $ \reread ->
+      let rebuilt = build reread
+      in compareCoverage reread rebuilt (expectedCoverage (historicalAuthorization rebuilt.finalState) (coverageAfterIntegration rebuilt.finalState)) found
 
 -- | The coverage disagreements that have been read and classified.
 adjudicateCoverage :: Scenario -> Built -> PostIntegration -> PostIntegration -> Maybe Adjudication
@@ -230,12 +265,82 @@ adjudicateCoverage scenario built wanted found
   where
     redecided = expectedCoverage (historicalAuthorization built.redecidedState) (coverageAfterIntegration built.redecidedState)
 
--- | Which side is wrong, or whether the contract is unsettled. An encoding
--- difference is a fact about the CLI's shape, not about either decision.
+{- | The scenario as an arc that reads gate and policy declarations from the
+target's commits sees it. The plan moves a declaration and a policy with
+uncommitted edits of the worktree's files, which such an arc never reads,
+so for it nothing moved. Nothing where the scenario moves neither.
+-}
+asReadFromTarget :: Scenario -> Maybe Scenario
+asReadFromTarget scenario
+  | scenario.gateMode == EvidenceShapeMoved || scenario.policyAfter = Just scenario
+      { Scenario.gateMode    = if scenario.gateMode == EvidenceShapeMoved then EvidenceCovered else scenario.gateMode
+      , Scenario.policyAfter = False
+      }
+  | otherwise = Nothing
+
+{- | The pass a newer run hides where arc lets the newest run at the evaluated
+tree decide whatever environment it recorded: the scenario without the
+further runs at the tree its own run reads, which is the tree the latest
+patchset returns to, recorded before that run. Classified by what the newer
+run recorded: another environment is C14's settled rule, so a Rust defect;
+no environment is a reading C14 leaves open.
+-}
+asHiddenByNewerRun :: Scenario -> Maybe (Scenario, Adjudication)
+asHiddenByNewerRun scenario
+  | scenario.gateMode `elem` [EvidenceOtherEnvironment, EvidenceUnrecordedEnvironment]
+  , reverts scenario
+  , not (null hidden)
+  = Just (scenario { Scenario.gateRuns = [ run | run <- scenario.gateRuns, run `notElem` hidden ] }, adjudication)
+  | otherwise = Nothing
+  where
+    hidden = [ run | run@(index, GatePass) <- scenario.gateRuns, index == scenario.patchsets - 2 ]
+    adjudication
+      | scenario.gateMode == EvidenceOtherEnvironment = Adjudication
+          { kind   = RustDefect
+          , reason = "a newer run from another environment hides the pass here: arc lets it decide the gate at the evaluated tree, where C14 keys evidence by environment and such a record never hides one that answers"
+          }
+      | otherwise = Adjudication
+          { kind   = Unsettled
+          , reason = "a newer run recording no environment hides the pass here: arc reads it as under the key in force (C14, unsettled reading (ii)); the model keys it apart, so it neither answers nor hides (reading (i))"
+          }
+
+{- | A disagreement a known reading explains: arc's answer is the model's own
+for the scenario as that reading sees it, agreed or adjudicated as that
+scenario would be. The readings are arc's movement since the pin, which
+reads declarations and policy from the target's commits, and a newer run
+hiding an older pass at the evaluated tree.
+-}
+explainedBy :: Scenario -> (Scenario -> Comparison) -> Comparison
+explainedBy scenario compareReread = case [ adjudication | (reread, adjudication) <- readings, compareReread reread /= Disagreed ] of
+  adjudication : _ -> Adjudicated adjudication
+  []               -> Disagreed
+  where
+    readings = concat
+      [ [ (unmoved, arcMoved) | Just unmoved <- [asReadFromTarget scenario] ]
+      , [ reread | Just reread <- [asHiddenByNewerRun scenario] ]
+      ]
+    arcMoved = Adjudication
+      { kind   = ArcMoved
+      , reason = "arc moved since the pin: it reads gate and policy declarations from the target's commits (C12 reading (ii)), so the plan's uncommitted edit moves nothing, and arc answers as the model does with nothing moved"
+      }
+
+-- | A reading that explains arc's answer outright is asked first; a class of
+-- the history's own shape is asked only of a disagreement no reading
+-- explains.
+orAdjudicated :: Maybe Adjudication -> Comparison -> Comparison
+orAdjudicated rule = \case
+  Disagreed -> maybe Disagreed Adjudicated rule
+  moved     -> moved
+
+-- | Which side is wrong, whether the contract is unsettled, or whether arc
+-- moved since the comparison revision in a way the contract already records.
+-- An encoding difference is a fact about the CLI's shape, not about either
+-- decision.
 data Kind = RustDefect
           | ModelDefect
           | Unsettled
           | Encoding
+          | ArcMoved
   deriving stock (Eq, Ord, Show)
 
 kindText :: Kind -> String
@@ -244,6 +349,7 @@ kindText = \case
   ModelDefect -> "model-defect"
   Unsettled   -> "unsettled"
   Encoding    -> "encoding"
+  ArcMoved    -> "arc-moved"
 
 data Adjudication = Adjudication
   { kind   :: !Kind
@@ -263,7 +369,8 @@ data Comparison = Agreed
 compareAnswer :: Scenario -> Set String -> Answer -> Comparison
 compareAnswer scenario wanted answer
   | wanted == answer.blockers && Set.null wanted == answer.ready = Agreed
-  | otherwise = maybe Disagreed Adjudicated (adjudicate scenario wanted answer)
+  | otherwise = orAdjudicated (adjudicate scenario wanted answer) $ explainedBy scenario $ \reread ->
+      let rebuilt = build reread in compareAnswer reread (expected (refusals rebuilt.observation rebuilt.state)) answer
 
 {- | The disagreement classes that have been read and classified, each with
 the exact scenario shape and blocker sets it applies to. A new disagreement
@@ -272,19 +379,10 @@ says why.
 -}
 adjudicate :: Scenario -> Set String -> Answer -> Maybe Adjudication
 adjudicate scenario wanted answer
-  -- an iterating change with no approval: arc reports the iterating blocker
-  -- instead of requesting a review, the model reports both; only the
-  -- approval grounds may be missing, so the head has to be where the
-  -- patchset left it
-  | scenario.iterating
-  , not scenario.headMoved
-  , not scenario.branchMissing
-  , Set.member "iterating" wanted
-  , Set.member "no-valid-approval" wanted
+  -- an iterating change: arc reports the iterating blocker instead of
+  -- requesting a review, the model reports the missing approval beside it
+  | Just withoutApproval <- iteratingReading scenario wanted
   , not answer.ready
-  , answer.blockers == Set.delete "no-valid-approval" wanted
-  = Just Adjudication
-      { kind   = Unsettled
-      , reason = "iterating without approval: arc reports iterating instead of requesting a review (C11 reading (ii)); the model reads (i), the missing approval beside it"
-      }
+  , answer.blockers == withoutApproval
+  = Just iteratingAdjudication
   | otherwise = Nothing
