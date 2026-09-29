@@ -106,7 +106,7 @@ cargo install --git https://github.com/11xx/arc --locked
 own under a scratch root in the temporary directory (`TMPDIR` when set),
 records it through arc's own commands, asks `arc check --json`, and compares
 the blockers with the model's grounds mapped onto arc's vocabulary (the
-mapping is in `Differential.Compare`, and REPORT states it). Forty-two named
+mapping is in `Differential.Compare`, and REPORT states it). Forty-five named
 histories run first, then two generated families, so any row is
 reproducible from its index: `generated-i` draws the fields the decision
 rests on (`--cases`), and `check-time-i` draws the same fields from the same
@@ -180,8 +180,11 @@ observations. Fields (`Scenario`):
 | `provisional` | record the approval as provisional |
 | `extraContributor` | add a third contributor to every patchset |
 | `externalVerdict` | `Nothing`, or an `ExternalApproved`, `ExternalChangesRequested`, or `ExternalRejected` decision about the latest head |
-| `debt` | `(patchset index, declared kind)` or `Nothing` |
+| `debts` | debts in recording order, each `(patchset index, declared kind)` |
 | `gateMode` | `EvidenceCovered`, `EvidenceFailing`, `EvidenceOtherTree`, `EvidenceShapeMoved`, `EvidenceOtherEnvironment`, `EvidenceUnrecordedEnvironment`, `EvidenceProbeFailed`, `EvidenceRecordUnreadable`, `EvidenceOmitted` |
+| `gateRuns` | further clean runs of the gate, each `(patchset index, result)`, at that patchset's head in the environment the decision is asked in |
+| `revertLatest` | with three patchsets or more, the latest reverts the one before it and returns to the tree of the patchset before that |
+| `iterating` | the change declares it is iterating |
 | `blockingFinding` / `resolveFinding` | record an open or resolved blocking finding |
 | `headMoved` | the observed head is not the patchset head |
 | `policy` | `dangerPolicy`, `openPolicy`, or `requireDeclaredPolicy` |

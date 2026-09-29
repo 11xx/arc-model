@@ -15,6 +15,7 @@ module Generators
     , observationsFor
     , executionObservations
     , flipPolicy
+    , reverts
     , isIntegratable
     , mutations
     , Mutation(..)
@@ -155,33 +156,52 @@ build scenario = Built
       | otherwise = []
     debtEvents =
       [ DebtDeclared Debt
-          { debtId       = DebtId 1
+          { debtId       = DebtId ordinal
           , event        = EventId 0
           , patchset     = Just (PatchsetId index)
           , declaredKind = kind
           , reason       = "declared coverage"
           , actor        = authorActor
           }
-      | (index, kind) <- maybe [] pure scenario.debt
+      | (ordinal, (index, kind)) <- zip [1 ..] scenario.debts
       ]
-    verificationEvents = case scenario.gateMode of
-      EvidenceOmitted -> []
-      mode        ->
-        [ VerificationRecorded Verification
-            { event       = EventId 0
-            , gate        = buildGate
-            , declaration = buildDeclaration.declarationId
-            , shape       = shapeFor mode
-            , revision    = verifiedAt.revision
-            , tree        = treeFor mode
-            , result      = if mode == EvidenceFailing then GateFail else GatePass
-            , execution   = RanLocally
-            , answers     = Just (FailureLabel "known-failure")
-            , readable    = mode /= EvidenceRecordUnreadable
-            , environment = environmentFor mode
-            , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
-            }
-        ]
+    -- runs are recorded as the plan makes them: patchset by patchset, the
+    -- scenario's own run first
+    verificationEvents = concat
+      [ [ primaryRun mode | patchset.ordinal == verifiedAt.ordinal, mode <- [scenario.gateMode], mode /= EvidenceOmitted ]
+        <> [ furtherRun patchset result | (index, result) <- scenario.gateRuns, index == patchset.ordinal ]
+      | patchset <- NE.toList patchsets
+      ]
+    primaryRun mode = VerificationRecorded Verification
+      { event       = EventId 0
+      , gate        = buildGate
+      , declaration = buildDeclaration.declarationId
+      , shape       = shapeFor mode
+      , revision    = verifiedAt.revision
+      , tree        = treeFor mode
+      , result      = if mode == EvidenceFailing then GateFail else GatePass
+      , execution   = RanLocally
+      , answers     = Just (FailureLabel "known-failure")
+      , readable    = mode /= EvidenceRecordUnreadable
+      , environment = environmentFor mode
+      , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
+      }
+    -- a further run is clean, at the patchset's own head, in the
+    -- environment here, under the declaration every run was recorded under
+    furtherRun patchset result = VerificationRecorded Verification
+      { event       = EventId 0
+      , gate        = buildGate
+      , declaration = buildDeclaration.declarationId
+      , shape       = shapeFor scenario.gateMode
+      , revision    = patchset.revision
+      , tree        = patchset.tree
+      , result      = result
+      , execution   = RanLocally
+      , answers     = Nothing
+      , readable    = True
+      , environment = Just hereEnvironment
+      , worktree    = Observed CleanWorktree
+      }
     -- the patchset whose head the gate ran at: the one before the latest
     -- when the evidence is for another tree and there is one
     verifiedAt
@@ -206,6 +226,7 @@ build scenario = Built
         ]
       | scenario.episodeExpired
       ]
+    iteratingEvents = [ IteratingChanged True | scenario.iterating ]
     waiverEvents =
       [ DirtyTreeWaived DirtyTreeWaiver { event = EventId 0, revision = revision }
       | revision <- case scenario.worktree of
@@ -224,6 +245,7 @@ build scenario = Built
       , verificationEvents
       , claimEvents
       , waiverEvents
+      , iteratingEvents
       ]
     probeEvents = case briefFor scenario of
       Nothing        -> []
@@ -297,7 +319,8 @@ build scenario = Built
 -- | The patchsets a scenario records: one per ordinal, on its own revision
 -- and tree, all by the author, with the extra contributor declared on each
 -- when the scenario asks for one, and bound to the brief from the patchset
--- recorded after it.
+-- recorded after it. A latest patchset that reverts the one before it
+-- returns to the tree of the patchset before that.
 patchsetsFor :: Scenario -> EventId -> NonEmpty Patchset
 patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
   where
@@ -305,7 +328,7 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
       { patchsetId   = PatchsetId index
       , ordinal      = index
       , revision     = Revision ("rev" <> show index)
-      , tree         = TreeId ("tree" <> show index)
+      , tree         = TreeId ("tree" <> show (treeIndex index))
       , author       = authorActor
       , contributors = contributors
       , brief        = case briefFor scenario of
@@ -315,6 +338,14 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
     contributors
       | scenario.extraContributor = Set.fromList [authorActor, otherActor]
       | otherwise                 = Set.singleton authorActor
+    treeIndex index
+      | reverts scenario, index == scenario.patchsets = index - 2
+      | otherwise                                     = index
+
+-- | Whether the latest patchset reverts the one before it: only where there
+-- is an earlier patchset for it to return to.
+reverts :: Scenario -> Bool
+reverts scenario = scenario.revertLatest && scenario.patchsets >= 3
 
 {- | The brief a scenario records, as its base and the first patchset
 recorded under it. A probe that can be discharged is based where the change
@@ -432,11 +463,13 @@ isIntegratable scenario
   && scenario.probe `elem` [ProbeNone, ProbeDischarged]
   && not scenario.branchMissing
   && not scenario.conflictingGates
+  && not scenario.iterating
+  && all ((== GatePass) . snd) scenario.gateRuns
   where
     authorized = case scenario.reviewer of
       Just ActorIndependent -> scenario.verdict == Approved
       Just _contributing    -> False
-      Nothing               -> scenario.debt /= Nothing || externallyApproved
+      Nothing               -> debtBindsLatest scenario || externallyApproved
     externallyApproved
       = scenario.externalVerdict == Just ExternalApproved
       && not (scenario.policy.independentVerdictRequired && scenario.policy.forbidSelfApproval)
@@ -448,12 +481,10 @@ data Mutation = Mutation
   , scenario :: !Scenario
   }
 
--- | Whether the scenario's debt is bound to the newest patchset, where it
+-- | Whether a debt of the scenario is bound to the newest patchset, where it
 -- would rescue a rejected self-approval.
 debtBindsLatest :: Scenario -> Bool
-debtBindsLatest scenario = case scenario.debt of
-  Just (index, _) -> index == scenario.patchsets
-  Nothing         -> False
+debtBindsLatest scenario = any ((== scenario.patchsets) . fst) scenario.debts
 
 mutations :: Scenario -> [Mutation]
 mutations scenario = concat
@@ -487,7 +518,7 @@ mutations scenario = concat
     , not (debtBindsLatest scenario)
     ]
   , [ Mutation "waiver-expired" scenario { Scenario.patchsets = scenario.patchsets + 1 }
-    | scenario.debt /= Nothing
+    | not (null scenario.debts)
     , scenario.reviewer == Nothing
     , scenario.externalVerdict == Nothing
     ]
@@ -499,7 +530,8 @@ mutations scenario = concat
   , [ Mutation "gates-conflict" scenario { Scenario.conflictingGates = True }                           | not scenario.conflictingGates ]
   ]
   where
-    covered  = scenario.gateMode == EvidenceCovered
+    -- a further run could answer where the scenario's own run no longer does
+    covered  = scenario.gateMode == EvidenceCovered && null scenario.gateRuns
     reviewed = scenario.reviewer /= Nothing
 
 -- | The behaviours a generated scenario is expected to reach. A run that

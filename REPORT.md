@@ -105,6 +105,9 @@ counterexample can be generated for them.
 | `probes` | a discharged probe permits; a pass at the base, a missing or failing final run, and a base that is the head are each their own probe refusal |
 | `branch-missing` | a missing branch refuses without a moved head beside it, and refuses execution |
 | `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
+| `question-a` | an older pass at tree A and a newer failing run at tree B, evaluated at A (a latest patchset that reverts to A): the basis names the pass at A (C14) |
+| `question-b` | two waivers for different patchsets: each applies to its own patchset, and the latest one's authorizes (C7) |
+| `question-c` | an iterating change with no approval is refused as iterating; whether the missing approval stands beside it is C11's open reading, and is not asserted |
 | `demonstration` | the model refuses a contributor reviewer; the deliberate fault permits |
 
 ### Comparator checks
@@ -112,11 +115,12 @@ counterexample can be generated for them.
 `test/Comparator.hs` pins every adjudication rule of the differential
 (policy motion, external beside local, and the undeclared reviewer on the
 coverage channel; policy motion and authority at execution on the
-execution channel) to its exact answer, and changes each other field of
+execution channel; an iterating change without approval on the decision
+channel) to its exact answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
 verdict, the open audit findings, the owed review, the readiness and
 blockers of the check beside a dry run — expecting each change to be left
-a disagreement. 29 checks; a rule that accepted an unrelated field would
+a disagreement. 33 checks; a rule that accepted an unrelated field would
 fail here without a run against arc.
 
 ### Properties
@@ -246,13 +250,18 @@ Each scenario field is a command: a patchset is a commit and `arc snapshot`
 (with `--contributors` for the extra contributor); a verdict is `arc review`
 by `reviewer`, by `author`, or by nobody so that arc assumes the harness
 identity; a finding is a blocking finding on a comment-only review by
-`other` that the scenario's verdict then supersedes; a debt is `arc debt` on
-the patchset it names; an external decision is `arc external verdict` at the
+`other` that the scenario's verdict then supersedes; each debt is `arc debt`
+on the patchset it names, in the order the scenario lists them; an external decision is `arc external verdict` at the
 current head; gate evidence is `arc verify` under an environment that makes
 the declared gate fail or its probe print a chosen identity, or print
 nothing so the evidence records none; a changed declaration is an
-uncommitted edit of `gates.toml`; a moved head is a commit after the last
-snapshot. The decision is asked with the probe printing the local identity,
+uncommitted edit of `gates.toml`; a further run is a clean `arc verify` at
+the head of the patchset it names, after that patchset's own run; a latest
+patchset that returns to an earlier tree is `git revert` of the commit
+before it; an iterating change is `arc iterating`; a moved head is a commit
+after the last snapshot. The model records gate runs in the order the plan
+makes them, patchset by patchset, so the newest run is the same run on both
+sides. The decision is asked with the probe printing the local identity,
 or nothing when the scenario fails it. Policy is written to
 `.arc/policy.toml` and the change edits the declared dangerous path exactly
 when independent review is required.

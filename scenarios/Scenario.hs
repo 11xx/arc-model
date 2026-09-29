@@ -26,7 +26,7 @@ module Scenario
     , namedCoverageScenarios
     ) where
 
-import Arc.Model ( DebtKind(..), ExternalKind(..), Policy(..), VerdictKind(..) )
+import Arc.Model ( DebtKind(..), ExternalKind(..), GateResult(..), Policy(..), VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 
 import Test.QuickCheck
@@ -83,8 +83,11 @@ data Scenario = Scenario
   , provisional       :: !Bool
   , extraContributor  :: !Bool
   , externalVerdict   :: !(Maybe ExternalKind)   -- ^ An upstream decision about the latest head.
-  , debt              :: !(Maybe (Int, Maybe DebtKind))
+  , debts             :: ![(Int, Maybe DebtKind)]  -- ^ Debts in recording order, each on the patchset it names, with its declared kind.
   , gateMode          :: !GateMode
+  , gateRuns          :: ![(Int, GateResult)]      -- ^ Further clean runs of the gate here, each at the head of the patchset it names.
+  , revertLatest      :: !Bool                     -- ^ With three patchsets or more, the latest reverts the one before it and returns to an earlier tree.
+  , iterating         :: !Bool                     -- ^ The change declares it is iterating.
   , blockingFinding   :: !Bool
   , resolveFinding    :: !Bool
   , headMoved         :: !Bool
@@ -111,8 +114,11 @@ defaultScenario = Scenario
   , provisional       = False
   , extraContributor  = False
   , externalVerdict   = Nothing
-  , debt              = Nothing
+  , debts             = []
   , gateMode          = EvidenceCovered
+  , gateRuns          = []
+  , revertLatest      = False
+  , iterating         = False
   , blockingFinding   = False
   , resolveFinding    = False
   , headMoved         = False
@@ -160,9 +166,9 @@ namedScenarios =
   , ("changes-requested",          defaultScenario { verdict = ChangesRequested })
   , ("comment-only",               defaultScenario { verdict = CommentOnly })
   , ("unreviewed",                 defaultScenario { reviewer = Nothing })
-  , ("waived",                     defaultScenario { reviewer = Nothing, debt = Just (1, Nothing) })
-  , ("waiver-expired",             defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), patchsets = 2 })
-  , ("waived-contributor",         defaultScenario { reviewer = Just ActorContributor, debt = Just (1, Nothing) })
+  , ("waived",                     defaultScenario { reviewer = Nothing, debts = [(1, Nothing)] })
+  , ("waiver-expired",             defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], patchsets = 2 })
+  , ("waived-contributor",         defaultScenario { reviewer = Just ActorContributor, debts = [(1, Nothing)] })
   , ("stale-approval",             defaultScenario { patchsets = 2, verdictOnFirst = True })
   , ("finding-open",               defaultScenario { blockingFinding = True })
   , ("finding-resolved",           defaultScenario { blockingFinding = True, resolveFinding = True })
@@ -178,7 +184,7 @@ namedScenarios =
   , ("external-approved-danger",   defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved })
   , ("external-beside-local",      defaultScenario { externalVerdict = Just ExternalApproved })
   , ("external-changes-requested", defaultScenario { externalVerdict = Just ExternalChangesRequested })
-  , ("external-over-waiver",       defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), externalVerdict = Just ExternalChangesRequested })
+  , ("external-over-waiver",       defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], externalVerdict = Just ExternalChangesRequested })
   , ("external-rejected",          defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalRejected, policy = openPolicy })
   , ("extra-contributor",          defaultScenario { extraContributor = True })
   , ("gate-dirty",                 defaultScenario { worktree = WorktreeDirty })
@@ -194,6 +200,9 @@ namedScenarios =
   , ("probe-undischargeable",      defaultScenario { probe = ProbeUndischargeable })
   , ("branch-missing",             defaultScenario { branchMissing = True })
   , ("conflicting-gates",          defaultScenario { conflictingGates = True })
+  , ("gate-older-pass-same-tree",  defaultScenario { patchsets = 3, revertLatest = True, gateMode = EvidenceOmitted, gateRuns = [(1, GatePass), (2, GateFail)] })
+  , ("waivers-per-patchset",       defaultScenario { reviewer = Nothing, patchsets = 2, debts = [(1, Nothing), (2, Nothing)] })
+  , ("iterating-unreviewed",       defaultScenario { reviewer = Nothing, iterating = True })
   ]
 
 -- | Histories that move something between the decision and the
@@ -215,14 +224,14 @@ namedCoverageScenarios =
   [ ("cover-approved",                   defaultScenario)
   , ("cover-approved-negative-audit",    defaultScenario { audit = Just (ChangesRequested, True) })
   , ("cover-approved-approving-audit",   defaultScenario { audit = Just (Approved, True) })
-  , ("cover-waived",                     defaultScenario { reviewer = Nothing, debt = Just (1, Nothing) })
-  , ("cover-waived-negative-audit",      defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), audit = Just (ChangesRequested, True) })
-  , ("cover-waived-author-audit",        defaultScenario { reviewer = Nothing, debt = Just (1, Nothing), audit = Just (Approved, False) })
-  , ("cover-self-under-waiver",          defaultScenario { reviewer = Just ActorContributor, debt = Just (1, Nothing) })
+  , ("cover-waived",                     defaultScenario { reviewer = Nothing, debts = [(1, Nothing)] })
+  , ("cover-waived-negative-audit",      defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], audit = Just (ChangesRequested, True) })
+  , ("cover-waived-author-audit",        defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], audit = Just (Approved, False) })
+  , ("cover-self-under-waiver",          defaultScenario { reviewer = Just ActorContributor, debts = [(1, Nothing)] })
   , ("cover-external-only",              defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-external-beside-local",      defaultScenario { externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-external-beside-local-danger", defaultScenario { externalVerdict = Just ExternalApproved })
-  , ("cover-undeclared-reviewer-waived", defaultScenario { reviewer = Just ActorAssumed, debt = Just (1, Nothing), policy = requireDeclaredPolicy })
+  , ("cover-undeclared-reviewer-waived", defaultScenario { reviewer = Just ActorAssumed, debts = [(1, Nothing)], policy = requireDeclaredPolicy })
   ]
 
 -- generation
@@ -267,7 +276,7 @@ genScenarioThen extend = do
     , provisional       = provisional
     , extraContributor  = extraContributor
     , externalVerdict   = externalVerdict
-    , debt              = debt
+    , debts             = maybe [] pure debt
     , gateMode          = gateMode
     , blockingFinding   = blockingFinding
     , resolveFinding    = resolveFinding
@@ -324,7 +333,7 @@ genIntegratable = do
     , reviewer         = if withApproval then Just ActorIndependent else Nothing
     , extraContributor = extraContributor
     , externalVerdict  = externalVerdict
-    , debt             = if withApproval then debt else Just (count, Nothing)
+    , debts            = maybe [] pure (if withApproval then debt else Just (count, Nothing))
     , provisional      = provisional
     , episodeExpired   = episodeExpired
     , audit            = audit
@@ -375,8 +384,11 @@ shrinkScenario scenario =
       , [ scenario { provisional = False }       | scenario.provisional ]
       , [ scenario { extraContributor = False }  | scenario.extraContributor ]
       , [ scenario { externalVerdict = Nothing } | scenario.externalVerdict /= Nothing ]
-      , [ scenario { debt = Nothing }            | scenario.debt /= Nothing ]
+      , [ scenario { debts = dropAt index scenario.debts } | index <- [0 .. length scenario.debts - 1] ]
       , [ scenario { gateMode = mode }           | mode <- [minBound .. scenario.gateMode], mode /= scenario.gateMode ]
+      , [ scenario { gateRuns = dropAt index scenario.gateRuns } | index <- [0 .. length scenario.gateRuns - 1] ]
+      , [ scenario { revertLatest = False }      | scenario.revertLatest ]
+      , [ scenario { iterating = False }         | scenario.iterating ]
       , [ scenario { blockingFinding = False }   | scenario.blockingFinding ]
       , [ scenario { resolveFinding = False }    | scenario.resolveFinding ]
       , [ scenario { headMoved = False }         | scenario.headMoved ]
@@ -392,6 +404,5 @@ shrinkScenario scenario =
       , [ scenario { branchMissing = False }     | scenario.branchMissing ]
       , [ scenario { conflictingGates = False }  | scenario.conflictingGates ]
       ]
-    referencedPatchsets current = case current.debt of
-      Nothing         -> []
-      Just (index, _) -> [index]
+    referencedPatchsets current = map fst current.debts <> map fst current.gateRuns
+    dropAt index items = take index items <> drop (index + 1) items
