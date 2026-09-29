@@ -32,6 +32,14 @@ The library is pure. It never reads the clock, the filesystem, Git, or an arc
 ledger. Only the differential executable runs `arc`, and it runs the binary
 already on `PATH` in a temporary repository of its own.
 
+Every process that runs `arc` or `git` for a scenario, a replay, or the
+reproduction of a disagreement runs inside `Differential.Sandbox`: through
+the differential, or by hand through
+`cabal v2-run arc-model-sandbox -- [--keep] <command> [args…]`. The sandbox
+builds its environment from nothing and refuses to run anything until its
+self-check passes. Nobody builds a sandbox environment by hand, sets `HOME`
+for one, or runs `git config --global` outside it.
+
 A mismatch between the model and arc is classified — a Rust defect, a model
 defect, or an unsettled contract — never made to disappear. Neither side is
 the oracle for the other. A mismatch between the model and `CONTRACT.md` is
