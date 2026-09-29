@@ -317,6 +317,21 @@ first three, and the coverage channel all four.
 A rejection of the head is recorded by arc's command together with the
 closure it causes; the scenario builder records both events, as arc does.
 
+### The sandbox
+
+Every replay runs in a sandbox of `Differential.Sandbox`, the differential's
+and a replay by hand through `arc-model-sandbox` alike. Its environment is
+built from nothing: `PATH`, `LANG`, `LC_ALL`, `LC_CTYPE`, and `TZ` are the
+only ambient variables admitted; `HOME`, the XDG directories, `TMPDIR`,
+`GIT_CONFIG_GLOBAL`, and `ARC_SANDBOX` point inside the sandbox's root; Git
+reads no system configuration and opens no editor. Before anything runs,
+a self-check refuses a location outside the root, an unset one, and any
+variable nobody admitted, naming each; only once that passes does a probe
+write a nonce with `git config --global` and require the file it lands in
+to lie inside the root. Each command's final environment is checked again
+before it starts. A refusal stops the run with exit 70, so no replay reads
+or writes the operator's configuration.
+
 ### Results at the comparison revision
 
 Seed `20260907`, `--cases 200 --check-time-cases 200`: 442 cases, 398
@@ -536,11 +551,9 @@ widened generator's and the five named after the contract's questions.
 | execution | 448 cases: 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed | 453 cases: 315 agreed, 93 adjudicated, 45 skipped, 0 disagreed |
 | coverage | 453 cases: 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed | 458 cases: 398 agreed, 15 adjudicated, 45 skipped, 0 disagreed |
 
-No replay failed. Every sandbox confines Git's global configuration to its
-own home, so no replay reads the operator's. Before these classes were
-named, a first pass left 16, 37, and 3 rows unclassified on the three
-channels. Each
-adjudicated row falls in one class:
+No replay failed. Before these classes were named, a first pass left 16,
+37, and 3 rows unclassified on the three channels. Each adjudicated row
+falls in one class:
 
 | class | kind | decision | execution | coverage |
 | --- | --- | --- | --- | --- |

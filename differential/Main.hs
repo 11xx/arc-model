@@ -17,7 +17,9 @@ and @arc query --debt@ report.
 Every row is one of: agreed, skipped with the field the CLI cannot record,
 adjudicated with its class and reason, disagreed, or failed to replay. The
 run exits non-zero on a disagreement nobody has classified or on a replay
-that broke, and on nothing else: a quiet run is evidence, not proof.
+that broke, and on nothing else: a quiet run is evidence, not proof. Every
+case runs in a sandbox of "Differential.Sandbox"; a sandbox whose self-check
+refuses stops the run with exit 70 before anything runs in it.
 -}
 module Main ( main ) where
 
@@ -26,15 +28,17 @@ import Differential.Arc ( Answer, Outcome(..) )
 import Differential.Arc qualified as Arc
 import Differential.Compare
 import Differential.Plan
+import Differential.Sandbox ( SelfCheckRefused(..) )
 import Generators
 import Mutants ( Behaviour(..), Channel(..), Mutant(..), allMutants )
 
+import Control.Exception ( handle )
 import Control.Monad ( unless, when )
 import Data.List ( intercalate )
 import Data.Set qualified as Set
 import System.Directory ( getTemporaryDirectory, removePathForcibly )
 import System.Environment ( getArgs )
-import System.Exit ( exitFailure, exitSuccess )
+import System.Exit ( ExitCode(..), exitFailure, exitSuccess, exitWith )
 import System.FilePath ( (</>) )
 import System.IO ( hFlush, stdout )
 import System.Posix.Temp ( mkdtemp )
@@ -147,13 +151,22 @@ main = do
       generated = [ ("generated-" <> show index, draw genDecisionScenario index) | index <- [0 .. settings.cases - 1] ]
       checkTime = [ ("check-time-" <> show index, draw genAnyScenario index) | index <- [0 .. settings.checkTimeCases - 1] ]
       named = namedScenarios <> channelScenarios settings.compared
-  rows <- mapM (runCase settings oracle root) (zip [0 :: Int ..] (named <> generated <> checkTime))
+  rows <- handle (refused root) (mapM (runCase settings oracle root) (zip [0 :: Int ..] (named <> generated <> checkTime)))
   putStrLn ""
   summarize settings.compared rows
   if settings.keep
     then putStrLn ("sandboxes kept under " <> root)
     else removePathForcibly root
   if any objectionable rows then exitFailure else exitSuccess
+
+-- | Stop the run on a sandbox whose self-check refused, keeping the scratch
+-- root for inspection.
+refused :: FilePath -> SelfCheckRefused -> IO a
+refused root (SelfCheckRefused found) = do
+  putStrLn ""
+  putStrLn ("the sandbox self-check refused; nothing ran in it, scratch kept under " <> root)
+  mapM_ (putStrLn . ("  " <>)) found
+  exitWith (ExitFailure 70)
 
 -- | The histories named for one channel, run after the shared ones.
 channelScenarios :: Compared -> [(String, Scenario)]
