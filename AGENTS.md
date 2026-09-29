@@ -15,9 +15,20 @@ settled there.
 ## Invariants
 
 The model characterizes one arc revision, named by `comparisonRevision`. It
-describes behaviour; it is not a port of `state.rs` or `status.rs`, and a
-reader who compares it against the Rust source is checking the model, not
-translating it.
+describes behaviour; it is not a port of arc's implementation.
+
+The model is derived independently of the Rust:
+
+- Model-side work — `src/`, `candidate/`, `scenarios/`, `test/`,
+  `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
+  documentation (its README, `docs/`, the guide `arc` prints, and each
+  command's `--help`), never from arc's source.
+- Only the differential's encoding, `differential/`, reads arc's behaviour,
+  and arc's Rust source is read only there.
+- A task on the model names no Rust file or line, and never requires the
+  model to agree with arc. A rule the contract does not settle is settled in
+  `CONTRACT.md` first, from the documentation, or left unsettled with its
+  readings.
 
 The library is pure. It never reads the clock, the filesystem, Git, or an arc
 ledger. Only the differential executable runs `arc`, and it runs the binary
@@ -25,7 +36,9 @@ already on `PATH` in a temporary repository of its own.
 
 A mismatch between the model and arc is classified — a Rust defect, a model
 defect, or an unsettled contract — never made to disappear. Neither side is
-the oracle for the other.
+the oracle for the other. A mismatch between the model and `CONTRACT.md` is
+recorded in `REPORT.md` and adjudicated the same way, not closed by editing
+either side to match.
 
 Nothing here enters the arc build, its gates, or its releases, so no arc
 change needs a Haskell toolchain.
