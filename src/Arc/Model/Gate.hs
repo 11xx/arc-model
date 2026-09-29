@@ -50,7 +50,7 @@ data GateReading = GateReading
   , result       :: !(Observed GateResult)    -- ^ Last result under the key in force, or, where none carries it, wherever it ran.
   , coverage     :: !GateCoverage             -- ^ Whether that observation answers the declaration, tree, and environment in force.
   , availability :: !EvidenceAvailability     -- ^ Whether any record exists, and whether it could be read.
-  , falsified    :: !(Observed FailureLabel)  -- ^ The failure this gate was demonstrated to answer, when it was.
+  , falsified    :: !(Observed FailureLabel)  -- ^ The failure any passing run under the key in force was demonstrated to answer, when one was.
   }
   deriving stock (Eq, Ord, Show)
 
@@ -102,7 +102,8 @@ force, the newest decides coverage and availability, so an unreadable,
 failing, or dirty newest record leaves the gate refused rather than falling
 back to an older pass; any older result is reported beside them as a
 result, never as coverage. Where no record carries the key, the newest
-record says why none answers.
+record says why none answers. The gate is discriminating when any passing
+record under the key names a failure it answers, not only the newest.
 -}
 readGate :: GateName -> Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> GateReading
 readGate gate declaration tree here waived verifications = GateReading
@@ -110,9 +111,7 @@ readGate gate declaration tree here waived verifications = GateReading
   , result       = maybe Omitted (Observed . (.result)) (newest (filter (.readable) deciding))
   , coverage     = coverage
   , availability = availability
-  , falsified    = case newest atTree of
-      Just v  -> maybe Omitted Observed v.answers
-      Nothing -> Omitted
+  , falsified    = maybe Omitted Observed (newest [ label | v <- keyed, v.readable, v.result == GatePass, Just label <- [v.answers] ])
   }
   where
     matching = [ v | v <- verifications, v.gate == gate, v.declaration == declaration.declarationId ]

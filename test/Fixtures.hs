@@ -192,9 +192,13 @@ evidenceKeyedByTree =
   , expectEq "fixture/keyed: a newer run in another environment does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, run 2 (Revision "rev1") (TreeId "tree1") GatePass (Just (EnvironmentId "env-elsewhere"))]).coverage
   , expectEq "fixture/keyed: an earlier revision with the same tree answers" (Covered (EventId 1)) (keyedAt [passHere { Verification.revision = Revision "rev0" }]).coverage
   , expectEq "fixture/keyed: with nothing here, the newest record says why" (EvaluatedOtherTree (TreeId "tree2")) (keyedAt [run 2 (Revision "rev2") (TreeId "tree2") GatePass here]).coverage
+  , expectEq "fixture/falsified: any passing run here that names a failure discriminates" (Observed known) (keyedAt [passHere { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
+  , expectEq "fixture/falsified: a failing run's label is no demonstration" Omitted (keyedAt [(run 1 (Revision "rev1") (TreeId "tree1") GateFail here) { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
+  , expectEq "fixture/falsified: a pass at another tree is no demonstration here" Omitted (keyedAt [(run 1 (Revision "rev2") (TreeId "tree2") GatePass here) { Verification.answers = Just known }, passHere]).falsified
   ]
   where
     here     = Just (EnvironmentId "env-here")
+    known    = FailureLabel "known-failure"
     passHere = run 1 (Revision "rev1") (TreeId "tree1") GatePass here
     run event revision tree result environment = Verification (EventId event) gateName (DeclarationId "build") (declarationShape declaration) revision tree result RanLocally Nothing True environment (Observed CleanWorktree)
     keyedAt  = readGate gateName declaration (TreeId "tree1") (Observed (EnvironmentId "env-here")) Nothing

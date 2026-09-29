@@ -82,6 +82,7 @@ counterexample can be generated for them.
 | `repair-review` | an approved first patchset plus an unread repair is a stale approval and an `OwedReview RepairUnread` |
 | `unknown` / `elsewhere` / `changed` / `unreadable` / `failed` | omitted, other-tree, shape-moved, unreadable, and failing gate evidence each produce their own reading and refusal |
 | `environment` | evidence from another environment, evidence recording none, and a probe that fails here are each their own coverage and refusal; a gate without a probe takes evidence from anywhere |
+| `falsified` | any passing run under the key that names a failure makes the gate discriminating; a failing run's label and a pass at another tree do not |
 | `keyed` | a newer run at another tree, under another declaration, or in another environment neither answers nor hides the pass at the evaluated tree; an earlier revision with the same tree answers; with nothing under the key, the newest record says why |
 | `equal-tree` | equal trees with different contributor and obligation scopes decide differently; a waiver rescues the contributor; an unused debt is not named |
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
@@ -611,10 +612,6 @@ a model defect or a contract to amend; it then moves to
 [Adjudicated](#adjudicated). Where a clause is unsettled, the clause itself
 names the reading the model takes, and nothing is listed here.
 
-- **Falsification (C13).** `readGate` reads `falsified` from the newest
-  record at the evaluated tree. The contract calls a gate discriminating
-  when any passing evidence at the counted revision names a falsification.
-  Advisory only; no decision changes.
 - **Declared actors (C18).** `evaluateDeclared` refuses an undeclared
   invoker as a decision ground, `RefusedUndeclaredActor`. The contract
   leaves reading unaffected: a readiness check does not refuse an
@@ -650,6 +647,12 @@ the model before the fix.
   record under the key decides, which is the clause's reading (i) for
   several matching records, and the newest record overall only says why
   nothing answers. Fixture `keyed`.
+- **Falsification (C13): model defect.** `readGate` read `falsified` from
+  the newest record at the evaluated tree, so a later pass naming no
+  failure hid an earlier one that did. The model reads it from any
+  readable passing record under the key in force; the counted revision is
+  read through C14, where two commits with one tree are one evaluation.
+  Advisory only; no decision changes. Fixture `falsified`.
 
 ## Deferred out of this package
 
