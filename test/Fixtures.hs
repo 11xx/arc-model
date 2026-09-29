@@ -32,6 +32,7 @@ fixtureChecks = concat
   , debtAuthorizedNothing
   , staleAndMovedBases
   , authorityStandsDown
+  , readinessRebuilt
   , undeclaredInvoker
   , prerequisiteClosures
   , everyGround
@@ -369,19 +370,46 @@ debtAuthorizedNothing =
 {- | A stale patchset is refused; a target or policy that moves between the
 decision and the execution stands the action down rather than reusing the
 basis. A moved target moves the tree that would ship with it: the head is
-behind the new target, and the merge is new.
+behind the new target, and readiness computed again finds the new merge
+unevaluated.
 -}
 staleAndMovedBases :: [Check]
 staleAndMovedBases =
   [ expectRefusedWith "fixture/stale: head moved" "head-moved" (build defaultScenario { Scenario.headMoved = True }).decision
   , expectTrue "fixture/target-moved: decision permits" "the decision is made against target-1" (isPermitted targetBuilt.decision)
-  , expectEq "fixture/target-moved: execution stands down" (Left (RefusedBasisMoved [MovedTarget (Revision "target-1") (Revision "target-2"), MovedTree (TreeId "tree1") (TreeId "merged-after")])) targetBuilt.execution
+  , expectEq "fixture/target-moved: execution stands down" (Left (RefusedBasisMoved [MovedTarget (Revision "target-1") (Revision "target-2"), MovedTree (TreeId "tree1") (TreeId "merged-after"), MovedReadiness [RefusedMergedTreeUnevaluated (TreeId "merged-after"), RefusedGates [GateEvaluatedOtherTree gateName (TreeId "tree1")]]])) targetBuilt.execution
   , expectTrue "fixture/policy-moved: decision permits" "the decision is made under the danger policy" (isPermitted policyBuilt.decision)
   , expectEq "fixture/policy-moved: execution stands down" (Left (RefusedBasisMoved [MovedPolicy dangerPolicy openPolicy])) policyBuilt.execution
   ]
   where
     targetBuilt = build defaultScenario { Scenario.targetAfter = True }
     policyBuilt = build defaultScenario { Scenario.policyAfter = True }
+
+{- | Before acting, readiness is computed again and the basis rebuilt; if
+the two differ nothing is written (C20). A finding opened, a hold set, a
+refusing verdict, or newer gate evidence recorded after the decision each
+stand the action down. The plan still records nothing: only
+'recordIntegration' does.
+-}
+readinessRebuilt :: [Check]
+readinessRebuilt =
+  [ expectTrue "fixture/rebuilt: the decision permits" "the history is integratable when decided" (isPermitted built.decision)
+  , expectEq "fixture/rebuilt: a finding opened after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedBlockingFindings [FindingId 7]]])) (executeAfter [finding])
+  , expectEq "fixture/rebuilt: a hold set after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedHoldActive (HoldId 1)]])) (executeAfter [HoldSet (HoldId 1)])
+  , expectEq "fixture/rebuilt: a refusing verdict after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedVerdictStands ChangesRequested (EventId 81)]])) (executeAfter [refusing])
+  , expectEq "fixture/rebuilt: a failing run after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedGates [GateFailed gateName (EventId 82)]]])) (executeAfter [rerun GateFail])
+  , expectEq "fixture/rebuilt: a newer pass rebuilds another basis" (Left (RefusedBasisMoved [MovedGates [(gateName, EventId 3, DeclarationId "build")] [(gateName, EventId 82, DeclarationId "build")]])) (executeAfter [rerun GatePass])
+  , expectTrue "fixture/rebuilt: an unchanged history executes and records nothing" "the plan is not the effect" (either (const False) (const True) (executeAfter []) && null built.state.integrations)
+  ]
+  where
+    built = build defaultScenario
+    executeAfter later = execute built.executionObservation (replay (ChangeId "demo") (built.events <> later)) built.decision
+    finding  = FindingRecorded Finding { event = EventId 80, findingId = FindingId 7, patchset = PatchsetId 1, actor = otherActor, blocking = True, audit = False }
+    refusing = VerdictRecorded Verdict
+      { event = EventId 81, patchset = PatchsetId 1, kind = ChangesRequested, actor = otherActor, onBehalfOf = Nothing
+      , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2)
+      }
+    rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree))
 
 -- | Integration authority is asked of the store that acts, not of the
 -- history: the decision permits, and the execution stands down.

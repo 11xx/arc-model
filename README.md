@@ -48,10 +48,10 @@ rather than a moving branch; the constant is exported as `comparisonRevision`.
 - **Structured refusals and a decision basis.** A permission names the exact
   events, patchset, tree, target, and policy it relied on. A refusal names the
   facts that stood in the way.
-- **Permission is not effect.** `execute` re-checks the basis against the
-  observations and produces a plan, and a store that does not hold
-  integration authority cannot act at all; only `recordIntegration` puts the
-  effect in the ledger.
+- **Permission is not effect.** `execute` computes readiness again and
+  produces a plan only where the rebuilt basis is the recorded one, and a
+  store that does not hold integration authority cannot act at all; only
+  `recordIntegration` puts the effect in the ledger.
 - **Coverage obligations.** A debt declares a missing read; a waiver binds to
   exactly one patchset; a refusing verdict is not waivable. An independent
   negative audit can fulfil the read and leave its findings open: fulfilled is
