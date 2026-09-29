@@ -265,7 +265,7 @@ prop_debt_unused scenario = case built.decision of
     built = build scenario
 
 -- | 'decide' is a projection of the grounds: permitted exactly when none
--- stands, and otherwise the first in priority order.
+-- stands, and otherwise the first in presentation order.
 prop_decide_is_first_ground :: Scenario -> Property
 prop_decide_is_first_ground scenario = counterexample (show scenario) $
   case refusals built.observation built.state of

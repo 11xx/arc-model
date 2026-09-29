@@ -90,6 +90,7 @@ gateRefusalText = \case
   GateWorktreeUnrecorded (GateName name)
     -> "gate " <> name <> " evidence records nothing about the worktree it ran in"
 
+-- C13, C14, C15, C16
 {- | Read one required gate from the recorded verifications, given the
 identity the declaration's probe yields where the decision is made and the
 revision the dirty-tree waiver in force names. Coverage and availability
@@ -146,6 +147,7 @@ readGate gate declaration tree here waived verifications = GateReading
         | not v.readable -> EvidenceUnreadable
         | otherwise      -> Recorded v.execution
 
+-- C13
 {- | Whether a required gate counts as green, and why not when it does not.
 The first question is coverage, so a pass recorded elsewhere never stands
 in for the declaration, tree, and environment in force.

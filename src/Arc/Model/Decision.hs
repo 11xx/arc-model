@@ -1,9 +1,9 @@
 {- | Validation of a requested action.
 
 'evaluate' reads a replayed history and the observations, and answers with
-every ground on which the integration is refused, in the model's priority
-order, or with the basis it would rest on when no ground stands. 'decide'
-is the first ground or the basis. 'execute' re-checks that the basis still
+every ground on which the integration is refused, or with the basis it
+would rest on when no ground stands. The grounds are a set listed in a
+fixed presentation order; 'decide' is the first listed or the basis. 'execute' re-checks that the basis still
 holds before producing a plan; 'recordIntegration' is the separate step
 that puts the effect in the ledger. A permission alone never records
 anything.
@@ -41,8 +41,9 @@ import Data.Maybe ( fromMaybe, listToMaybe )
 import Data.Set qualified as Set
 
 
-{- | Every ground on which the integration is refused, in priority order, or
-the basis it would rest on. The grounds are independent readings of the
+-- C12, C23
+{- | Every ground on which the integration is refused, in presentation
+order, or the basis it would rest on. The grounds are independent readings of the
 same history: a moved head and an unevaluated gate are both reported, and
 neither hides the other. Gate declarations two policy layers disagree on
 are the one exception: there is no declaration set to evaluate against, so
@@ -53,6 +54,7 @@ evaluate observations state
   | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
   | otherwise                                = evaluateDeclared observations state
 
+-- C1, C2, C3, C5, C10, C11, C18, C19
 -- | 'evaluate' under one declaration set.
 evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
 evaluateDeclared observations state = case latestPatchset state of
@@ -109,15 +111,18 @@ evaluateDeclared observations state = case latestPatchset state of
       , consumedHolds    = []
       }
 
+-- C23
 -- | The grounds alone, empty when the integration is permitted.
 refusals :: Observations -> ChangeState -> [Refusal]
 refusals observations state = either NE.toList (const []) (evaluate observations state)
 
+-- C23
 -- | Decide whether an integration is permitted now: the first standing
 -- ground, or the basis.
 decide :: Observations -> ChangeState -> Decision
 decide observations state = either (Refused . NE.head) Permitted (evaluate observations state)
 
+-- C4, C5, C6, C8, C9, C19
 {- | The recorded approval or waiver that lets this patchset stand.
 
 A refusal recorded on the current patchset, local or external, is the
@@ -162,6 +167,7 @@ authorizationFor policy state patchset
       = independentRequired
       && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset)
 
+-- C6, C7
 {- | The newest debt whose waiver binds to exactly this patchset. Later
 declarations for the same patchset win; a declaration for any other
 patchset waives nothing here.
@@ -169,6 +175,7 @@ patchset waives nothing here.
 newestWaiver :: ChangeState -> PatchsetId -> Maybe Debt
 newestWaiver state patchset = newest (debtsForPatchset state patchset)
 
+-- C3, C12, C13, C15, C16, C19
 {- | Read every required gate against the evaluated tree and the environment
 its probe yields here. A gate that is required but not declared is refused
 like any other missing evidence.
@@ -195,6 +202,7 @@ gateEvidence observations state =
         _uncovered    -> Nothing
       _refused -> Nothing
 
+-- C2, C12, C20
 {- | Re-check a basis against the observations at execution time. A store
 that does not hold integration authority cannot act at all, declarations
 two policy layers disagree on and a missing branch leave nothing to act
@@ -241,6 +249,7 @@ execute observations state = \case
 newtype ExecutionPlan = ExecutionPlan { integration :: IntegrationRecord }
   deriving stock (Eq, Ord, Show)
 
+-- C20
 -- | Record the effect. An integration event carries the plan's basis, so a
 -- later review can never rewrite what the merge relied upon.
 recordIntegration :: EventId -> ExecutionPlan -> ChangeState -> ChangeState

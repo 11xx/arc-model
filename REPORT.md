@@ -88,7 +88,7 @@ counterexample can be generated for them.
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
 | `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree too |
 | `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
-| `every-ground` | a history refused on an open finding and a failing gate reports both grounds in priority order; the decision is the first |
+| `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
 | `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone; a contributor's approving audit is not recorded where self-approval is forbidden, and is recorded elsewhere |
 | `provisional` | a provisional approval gates like any other |
@@ -535,12 +535,14 @@ state, not by translating its diff.
 Points where the model fixes a reading that production or a future slice may
 still choose differently. Each is a deliberate choice, not an oversight.
 
-- **Refusal priority.** The model checks findings before authorization, and
-  authorization before gates, and holds last. Production renders the first
-  blocker by its own ordering; the model's ordering is stated rather than
-  derived, and a reader comparing refusals should compare the facts, not only
-  the first tag. `refusals` returns every ground so that comparison is
-  possible.
+- **Refusal order is presentation.** The semantics of a refusal is the set
+  of grounds that stand (CONTRACT.md, C23). `refusals` lists them in a fixed
+  order and `decide` names the first, but neither order carries meaning:
+  arc's documentation gives each blocker an exit code and derives no
+  precedence among them, and the model claims none. Refusals compare as
+  sets, which is how the differential compares them. Conflicting
+  declarations are the one structural exception, a set of one ground
+  because nothing else can be evaluated.
 - **A moved head is its own ground.** The model names `RefusedHeadMoved` and
   still evaluates authorization and gates against the recorded patchset.
   Production folds a moved head into approval validity and gate lookup, so
@@ -599,6 +601,47 @@ still choose differently. Each is a deliberate choice, not an oversight.
   beyond the arrival of a single superseding verdict.
 - **Claim episodes.** A claim's expiry is modelled as a fact about liveness
   only. Stage budgets, staleness, and claim generation are not modelled.
+
+## Open decisions against the contract
+
+Where the model and a settled clause of [CONTRACT.md](CONTRACT.md) answer
+differently. Each is recorded, not repaired: the model is unchanged, and
+adjudicating each one is separate work that classifies it as a model defect
+or a contract to amend. Where a clause is unsettled, the clause itself names
+the reading the model takes, and nothing is listed here.
+
+- **Which verification answers a gate (C14).** `readGate` takes the newest
+  record for the gate and declaration across every tree, and reads coverage
+  from that record alone. With an older pass at tree A and a newer run at
+  tree B, evaluated at A, the model reports `EvaluatedOtherTree B` and
+  refuses. The contract keys evidence by tree: the record at B does not
+  answer at A and does not hide the pass that does. The same selection lets
+  a newer record under another declaration shape report
+  `DeclarationMoved` over a matching record at the evaluated tree.
+- **Falsification (C13).** `readGate` reads `falsified` from the newest
+  record at the evaluated tree. The contract calls a gate discriminating
+  when any passing evidence at the counted revision names a falsification.
+  Advisory only; no decision changes.
+- **Declared actors (C18).** `evaluateDeclared` refuses an undeclared
+  invoker as a decision ground, `RefusedUndeclaredActor`. The contract
+  leaves reading unaffected: a readiness check does not refuse an
+  undeclared invoker, and the integration refuses it before it merges,
+  which in the model is `execute`.
+- **The basis (C19).** `DecisionBasis` names no prerequisite closures; the
+  contract's basis records each prerequisite's closure beside the
+  authorization, gates, findings, and holds.
+- **Execution re-checks the basis (C20).** `execute` compares the basis
+  with the observed head, target, tree, and policy, and with the latest
+  patchset. It does not compute readiness again from the ledger, so a
+  finding opened, a hold set, a verdict recorded, or gate evidence
+  superseded between the decision and the execution leaves the plan
+  standing. The contract rebuilds the basis before acting and writes
+  nothing when the rebuilt basis differs.
+- **The owed-review kind (C21).** `reviewObligation` derives
+  `repair-unread` for a history whose verdicts include no change request,
+  and `independent-review` wherever a change request exists. The contract
+  never derives `repair-unread`, because the ledger cannot tell a repair
+  from a merge resolution.
 
 ## Deferred out of this package
 
