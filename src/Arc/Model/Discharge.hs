@@ -47,6 +47,7 @@ data Discharge = Discharge
   }
   deriving stock (Eq, Ord, Show)
 
+-- C22
 {- | Whether an audit is recorded at all. A change that did not integrate
 has no shipped revision to audit. Where policy forbids self-approval, an
 approving audit that is not independent would clear the obligation its own
@@ -62,6 +63,7 @@ admitAudit policy state audit
   = Left (if audit.assumed then AuditAssumedAuditor else AuditAuditorNotIndependent)
   | otherwise = Right ()
 
+-- C22
 -- | Decide what an audit does to a recorded obligation. The state must
 -- already include the audit event and any findings it raised.
 auditDischarges :: ChangeState -> Debt -> Audit -> Either AuditRefusal Discharge
