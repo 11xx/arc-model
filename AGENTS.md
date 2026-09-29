@@ -32,6 +32,11 @@ The library is pure. It never reads the clock, the filesystem, Git, or an arc
 ledger. Only the differential executable runs `arc`, and it runs the binary
 already on `PATH` in a temporary repository of its own.
 
+Every test and differential binary runs under a heap cap compiled in through
+the `heap-cap` stanza of `arc-model.cabal`, so a runaway structure fails with
+a heap overflow instead of exhausting the host. A new test suite or
+executable imports it.
+
 Every process that runs `arc` or `git` for a scenario, a replay, or the
 reproduction of a disagreement runs inside `Differential.Sandbox`: through
 the differential, or by hand through

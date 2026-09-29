@@ -28,6 +28,13 @@ common warnings
     , OverloadedRecordDot
   ghc-options:        -Wall -Werror
 
+-- A hard heap limit compiled into every test and differential binary, so a
+-- runaway structure fails with a heap overflow instead of exhausting the
+-- host. The suites and the differential hold under 50 MiB of heap in use;
+-- 1 GiB is twenty times that, and a small share of a workstation.
+common heap-cap
+  ghc-options:        -rtsopts "-with-rtsopts=-M1g"
+
 library
   import:           warnings
   hs-source-dirs:   src
@@ -104,7 +111,7 @@ library candidate
 -- the comparator the differential adjudicates with is pinned here, so the
 -- suite checks it without running arc
 test-suite spec
-  import:           warnings
+  import:           warnings, heap-cap
   type:             exitcode-stdio-1.0
   hs-source-dirs:   test, differential
   main-is:          Main.hs
@@ -131,7 +138,7 @@ test-suite spec
     , unix        >= 2.8  && < 3
 
 executable arc-model-differential
-  import:           warnings
+  import:           warnings, heap-cap
   hs-source-dirs:   differential
   main-is:          Main.hs
   other-modules:
@@ -168,7 +175,7 @@ executable arc-model-sandbox
     , unix        >= 2.8  && < 3
 
 test-suite candidate-spec
-  import:           warnings
+  import:           warnings, heap-cap
   type:             exitcode-stdio-1.0
   hs-source-dirs:   candidate-test
   main-is:          Main.hs
