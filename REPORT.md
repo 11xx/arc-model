@@ -133,7 +133,7 @@ recorded in the README.
 | integratable permits | every history the generator marks integratable permits |
 | mutation flips | each one-invalid-transition mutation of an integratable history either refuses or stands down at execution |
 | basis grounded | every fact in a permitted basis is present in the ledger and observations; an external authorization names an approval of exactly the basis head; the prerequisite closures are the observed ones; the consumed finding and hold vectors were empty |
-| unknown never permits | omitted, unreadable, other-tree, shape-moved, other-environment, environment-unrecorded, and probe-failed evidence never permit |
+| unknown never permits | omitted, unreadable, other-tree, shape-moved, other-environment, environment-unrecorded, and probe-failed evidence never permit where no further run could answer instead |
 | moved basis stands down | a target or policy moved between decision and execution produces `RefusedBasisMoved`, never a reused basis, unless authority is withheld, which is refused first |
 | waiver exact | a named waiver is bound to the basis patchset and is the newest for it |
 | refusal stands | a changes-requested or comment-only verdict on the current patchset is never permitted |
@@ -147,30 +147,32 @@ recorded in the README.
 ### Mutants
 
 Eighteen deliberate faults; each must be killed, and each divergence must be of
-the predicted class. Distinguishing a different refusal from a permission is
-deliberate: dropping one ground of a refusal is a real fault even when another
-ground answers.
+the predicted class. A decision is compared as `evaluate` answers it, every
+standing ground or the basis, not as the first ground `decide` projects.
+Distinguishing a different refusal from a permission is deliberate: dropping
+one ground of a refusal is a real fault even when another ground answers, and
+even when another ground would be listed first.
 
 | fault | channel | predicted divergence | killed (seed 20260907) |
 | --- | --- | --- | --- |
-| contributor identity ignored | decision | permits, different refusal, different basis | 45 tests, 8 shrinks |
-| gate matched by name | decision | permits, different refusal | 6 tests, 7 shrinks |
-| unknown treated as success | decision | permits, different refusal | 8 tests, 6 shrinks |
-| authorization reused after its basis moved | execution | permits, different refusal | 48 tests, 6 shrinks |
+| contributor identity ignored | decision | permits, different refusal, different basis | 32 tests, 8 shrinks |
+| gate matched by name | decision | permits, different refusal | 1 test, 10 shrinks |
+| unknown treated as success | decision | permits, different refusal | 1 test, 9 shrinks |
+| authorization reused after its basis moved | execution | permits, different refusal | 9 tests, 7 shrinks |
 | fulfilled implies approved | coverage | different value | 13 tests, 2 shrinks |
-| latest debt applied to every patchset | decision | permits, different refusal | 55 tests, 6 shrinks |
-| debt clears a refusing verdict | decision | permits, different refusal | 34 tests, 4 shrinks |
+| latest debt applied to every patchset | decision | permits, different refusal | 1 test, 10 shrinks |
+| debt clears a refusing verdict | decision | permits, different refusal | 9 tests, 8 shrinks |
 | later audit rewrites the integration basis | historical | different value | 3 tests, 5 shrinks |
-| unreadable evidence counts as review | decision | permits, different refusal | 45 tests, 5 shrinks |
-| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 8 shrinks |
-| environment ignored | decision | permits, different refusal | 49 tests, 8 shrinks |
-| authority ignored | execution | permits, different refusal | 201 tests, 7 shrinks |
-| dirty evidence counts | decision | permits, different refusal | 27 tests, 10 shrinks |
-| merge read as the head | decision | permits, refuses, different refusal | 9 tests, 10 shrinks |
-| rebase ignored | decision | permits, different refusal | 10 tests, 6 shrinks |
-| a final probe pass suffices | decision | permits, different refusal | 106 tests, 9 shrinks |
-| missing branch read as the head | decision | permits, different refusal | 3 tests, 8 shrinks |
-| first gate declaration wins | decision | permits, different refusal | 3 tests, 11 shrinks |
+| unreadable evidence counts as review | decision | permits, different refusal | 7 tests, 6 shrinks |
+| external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 10 shrinks |
+| environment ignored | decision | permits, different refusal | 9 tests, 9 shrinks |
+| authority ignored | execution | permits, different refusal | 72 tests, 9 shrinks |
+| dirty evidence counts | decision | permits, different refusal | 1 test, 12 shrinks |
+| merge read as the head | decision | permits, refuses, different refusal, different basis | 4 tests, 11 shrinks |
+| rebase ignored | decision | permits, different refusal | 1 test, 10 shrinks |
+| a final probe pass suffices | decision | permits, different refusal | 2 tests, 9 shrinks |
+| missing branch read as the head | decision | permits, different refusal | 3 tests, 10 shrinks |
+| first gate declaration wins | decision | permits, different refusal | 4 tests, 9 shrinks |
 
 A surviving mutant is reported as a failure; the suite exits non-zero. The
 reason a mutant may legitimately exhibit more than one class is the fault
@@ -179,7 +181,8 @@ else stands in the way, and as a different refusal when something does. The
 external-approval fault also surfaces as a different basis: where an external
 approval already authorizes, the fault names a witnessed verdict instead. The
 merge-as-head fault also refuses: evidence recorded against the merge does
-not answer for the head's tree it reads instead.
+not answer for the head's tree it reads instead; and where a further run at
+the head does answer for that tree, it permits on a basis naming it.
 
 ### Demonstrated counterexample
 
@@ -192,31 +195,43 @@ approving verdict:
 - `contributor-identity-ignored` mutant: `Permitted`, because it drops the
   contributor comparison from the independence rule.
 
-The mutant's property also finds its own smallest random counterexample (45
-tests, 7 shrinks): a one-patchset history whose verdict is recorded under an
-assumed identity, under a policy that requires independence. Both are
+The mutant's property also finds its own smallest random counterexample (32
+tests, 8 shrinks): a one-patchset history approved by its own author, under
+a policy that requires independence. Both are
 reported by the suite; neither is committed as a golden string, because the
 fixture pins the behaviour and the shrunk case pins the shrinker.
 
 ### Generator coverage
 
 The coverage sampler generates 4000 scenarios and fails if any required class
-is never reached. At seed `20260907` the counts are: permitted 114, waived
-36, externally authorized 9, external refused 138, self-approval refused
-65, gates refused 259, gate failed 15, environment refused 74, verdict
-stands 430, head moved 581, target moved 23, policy moved 19, authority
-withheld 24, debt unused 34, unknown observation 521, audit fulfilled read
-30, audit negative not approved 3, episode expired 1945, equal-tree
-contributor variation 2026, dirty refused 525, dirty waived 22, merged tree
-unevaluated 475, merge evaluated 17, needs rebase 384, probes refused 1315,
-probe discharged 34, branch missing 380, conflicting gates 351. The classes
-the first ground names count a history once it is refused on that ground;
-the check-time classes count every ground, so a history refused first on
-another is still counted. A class with a count of zero is reported by name,
-so the suite cannot pass on trivial histories. The check-time facts refuse
-often, which is why permitted histories are rarer than the decision fields
-alone would make them; the audit and permission classes draw from the
+is never reached. At seed `20260907` the counts are: permitted 121, waived
+43, externally authorized 7, external refused 127, self-approval refused
+58, gates refused 209, gate failed 23, environment refused 52, verdict
+stands 426, head moved 527, target moved 21, policy moved 27, authority
+withheld 19, debt unused 36, unknown observation 521, audit fulfilled read
+37, audit negative not approved 3, episode expired 1945, equal-tree
+contributor variation 2026, dirty refused 389, dirty waived 13, merged tree
+unevaluated 503, merge evaluated 9, needs rebase 367, probes refused 1298,
+probe discharged 41, branch missing 377, conflicting gates 309, several
+verdicts 715, several debts 504, waiver per patchset 10, older evidence
+answers 48, evidence inherited 29, iterating 410, repair-unread derived
+330. The classes the first ground names count a history once it is refused
+on that ground; the check-time classes, iterating, and the classes of the
+widened history count every ground, so a history refused first on another
+is still counted. A class with a count of zero is reported by name, so the
+suite cannot pass on trivial histories. The check-time facts refuse often,
+which is why permitted histories are rarer than the decision fields alone
+would make them; the audit and permission classes draw from the
 integratable generator in the properties and mutants that need them.
+
+A history holds several verdicts, debts, and gate runs, can return its
+latest patchset to an earlier tree, and can declare itself iterating. Each
+is drawn at a low weight, so most histories stay as small as before, and
+the rare shape the contract names — an older pass at the tree the latest
+patchset returns to, with a newer run at the tree between — is drawn on
+purpose rather than left to independent draws that would reach it too
+rarely to count: `older evidence answers` and `evidence inherited` are the
+classes that reach it.
 
 ## Differential
 
