@@ -633,26 +633,26 @@ the model before the fix.
   The model keys evidence by tree, declaration, and environment; the newest
   record under the key decides, which is the clause's reading (i) for
   several matching records, and the newest record overall only says why
-  nothing answers. Fixture `keyed`.
+  nothing answers. Fixture `keyed`; commit `5b833c8`.
 - **Falsification (C13): model defect.** `readGate` read `falsified` from
   the newest record at the evaluated tree, so a later pass naming no
   failure hid an earlier one that did. The model reads it from any
   readable passing record under the key in force; the counted revision is
   read through C14, where two commits with one tree are one evaluation.
-  Advisory only; no decision changes. Fixture `falsified`.
+  Advisory only; no decision changes. Fixture `falsified`; commit `b7e838a`.
 - **Declared actors (C18): model defect.** `evaluateDeclared` refused an
   undeclared invoker as a decision ground. The clause, from
   `docs/review.md` ("Reading is unaffected"; `integrate` checks before it
   merges), leaves the readiness check alone. `RefusedUndeclaredActor` is an
   execution refusal, raised by `execute` after withheld authority. Fixture
-  `undeclared-actor`.
+  `undeclared-actor`; commit `59b529e`.
 - **The basis (C19): model defect.** `DecisionBasis` named no prerequisite
   closures, and the observations named only the prerequisites still open.
   `docs/changes.md` lists each prerequisite's closure in the authorization
   basis. `Observations.prerequisites` names each prerequisite with the
   closure that integrated it, where one did; the open ones refuse, and the
   basis and the integration record name the rest. Fixture `prerequisites`,
-  which the model without the slot does not compile.
+  which the model without the slot does not compile; commit `51fb6b2`.
 - **Execution rebuilds the basis (C20): model defect.** `execute` compared
   the basis with the observed head, target, tree, and policy and never
   computed readiness again, so a finding opened, a hold set, a verdict
@@ -662,7 +662,8 @@ the model before the fix.
   refusal stands down with `MovedReadiness` and its grounds beside the
   observed moves, and a rebuilt basis that differs names each moved slot.
   Permission is still not effect: the plan records nothing, and policy
-  motion still stands down, the clause's reading (ii). Fixture `rebuilt`.
+  motion still stands down, the clause's reading (ii). Fixture `rebuilt`;
+  commit `aea73bb`.
 - **Debt kinds and the owed review (C21): contract to amend.** The clause
   said the ledger derives neither `merge-resolution-unread` nor
   `repair-unread`. `docs/review.md` defines `repair-unread` in ledger terms
@@ -678,7 +679,7 @@ the model before the fix.
   approval, and `reviewObligation` derived `repair-unread` from the absence
   of a change request — and answers to the amended clause through one
   derivation, `derivedKind`, for the debt and the owed review. Fixture
-  `debt-kind`.
+  `debt-kind`; commit `9e0f0c9`.
 
 ## Deferred out of this package
 
