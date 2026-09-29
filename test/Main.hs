@@ -134,6 +134,7 @@ prop_basis_grounded scenario = case built.decision of
     , counterexample "the basis tree is the evaluated tree"      (basis.tree == built.observation.evaluatedTree)
     , counterexample "the authorization is recorded"             (authorizationGrounded built.state basis)
     , counterexample "every gate evaluation is recorded"         (all (gateGrounded built.state basis.tree) basis.gates)
+    , counterexample "every prerequisite closure is observed"   (basis.prerequisites == [ (change, closure) | (change, Just closure) <- built.observation.prerequisites ])
     , counterexample "the consumed finding vector was empty"     (null basis.consumedFindings)
     , counterexample "the consumed hold vector was empty"        (null basis.consumedHolds)
     ]
@@ -308,7 +309,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedClosed closure          -> state.closed == Just closure
       RefusedIterating               -> state.iterating
       RefusedNoPatchset              -> latest == Nothing
-      RefusedBlockedBy blockers      -> not (null blockers) && blockers == observation.blockedBy
+      RefusedBlockedBy blockers      -> not (null blockers) && blockers == [ change | (change, Nothing) <- observation.prerequisites ]
       RefusedConflictingDeclarations gates -> not (null gates) && gates == observation.conflictingGates
       RefusedBranchMissing           -> observation.head == Omitted
       RefusedHeadMoved seen recorded -> Observed seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded

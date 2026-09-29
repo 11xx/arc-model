@@ -46,7 +46,7 @@ data Observations = Observations
   , requiredGates    :: ![(GateName, DeclarationId)]
   , environments     :: ![(ProbeCommand, Observed EnvironmentId)]  -- ^ What each declared probe yields where the decision is made.
   , policy           :: !Policy
-  , blockedBy        :: ![ChangeId]
+  , prerequisites    :: ![(ChangeId, Maybe EventId)]                -- ^ Each change this one depends on, and the closure that integrated it, where one did.
   , invokerDeclared  :: !Bool
   , authority        :: !IntegrationAuthority
   }

@@ -361,7 +361,7 @@ observationsForOf patchsets scenario = Observations
   , requiredGates    = [(buildGate, buildDeclaration.declarationId)]
   , environments     = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
   , policy           = scenario.policy
-  , blockedBy        = []
+  , prerequisites    = []
   , invokerDeclared  = True
   , authority        = AuthorityHeld
   }
