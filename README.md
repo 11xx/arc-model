@@ -1,12 +1,12 @@
 # arc-model
 
-An independent, pure Haskell model of arc's authorization semantics: what a
-recorded history permits, what it refuses, and which facts a decision rests
-on, and a differential that replays the same histories through the arc
-binary and compares its answer with the model's. The model is a
-characterization of behaviour, not a translation of the Rust implementation,
-and neither it nor the differential is part of the Rust build, its gates, or
-its releases.
+An independent, pure Haskell model of [arc](https://github.com/11xx/arc)'s
+authorization semantics: what a recorded history permits, what it refuses,
+and which facts a decision rests on, and a differential that replays the
+same histories through the arc binary and compares its answer with the
+model's. The model is a characterization of behaviour, not a translation of
+the Rust implementation, and neither it nor the differential is part of the
+Rust build, its gates, or its releases.
 
 The model characterizes arc at `26f6bdc051b9464bbe3d0c7026c564b14464904a`.
 A revision is pinned so a reader compares against a fixed implementation
@@ -94,7 +94,11 @@ arc repository and is named by none of its gates, so no arc change needs a
 Haskell toolchain to build. The differential needs `git` and an `arc` binary
 on `PATH` (or `--arc PATH`); it is not one of this package's gates either,
 because a gate that needs the implementation would make every change here
-depend on the thing the model challenges.
+depend on the thing the model challenges. One way to get `arc`:
+
+```sh
+cargo install --git https://github.com/11xx/arc --locked
+```
 
 ## The differential
 

@@ -9,9 +9,16 @@ description:
   a port of it. The differential executable replays generated histories
   through the arc binary and compares its answer with the model's.
 license:            Unlicense
+license-file:       UNLICENSE
 author:             arc contributors
 build-type:         Simple
 category:           Development
+homepage:           https://github.com/11xx/arc-model
+bug-reports:        https://github.com/11xx/arc-model/issues
+
+source-repository head
+  type:     git
+  location: https://github.com/11xx/arc-model
 
 common warnings
   default-language:   GHC2024
