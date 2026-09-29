@@ -27,6 +27,7 @@ fixtureChecks = concat
   , unknownCoverage
   , environmentCoverage
   , evidenceKeyedByTree
+  , contractQuestions
   , equalTreeDifferentContributors
   , externalDecisions
   , retainedAcrossEpisodeExpiry
@@ -56,7 +57,7 @@ waiverExpiry =
   , expectRefusedWith "fixture/waiver-expiry: ps-02 is not waived" "no-approval" (build scenario { Scenario.patchsets = 2 }).decision
   ]
   where
-    scenario = defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing) }
+    scenario = defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)] }
 
 {- | A changes-requested verdict beside debt and an open blocking finding is
 not waived. The debt declares a missing review; it does not clear an
@@ -73,7 +74,7 @@ debtBesideRefusal =
     scenario = defaultScenario
       { Scenario.reviewer        = Just ActorIndependent
       , Scenario.verdict         = ChangesRequested
-      , Scenario.debt            = Just (1, Nothing)
+      , Scenario.debts            = [(1, Nothing)]
       , Scenario.blockingFinding = True
       }
     decision               = (build scenario).decision
@@ -97,7 +98,7 @@ underDebtThenNegativeAudit =
   , expectEq "fixture/under-debt: authorization untouched" (Just (AuthorizedByWaiver (DebtId 1))) coverage.authorization
   ]
   where
-    built    = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing), Scenario.audit = Just (ChangesRequested, True) }
+    built    = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.audit = Just (ChangesRequested, True) }
     coverage = coverageAfterIntegration built.finalState
 
 -- | An approved first patchset and a repair nobody read: the approval is
@@ -116,10 +117,10 @@ declared; an approved patchset followed by one nobody read is a repair.
 -}
 derivedDebtKinds :: [Check]
 derivedDebtKinds =
-  [ expectEq "fixture/debt-kind: nothing read on any patchset" [NothingRead] (kindsIn defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing) })
-  , expectEq "fixture/debt-kind: verdicts only from contributors" [ContributorOnly] (kindsIn defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debt = Just (1, Nothing) })
-  , expectEq "fixture/debt-kind: an approval, then a patchset nobody read" [RepairUnread] (kindsIn afterApproval { Scenario.debt = Just (2, Nothing) })
-  , expectEq "fixture/debt-kind: a declared kind wins" [MergeResolutionUnread] (kindsIn afterApproval { Scenario.debt = Just (2, Just MergeResolutionUnread) })
+  [ expectEq "fixture/debt-kind: nothing read on any patchset" [NothingRead] (kindsIn defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)] })
+  , expectEq "fixture/debt-kind: verdicts only from contributors" [ContributorOnly] (kindsIn defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debts = [(1, Nothing)] })
+  , expectEq "fixture/debt-kind: an approval, then a patchset nobody read" [RepairUnread] (kindsIn afterApproval { Scenario.debts = [(2, Nothing)] })
+  , expectEq "fixture/debt-kind: a declared kind wins" [MergeResolutionUnread] (kindsIn afterApproval { Scenario.debts = [(2, Just MergeResolutionUnread)] })
   , expectEq "fixture/debt-kind: a comment, then a patchset nobody read, owes independent review" (OwedReview IndependentReview) (reviewObligation (build afterApproval { Scenario.verdict = CommentOnly }).state)
   ]
   where
@@ -223,6 +224,39 @@ evidenceKeyedByTree =
     run event revision tree result environment = Verification (EventId event) gateName (DeclarationId "build") (declarationShape declaration) revision tree result RanLocally Nothing True environment (Observed CleanWorktree)
     keyedAt  = readGate gateName declaration (TreeId "tree1") (Observed (EnvironmentId "env-here")) Nothing
 
+{- | The three contract questions, each on the named history the
+differential replays through arc, asserting the settled part of its clause.
+
+(a) C14: an older pass at tree A and a newer run at tree B, evaluated at A.
+The run at B says nothing; the pass at A answers.
+
+(b) C7: two waivers for different patchsets. Each applies to its own
+patchset only, and the latest one's waiver authorizes.
+
+(c) C11: an iterating change with no approval is refused as iterating.
+Whether the missing approval stands beside it is unsettled — the model
+reads (i), one more ground; arc's check may read (ii) — so it is not
+asserted.
+-}
+contractQuestions :: [Check]
+contractQuestions =
+  [ expectEq "fixture/question-a: the pass at A answers, the run at B says nothing" (Right [(gateName, passAtA, DeclarationId "build")]) (basisGates olderPass.decision)
+  , expectEq "fixture/question-a: the latest patchset shares tree A" ((.tree) <$> patchsetById olderPass.state (PatchsetId 1)) ((.tree) <$> latestPatchset olderPass.state)
+  , expectEq "fixture/question-b: the first waiver applies to ps-01" (Just (DebtId 1)) ((.debtId) <$> newestWaiver waivers.state (PatchsetId 1))
+  , expectEq "fixture/question-b: the second waiver applies to ps-02" (Just (DebtId 2)) ((.debtId) <$> newestWaiver waivers.state (PatchsetId 2))
+  , expectPermittedWith "fixture/question-b: the latest patchset's waiver authorizes" (AuthorizedByWaiver (DebtId 2)) waivers.decision
+  , expectTrue "fixture/question-c: iterating refuses (the missing approval beside it is unsettled, C11)" "an iterating change must be refused as iterating" (RefusedIterating `elem` refusals iterating.observation iterating.state)
+  ]
+  where
+    named name = maybe (error ("no named scenario " <> name)) build (lookup name namedScenarios)
+    olderPass  = named "gate-older-pass-same-tree"
+    waivers    = named "waivers-per-patchset"
+    iterating  = named "iterating-unreviewed"
+    passAtA    = fromMaybe (EventId 0) (listToMaybe [ v.event | v <- olderPass.state.verifications, v.revision == Revision "rev1" ])
+    basisGates = \case
+      Permitted basis -> Right basis.gates
+      Refused refusal -> Left refusal
+
 {- | A run on a dirty worktree describes content no checkout of its
 revision reproduces. It counts only under a waiver naming exactly the
 revision it was recorded at; a run recording nothing about its worktree
@@ -325,8 +359,8 @@ equalTreeDifferentContributors =
   where
     contributorBuilt       = build defaultScenario { Scenario.reviewer = Just ActorContributor }
     independentBuilt       = build defaultScenario { Scenario.reviewer = Just ActorIndependent }
-    waivedContributorBuilt = build defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debt = Just (1, Nothing) }
-    independentState       = (build defaultScenario { Scenario.reviewer = Just ActorIndependent, Scenario.debt = Just (1, Nothing) }).state
+    waivedContributorBuilt = build defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.debts = [(1, Nothing)] }
+    independentState       = (build defaultScenario { Scenario.reviewer = Just ActorIndependent, Scenario.debts = [(1, Nothing)] }).state
     patchsetTreeOf built   = (.tree) <$> latestPatchset built.state
 
 {- | A decision made outside arc: an approval authorizes only where no
@@ -352,7 +386,7 @@ externalDecisions =
     danger          = open { Scenario.policy = dangerPolicy }
     both            = defaultScenario { Scenario.externalVerdict = Just ExternalApproved }
     requested       = defaultScenario { Scenario.externalVerdict = Just ExternalChangesRequested }
-    requestedWaived = requested { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing) }
+    requestedWaived = requested { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)] }
     localRefusal    = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
     rejected        = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalRejected, Scenario.policy = openPolicy }
     coverage        = coverageAfterIntegration (build open).finalState
@@ -367,7 +401,7 @@ retainedAcrossEpisodeExpiry =
   , expectPermittedWith "fixture/episode: waiver still applies" (AuthorizedByWaiver (DebtId 1)) built.decision
   ]
   where
-    built = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing), Scenario.episodeExpired = True }
+    built = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.episodeExpired = True }
     state = built.state
 
 -- | A debt declared beside an approval that stood anyway authorized
@@ -379,7 +413,7 @@ debtAuthorizedNothing =
   , expectEq "fixture/debt-unused: recorded as unused" [DebtId 1] (debtsNotUsed built.state authorization)
   ]
   where
-    built = build defaultScenario { Scenario.reviewer = Just ActorIndependent, Scenario.debt = Just (1, Nothing) }
+    built = build defaultScenario { Scenario.reviewer = Just ActorIndependent, Scenario.debts = [(1, Nothing)] }
     authorization = case built.decision of
       Permitted basis -> basis.authorization
       Refused _       -> AuthorizedByVerdict (EventId 0)
@@ -511,7 +545,7 @@ auditRefusals =
     debt        = Debt (DebtId 9) (EventId 900) (Just (PatchsetId 1)) Nothing "owed review" authorActor
     openState   = (build defaultScenario { Scenario.verdict = ChangesRequested }).state
     closedState = (build defaultScenario { Scenario.audit = Just (Approved, True) }).finalState
-    refusedAudit = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debt = Just (1, Nothing), Scenario.audit = Just (Approved, False) }
+    refusedAudit = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.audit = Just (Approved, False) }
     openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False []
     approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False []
     independentDischarges = case auditDischarges closedState debt approving of

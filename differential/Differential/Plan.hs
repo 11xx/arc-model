@@ -18,9 +18,9 @@ module Differential.Plan
     , executionSkip
     ) where
 
-import Arc.Model ( DebtKind, ExternalKind, Policy, VerdictKind )
+import Arc.Model ( DebtKind, ExternalKind, GateResult(..), Policy, VerdictKind )
 import Arc.Model.Policy qualified as Policy
-import Generators ( flipPolicy )
+import Generators ( flipPolicy, reverts )
 import Scenario
 
 
@@ -41,6 +41,7 @@ data GateRun = GateRun
   deriving stock (Eq, Show)
 
 data Step = Commit FilePath          -- ^ Commit a change to this file in the worktree.
+          | Revert                   -- ^ Commit the revert of the worktree's last commit.
           | Snapshot [String]        -- ^ Record the head as a patchset, declaring these contributors.
           | Verify GateRun           -- ^ Run the declared gate at the current head.
           | Review Identity VerdictKind
@@ -58,6 +59,7 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | ProbeFinal Bool          -- ^ Run the probe at the head; True makes it fail.
           | DeleteBranch             -- ^ Remove the change's worktree and delete its branch.
           | ConflictDeclarations     -- ^ Declare the required gate again, differently, in the operator's policy layer.
+          | Iterate                  -- ^ Declare that the change is iterating.
           | MoveTarget               -- ^ Commit on the target after the decision.
           | MovePolicy Policy FilePath  -- ^ Rewrite the policy the worktree reads, with this file dangerous when the policy requires independence.
           | WithholdAuthority        -- ^ Pair the store with a replica and offer it integration authority.
@@ -136,12 +138,13 @@ plan scenario
       | scenario.gateMode == EvidenceOtherTree = scenario.patchsets - 1
       | otherwise                              = scenario.patchsets
     patchset index = concat
-      [ [ Commit changed ]
+      [ [ if index == scenario.patchsets && reverts scenario then Revert else Commit changed ]
       , [ step | index == scenario.patchsets, scenario.probe == ProbeUndischargeable, step <- [Brief, ProbeBaseline True] ]
       , [ Snapshot (if scenario.extraContributor then ["author", "other"] else []) ]
-      , [ Debt kind | Just (declaredOn, kind) <- [scenario.debt], declaredOn == index ]
+      , [ Debt kind | (declaredOn, kind) <- scenario.debts, declaredOn == index ]
       , [ Verify gateRun | index == verifyAt, scenario.gateMode /= EvidenceOmitted ]
       , [ WaiveDirty | index == verifyAt, scenario.gateMode /= EvidenceOmitted, scenario.worktree == WorktreeDirtyWaived ]
+      , [ Verify (furtherRun result) | (runAt, result) <- scenario.gateRuns, runAt == index ]
       , [ ProbeFinal (scenario.probe == ProbeFinalFailed) | index == scenario.patchsets, scenario.probe `notElem` [ProbeNone, ProbeFinalMissing] ]
       , if index == target then review else []
       ]
@@ -156,6 +159,7 @@ plan scenario
       , [ ConflictTarget changed | scenario.targetMode == TargetConflicting ]
       , [ CommitUnrecorded | scenario.headMoved ]
       , [ ConflictDeclarations | scenario.conflictingGates ]
+      , [ Iterate | scenario.iterating ]
       , [ DeleteBranch | scenario.branchMissing ]
       ]
     gateRun = GateRun
@@ -166,6 +170,12 @@ plan scenario
           _here                         -> Just "here"
       , dirty       = scenario.worktree /= WorktreeClean
       , against     = scenario.targetMode == TargetBehindEvaluated
+      }
+    furtherRun result = GateRun
+      { fails       = result == GateFail
+      , probeYields = Just "here"
+      , dirty       = False
+      , against     = False
       }
     identityOf = \case
       ActorIndependent -> Declared "reviewer"

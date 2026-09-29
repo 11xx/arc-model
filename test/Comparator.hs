@@ -23,6 +23,7 @@ comparatorChecks = concat
   , coverageUndeclaredReviewer
   , executionPolicyMotion
   , executionAuthority
+  , decisionIterating
   ]
 
 -- | The answer with each field changed in turn, named by the field.
@@ -83,7 +84,7 @@ coverageExternalBesideLocal =
 coverageUndeclaredReviewer :: [Check]
 coverageUndeclaredReviewer =
   pinned "comparator/coverage undeclared reviewer"
-    defaultScenario { Scenario.reviewer = Just ActorAssumed, Scenario.debt = Just (1, Nothing), Scenario.policy = requireDeclaredPolicy }
+    defaultScenario { Scenario.reviewer = Just ActorAssumed, Scenario.debts = [(1, Nothing)], Scenario.policy = requireDeclaredPolicy }
     Encoding
     (PostIntegration True (Set.singleton "debt") Nothing 0 True)
 
@@ -110,6 +111,21 @@ executionAuthority =
     scenario  = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.authorityWithheld = True }
     compared  = executionComparison scenario
     refusedOn = Set.singleton "no-valid-approval"
+
+-- | An iterating change with no approval: arc's check names iterating and
+-- nothing for the approval; any other difference stays a disagreement.
+decisionIterating :: [Check]
+decisionIterating =
+  [ expectTrue "comparator/decision iterating: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared False (Set.singleton "iterating")))
+  , expectEq "comparator/decision iterating: a ready check is not adjudicated" Disagreed (compared True Set.empty)
+  , expectEq "comparator/decision iterating: other blockers are not adjudicated" Disagreed (compared False (Set.fromList ["iterating", "gates-not-green"]))
+  , expectEq "comparator/decision iterating: a moved head is not adjudicated" Disagreed (compareAnswer moved (wantedFor moved) (Answer False (Set.singleton "iterating")))
+  ]
+  where
+    scenario  = defaultScenario { Scenario.reviewer = Nothing, Scenario.iterating = True }
+    moved     = scenario { Scenario.headMoved = True }
+    wantedFor s = let built = build s in expected (refusals built.observation built.state)
+    compared isReady blockers = compareAnswer scenario (wantedFor scenario) (Answer isReady blockers)
 
 executionComparison :: Scenario -> Int -> Bool -> Set String -> Comparison
 executionComparison scenario code isReady blockers =

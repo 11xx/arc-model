@@ -262,11 +262,26 @@ compareAnswer scenario wanted answer
   | wanted == answer.blockers && Set.null wanted == answer.ready = Agreed
   | otherwise = maybe Disagreed Adjudicated (adjudicate scenario wanted answer)
 
-{- | The disagreement classes that have been read and classified. None stands
-at this comparison revision: every replayed history agrees once the model's
-grounds are mapped onto arc's vocabulary. A new disagreement is reported
-unclassified until somebody reads it, names its class here with the exact
-scenario shape and blocker sets it applies to, and says why.
+{- | The disagreement classes that have been read and classified, each with
+the exact scenario shape and blocker sets it applies to. A new disagreement
+is reported unclassified until somebody reads it, names its class here, and
+says why.
 -}
 adjudicate :: Scenario -> Set String -> Answer -> Maybe Adjudication
-adjudicate _scenario _wanted _answer = Nothing
+adjudicate scenario wanted answer
+  -- an iterating change with no approval: arc reports the iterating blocker
+  -- instead of requesting a review, the model reports both; only the
+  -- approval grounds may be missing, so the head has to be where the
+  -- patchset left it
+  | scenario.iterating
+  , not scenario.headMoved
+  , not scenario.branchMissing
+  , Set.member "iterating" wanted
+  , Set.member "no-valid-approval" wanted
+  , not answer.ready
+  , answer.blockers == Set.delete "no-valid-approval" wanted
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "iterating without approval: arc reports iterating instead of requesting a review (C11 reading (ii)); the model reads (i), the missing approval beside it"
+      }
+  | otherwise = Nothing

@@ -329,6 +329,8 @@ runSteps options sandbox = mapM_ step
         appendFile (wt </> file) "work\n"
         git sandbox wt ["add", file]
         git sandbox wt ["commit", "-q", "-m", "edit " <> file]
+      Revert ->
+        git sandbox wt ["revert", "--no-edit", "HEAD"]
       Snapshot contributors ->
         expect =<< arc options sandbox wt author [] (["snapshot", changeSlug] <> [ "--contributors=" <> commaList contributors | not (null contributors) ]) ""
       Verify run -> do
@@ -359,6 +361,8 @@ runSteps options sandbox = mapM_ step
       DeleteBranch -> do
         git sandbox sandbox.repo ["worktree", "remove", "--force", wt]
         git sandbox sandbox.repo ["branch", "-D", "arc/" <> changeSlug]
+      Iterate ->
+        expect =<< arc options sandbox wt author [] ["iterating", changeSlug] ""
       ConflictDeclarations -> do
         createDirectoryIfMissing True (sandbox.repo </> ".git" </> "arc")
         writeFile (sandbox.repo </> ".git" </> "arc" </> "operator-policy.toml") operatorGatesToml
