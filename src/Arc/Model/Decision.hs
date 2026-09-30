@@ -41,13 +41,14 @@ import Data.Maybe ( fromMaybe, listToMaybe )
 import Data.Set qualified as Set
 
 
--- C12, C23
+-- C11, C12, C23
 {- | Every ground on which the integration is refused, in presentation
 order, or the basis it would rest on. The grounds are independent readings of the
 same history: a moved head and an unevaluated gate are both reported, and
 neither hides the other. Gate declarations two policy layers disagree on
 are the one exception: there is no declaration set to evaluate against, so
-that refusal stands alone.
+that refusal stands alone. Iteration suppresses approval grounds while
+its own ground and every other blocker stand.
 -}
 evaluate :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
 evaluate observations state
@@ -72,8 +73,8 @@ evaluateDeclared observations state = case latestPatchset state of
           , [ RefusedNeedsRebase | observations.targetRelation == HeadConflictsWithTarget ]
           , [ RefusedMergedTreeUnevaluated observations.evaluatedTree | mergedTreeUnevaluated ]
           , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
-          , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | verdictContested state ]
-          , either pure (const []) authorization
+          , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | not state.iterating, verdictContested state ]
+          , if state.iterating then [] else either pure (const []) authorization
           , either (pure . RefusedGates) (const []) gates
           , [ RefusedAcceptanceProbes probes | not (null probes) ]
           , [ RefusedHoldActive hold | Just hold <- [Set.lookupMin state.holds] ]
@@ -108,6 +109,12 @@ evaluateDeclared observations state = case latestPatchset state of
       , policy           = policy
       , authorization    = authorization
       , gates            = gates
+      , declarations     =
+          [ (gate, declaration)
+          | (gate, _, wanted) <- gates
+          , declaration <- observations.declarations
+          , declaration.declarationId == wanted
+          ]
       , prerequisites    = [ (change, closure) | (change, Just closure) <- observations.prerequisites ]
       , consumedFindings = openFindings
       , consumedHolds    = []
@@ -238,6 +245,7 @@ execute observations state = \case
       , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
       , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
       , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
+      , [ MovedDeclarations basis.declarations rebuilt.declarations   | basis.declarations  /= rebuilt.declarations ]
       , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
       ]
     -- with no basis to rebuild, the observed facts the recorded one named
@@ -261,6 +269,7 @@ execute observations state = \case
       , tree             = basis.tree
       , authorization    = basis.authorization
       , gates            = basis.gates
+      , declarations     = basis.declarations
       , prerequisites    = basis.prerequisites
       , consumedFindings = basis.consumedFindings
       , consumedHolds    = basis.consumedHolds

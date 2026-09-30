@@ -35,7 +35,6 @@ import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefu
 import Generators ( Built(..), build )
 import Scenario ( ActorPick(..), GateMode(..), Scenario(..), TargetMode(..) )
 
-import Control.Applicative ( (<|>) )
 import Data.Maybe ( fromMaybe, isJust, isNothing )
 import Data.Set ( Set )
 import Data.Set qualified as Set
@@ -43,8 +42,13 @@ import Data.Set qualified as Set
 
 -- | The blockers arc is expected to report for these grounds.
 expected :: [Refusal] -> Set String
-expected = Set.fromList . concatMap blockersOf
+expected grounds = suppressApproval (Set.fromList (concatMap blockersOf grounds))
   where
+    -- C11: iteration suppresses the approval blocker, including the
+    -- invalid approval implied by a moved head or a missing patchset
+    suppressApproval
+      | RefusedIterating `elem` grounds = Set.delete "no-valid-approval"
+      | otherwise                      = id
     blockersOf = \case
       -- arc refuses to check at all; the name is the differential's
       RefusedConflictingDeclarations _ -> [checkRefusedConflictingGates]
@@ -102,20 +106,8 @@ compareExecution = compareExecutionAs MayReread
 compareExecutionAs :: Reread -> Scenario -> Built -> Execution -> DryRun -> Comparison
 compareExecutionAs mode scenario built wanted dry
   | executionAgrees wanted dry = Agreed
-  | otherwise = orAdjudicated (adjudicateExecution scenario built wanted dry <|> iteratingExecution) $ rereading mode scenario $ \reread ->
+  | otherwise = orAdjudicated (adjudicateExecution scenario built wanted dry) $ rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareExecutionAs Literal reread rebuilt (expectedExecution rebuilt rebuilt.execution) dry
-  where
-    -- the refusal arc's check reports for an iterating change leaves the
-    -- approval out; with it left out, the dry run agrees or falls under a
-    -- rule of its own
-    iteratingExecution = do
-      StoodDown refused <- Just wanted
-      withoutApproval   <- iteratingReading scenario refused
-      let reread = StoodDown withoutApproval
-      if executionAgrees reread dry || isJust (adjudicateExecution scenario built reread dry)
-        then Just iteratingAdjudication
-        else Nothing
-
 -- | Whether a dry run is the model's execution. A dry run that would
 -- integrate answers beside a check that is ready and names no blocker.
 executionAgrees :: Execution -> DryRun -> Bool
@@ -123,25 +115,6 @@ executionAgrees wanted dry = case wanted of
   WouldIntegrate    -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
   AuthorityRefused  -> dry.exit == 17
   StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
-
-{- | The blockers an arc that reads C11 as (ii) reports for an iterating
-change: the model's, without the approval, since such an arc reports the
-iterating blocker instead of requesting a review. Nothing where the change
-is not iterating or no approval ground stands.
--}
-iteratingReading :: Scenario -> Set String -> Maybe (Set String)
-iteratingReading scenario wanted
-  | scenario.iterating
-  , Set.member "iterating" wanted
-  , Set.member "no-valid-approval" wanted
-  = Just (Set.delete "no-valid-approval" wanted)
-  | otherwise = Nothing
-
-iteratingAdjudication :: Adjudication
-iteratingAdjudication = Adjudication
-  { kind   = Unsettled
-  , reason = "iterating without approval: arc reports iterating instead of requesting a review (C11 reading (ii)); the model reads (i), the missing approval beside it"
-  }
 
 {- | The execution disagreements that have been read and classified, each
 with the exact shape it applies to.
@@ -357,20 +330,5 @@ compareAnswer = compareAnswerAs MayReread
 compareAnswerAs :: Reread -> Scenario -> Set String -> Answer -> Comparison
 compareAnswerAs mode scenario wanted answer
   | wanted == answer.blockers && Set.null wanted == answer.ready = Agreed
-  | otherwise = orAdjudicated (adjudicate scenario wanted answer) $ rereading mode scenario $ \reread ->
+  | otherwise = rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareAnswerAs Literal reread (expected (refusals rebuilt.observation rebuilt.state)) answer
-
-{- | The disagreement classes that have been read and classified, each with
-the exact scenario shape and blocker sets it applies to. A new disagreement
-is reported unclassified until somebody reads it, names its class here, and
-says why.
--}
-adjudicate :: Scenario -> Set String -> Answer -> Maybe Adjudication
-adjudicate scenario wanted answer
-  -- an iterating change: arc reports the iterating blocker instead of
-  -- requesting a review, the model reports the missing approval beside it
-  | Just withoutApproval <- iteratingReading scenario wanted
-  , not answer.ready
-  , answer.blockers == withoutApproval
-  = Just iteratingAdjudication
-  | otherwise = Nothing

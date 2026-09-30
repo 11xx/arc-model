@@ -16,6 +16,7 @@ module Arc.Model.Basis
     ) where
 
 import Arc.Model.Gate ( GateRefusal, gateRefusalText )
+import Arc.Model.Declaration ( Declaration )
 import Arc.Model.Identifiers
 import Arc.Model.Ledger ( Authorization, Closure, ExternalKind, VerdictKind )
 import Arc.Model.Policy ( Policy )
@@ -34,6 +35,7 @@ data DecisionBasis = DecisionBasis
   , policy           :: !Policy
   , authorization    :: !Authorization
   , gates            :: ![(GateName, EventId, DeclarationId)]  -- ^ One covered, passing evaluation per required gate.
+  , declarations     :: ![(GateName, Declaration)]            -- ^ Normalized values consumed by required gates.
   , prerequisites    :: ![(ChangeId, EventId)]                 -- ^ Each prerequisite and the closure that integrated it.
   , consumedFindings :: ![FindingId]                           -- ^ The blocking-finding vector that had to be empty.
   , consumedHolds    :: ![HoldId]                              -- ^ The hold vector that had to be empty.
@@ -58,6 +60,7 @@ data MovedFact = MovedHead Revision Revision
                | MovedPatchset PatchsetId PatchsetId
                | MovedAuthorization Authorization Authorization
                | MovedGates [(GateName, EventId, DeclarationId)] [(GateName, EventId, DeclarationId)]
+               | MovedDeclarations [(GateName, Declaration)] [(GateName, Declaration)]
                | MovedPrerequisites [(ChangeId, EventId)] [(ChangeId, EventId)]
                | MovedReadiness [Refusal]  -- ^ Readiness computed again refuses, on these grounds, so no basis can be rebuilt.
   deriving stock (Eq, Ord, Show)
@@ -161,6 +164,7 @@ refusalText = \case
       MovedPatchset before after -> "patchset " <> show before <> " -> " <> show after
       MovedAuthorization before after -> "authorization " <> show before <> " -> " <> show after
       MovedGates before after    -> "gates " <> show before <> " -> " <> show after
+      MovedDeclarations before after -> "declarations " <> show before <> " -> " <> show after
       MovedPrerequisites before after -> "prerequisites " <> show before <> " -> " <> show after
       MovedReadiness grounds     -> "readiness refuses: " <> unwords (map refusalTag grounds)
 

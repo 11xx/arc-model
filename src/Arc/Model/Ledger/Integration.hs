@@ -9,6 +9,7 @@ module Arc.Model.Ledger.Integration
     , IntegrationRecord(..)
     ) where
 
+import Arc.Model.Declaration ( Declaration )
 import Arc.Model.Identifiers
 import Arc.Model.Policy ( Policy )
 
@@ -40,6 +41,7 @@ data IntegrationRecord = IntegrationRecord
   , tree             :: !TreeId
   , authorization    :: !Authorization
   , gates            :: ![(GateName, EventId, DeclarationId)]
+  , declarations     :: ![(GateName, Declaration)]            -- ^ Normalized values consumed by required gates.
   , prerequisites    :: ![(ChangeId, EventId)]
   , consumedFindings :: ![FindingId]
   , consumedHolds    :: ![HoldId]
