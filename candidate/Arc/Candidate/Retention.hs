@@ -116,6 +116,7 @@ references state = \case
     Just r  -> concat
       [ [TreeObject r.tree, contextObject r.brief]
       , map CandidateObject r.parents
+      , map CandidateObject r.adopts
       , map EpisodeObject r.episodes
       , [ contextObject d.reference | d <- declarations state, d.candidate == candidate ]
       ]

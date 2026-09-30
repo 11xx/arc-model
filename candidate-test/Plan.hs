@@ -2,9 +2,11 @@
 {- | A compact plan for one candidate history, and what building it yields.
 
 A plan is not a ledger. 'build' interprets it into events with coherent
-references — two registrations under one brief, their episodes, the context
-the chosen one read or only claimed, an evaluation, a review — and decides
-a named selection under the plan's reuse policy. Shrinking edits the plan,
+references — two registrations under one brief, their episodes, a lead's
+repair registered as a child, the context the chosen one read or only
+claimed, an evaluation, a review — and decides a named selection under the
+plan's reuse policy. A probe registration is then written against the
+ledger, so its write answer can be compared. Shrinking edits the plan,
 so every counterexample keeps the references its events need.
 -}
 module Plan
@@ -13,6 +15,7 @@ module Plan
     , ReviewerPick(..)
     , ReadMode(..)
     , TargetMode(..)
+    , Probe(..)
     , Plan(..)
     , defaultPlan
     , genPlan
@@ -22,6 +25,8 @@ module Plan
     , build
     , buildEvents
     , otherPolicy
+    , chosenRegistration
+    , probeRegistration
     , Feature(..)
     , allFeatures
     , featureOf
@@ -33,15 +38,19 @@ module Plan
     , candidateA
     , candidateB
     , candidateC
+    , candidateRepair
+    , candidateProbe
     , episodeA
     , episodeB
     , episodeIdle
+    , episodeRepair
     , sharedTree
     , repairTree
     , briefLocator
     , briefFirst
     , briefAmendment
     , briefRef
+    , otherBriefRef
     , buildGate
     , buildDeclaration
     , here
@@ -97,6 +106,14 @@ data TargetMode = TargetCurrent
                 | TargetUnobserved
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
+-- | A registration written against the built ledger, naming the chosen
+-- registration as its parent or as what it adopts.
+data Probe = ProbeParentSameContract
+           | ProbeParentOtherContract
+           | ProbeAdoptionKeepsProducers
+           | ProbeAdoptionDropsProducer
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
 data Plan = Plan
   { equalTree           :: !Bool                 -- ^ A and B register one tree.
   , chosen              :: !Pick
@@ -106,7 +123,7 @@ data Plan = Plan
   , reviewer            :: !ReviewerPick
   , reviewKind          :: !ReviewKind
   , reviewRequired      :: !Bool
-  , leadRepair          :: !Bool
+  , leadRepair          :: !Bool                 -- ^ The lead registers a repair of the chosen pick, and it is chosen.
   , readRequired        :: !Bool
   , readMode            :: !ReadMode
   , briefAmended        :: !Bool                 -- ^ The brief gains a newer version after it was read.
@@ -121,6 +138,7 @@ data Plan = Plan
   , declaredRoot        :: !(Maybe Pick)
   , capture             :: !(Maybe Capture)      -- ^ The provider's guarantee for the brief version read.
   , promotionObserved   :: !Bool
+  , probe               :: !(Maybe Probe)
   }
   deriving stock (Eq, Ord, Show)
 
@@ -149,6 +167,7 @@ defaultPlan = Plan
   , declaredRoot        = Nothing
   , capture             = Just Pinned
   , promotionObserved   = True
+  , probe               = Nothing
   }
 
 -- coordinates
@@ -160,22 +179,26 @@ lead        = ActorId "lead"
 independent = ActorId "reviewer"
 ci          = ActorId "ci"
 
-candidateA, candidateB, candidateC :: CandidateId
-candidateA = CandidateId "candidate-a"
-candidateB = CandidateId "candidate-b"
-candidateC = CandidateId "candidate-c"
+candidateA, candidateB, candidateC, candidateRepair, candidateProbe :: CandidateId
+candidateA      = CandidateId "candidate-a"
+candidateB      = CandidateId "candidate-b"
+candidateC      = CandidateId "candidate-c"
+candidateRepair = CandidateId "candidate-repair"
+candidateProbe  = CandidateId "candidate-probe"
 
-episodeA, episodeB, episodeIdle :: EpisodeId
-episodeA    = EpisodeId "episode-a"
-episodeB    = EpisodeId "episode-b"
-episodeIdle = EpisodeId "episode-idle"
+episodeA, episodeB, episodeIdle, episodeRepair :: EpisodeId
+episodeA      = EpisodeId "episode-a"
+episodeB      = EpisodeId "episode-b"
+episodeIdle   = EpisodeId "episode-idle"
+episodeRepair = EpisodeId "episode-repair"
 
-sharedTree, treeA, treeB, treeC, repairTree, elsewhereTree :: TreeId
+sharedTree, treeA, treeB, treeC, repairTree, probeTree, elsewhereTree :: TreeId
 sharedTree    = TreeId "tree-shared"
 treeA         = TreeId "tree-a"
 treeB         = TreeId "tree-b"
 treeC         = TreeId "tree-c"
 repairTree    = TreeId "tree-repaired"
+probeTree     = TreeId "tree-probe"
 elsewhereTree = TreeId "tree-elsewhere"
 
 briefLocator :: Locator
@@ -191,6 +214,17 @@ briefAmendment = VersionId "sha256:brief-amended"
 -- | The brief as registered: its first version, whole.
 briefRef :: ContextRef
 briefRef = ContextRef { locator = briefLocator, version = Observed briefFirst, coverage = Observed Whole }
+
+-- | Another change's brief: another contract.
+otherBriefRef :: ContextRef
+otherBriefRef = ContextRef
+  { locator  = LocatesArtifact ArtifactLocator
+      { journal  = JournalId "project"
+      , filename = ArtifactName "20260102T000000Z-other-brief-plan.md"
+      }
+  , version  = Observed (VersionId "sha256:other-brief")
+  , coverage = Observed Whole
+  }
 
 buildGate :: GateName
 buildGate = GateName "build"
@@ -232,6 +266,7 @@ data Built = Built
   , decisionOtherPolicy   :: !(Either (NonEmpty Refusal) SelectionBasis)
   , promotion             :: !(Maybe (Either Refusal PromotionPlan))
   , finalState            :: !State
+  , probeWrite            :: !(Maybe (Either WriteRefusal State))  -- ^ The probe registration recorded against 'state'.
   }
 
 otherPolicy :: ReusePolicy -> ReusePolicy
@@ -241,6 +276,19 @@ otherPolicy ReuseOnMatchingCoordinates = ReuseNever
 pickCandidate :: Pick -> CandidateId
 pickCandidate PickA = candidateA
 pickCandidate PickB = candidateB
+
+-- | The registration a proposal names: the lead's repair when there is
+-- one, otherwise the chosen pick's.
+chosenRegistration :: Plan -> CandidateId
+chosenRegistration plan
+  | plan.leadRepair = candidateRepair
+  | otherwise       = pickCandidate plan.chosen
+
+-- | The registration an evaluation or review of a pick names.
+registrationOf :: Plan -> Pick -> CandidateId
+registrationOf plan pick
+  | pick == plan.chosen = chosenRegistration plan
+  | otherwise           = pickCandidate pick
 
 treeOf :: Plan -> Pick -> TreeId
 treeOf plan pick
@@ -275,7 +323,7 @@ recordedTree plan pick
 -- | The ledger a plan records, in order.
 buildEvents :: Plan -> [Event]
 buildEvents plan = concat
-  [ map EpisodeOpened ([episodeA] <> [ episodeB | not plan.sharedEpisode ] <> [ episodeIdle | plan.idleEpisode ])
+  [ map EpisodeOpened ([episodeA] <> [ episodeB | not plan.sharedEpisode ] <> [ episodeIdle | plan.idleEpisode ] <> [ episodeRepair | plan.leadRepair ])
   , [ Registered (registered PickA), Registered (registered PickB) ]
   , [ Registered Registration
         { candidateId = candidateC
@@ -283,9 +331,21 @@ buildEvents plan = concat
         , brief       = briefRef
         , producers   = Set.singleton executorA
         , parents     = [candidateA]
+        , adopts      = []
         , episodes    = [episodeA]
         }
     | plan.thirdCandidate
+    ]
+  , [ Registered Registration
+        { candidateId = candidateRepair
+        , tree        = repairTree
+        , brief       = briefRef
+        , producers   = Set.singleton lead
+        , parents     = [pickCandidate plan.chosen]
+        , adopts      = []
+        , episodes    = [episodeRepair]
+        }
+    | plan.leadRepair
     ]
   , map ContextRecorded contextEvents
   , [ EvaluationRecorded evaluation | Just evaluation <- [evaluationRecord] ]
@@ -300,6 +360,7 @@ buildEvents plan = concat
       , brief       = briefRef
       , producers   = Set.singleton (producerOf pick)
       , parents     = []
+      , adopts      = []
       , episodes    = [episodeOf plan pick]
       }
     chosenEpisode = episodeOf plan plan.chosen
@@ -332,7 +393,7 @@ buildEvents plan = concat
       EvidenceNone -> Nothing
       mode         -> Just EvaluationRecord
         { evaluationId = evaluationId
-        , candidate    = pickCandidate plan.evaluationOn
+        , candidate    = registrationOf plan plan.evaluationOn
         , tree         = if mode == EvidenceOtherTree then elsewhereTree else recordedTree plan plan.evaluationOn
         , gate         = buildGate
         , declaration  = if mode == EvidenceOtherDeclaration then otherDeclaration else buildDeclaration
@@ -350,7 +411,7 @@ buildEvents plan = concat
       ReviewerNone -> Nothing
       pick         -> Just ReviewRecord
         { reviewId  = reviewId
-        , candidate = pickCandidate plan.reviewOn
+        , candidate = registrationOf plan plan.reviewOn
         , tree      = recordedTree plan plan.reviewOn
         , reviewer  = case pick of
             ReviewerProducerA -> executorA
@@ -359,6 +420,26 @@ buildEvents plan = concat
             _independent      -> independent
         , kind      = plan.reviewKind
         }
+
+-- | The probe registration a plan writes against its ledger, if any.
+probeRegistration :: Plan -> Maybe Registration
+probeRegistration plan = case plan.probe of
+  Nothing                          -> Nothing
+  Just ProbeParentSameContract     -> Just (probing briefRef [target] [] (Set.singleton lead))
+  Just ProbeParentOtherContract    -> Just (probing otherBriefRef [target] [] (Set.singleton lead))
+  Just ProbeAdoptionKeepsProducers -> Just (probing otherBriefRef [] [target] (Set.fromList [producerOf plan.chosen, lead]))
+  Just ProbeAdoptionDropsProducer  -> Just (probing otherBriefRef [] [target] (Set.singleton lead))
+  where
+    target = chosenRegistration plan
+    probing brief parents adopts producers = Registration
+      { candidateId = candidateProbe
+      , tree        = probeTree
+      , brief       = brief
+      , producers   = producers
+      , parents     = parents
+      , adopts      = adopts
+      , episodes    = []
+      }
 
 build :: Plan -> Built
 build plan = Built
@@ -372,6 +453,7 @@ build plan = Built
   , decisionOtherPolicy   = evaluate (otherPolicy plan.policy) requirements observations state proposal
   , promotion             = promotion
   , finalState            = finalState
+  , probeWrite            = record state . Registered <$> probeRegistration plan
   }
   where
     events = buildEvents plan
@@ -394,13 +476,12 @@ build plan = Built
       }
     proposal = Proposal
       { selectionId = SelectionId "selection-1"
-      , chosen      = pickCandidate plan.chosen
+      , chosen      = chosenRegistration plan
       , destination = Destination { change = ChangeId "change", patchset = PatchsetId 1 }
       , target      = if plan.targetMode == TargetStale then targetBefore else targetNow
       , evaluations = [ evaluationId | plan.evidence /= EvidenceNone ]
       , reviews     = [ reviewId | plan.reviewer /= ReviewerNone ]
       , selector    = lead
-      , repairs     = [ Repair { author = lead, tree = repairTree } | plan.leadRepair ]
       }
     decision  = evaluate plan.policy requirements observations state proposal
     promotion = either (const Nothing) (Just . promote executionObservations) decision
@@ -440,6 +521,7 @@ genPlan = do
   declaredRoot        <- frequency [(2, pure Nothing), (1, Just <$> elements [PickA, PickB])]
   capture             <- elements [Just Pinned, Just Pinned, Just Unpinned, Nothing]
   promotionObserved   <- frequency [(4, pure True), (1, pure False)]
+  probe               <- frequency [(2, pure Nothing), (3, Just <$> elements [minBound .. maxBound])]
   pure Plan {..}
 
 -- | Plans whose selection the model permits: the histories a promotion or
@@ -487,6 +569,7 @@ shrinkPlan plan = concat
   , [ plan { Plan.declaredRoot = Nothing }                | plan.declaredRoot /= Nothing ]
   , [ plan { Plan.capture = Just Pinned }                 | plan.capture /= Just Pinned ]
   , [ plan { Plan.promotionObserved = True }              | not plan.promotionObserved ]
+  , [ plan { Plan.probe = Nothing }                       | plan.probe /= Nothing ]
   ]
 
 -- coverage
@@ -500,6 +583,8 @@ data Feature = FeaturePermitted
              | FeatureExpiredEpisodeUnderRoot
              | FeatureAmendedReference
              | FeatureLeadRepair
+             | FeatureParentChain
+             | FeatureAdoption
              | FeatureDivergentReusePolicies
              | FeatureStaleTarget
              | FeatureStaleEvaluation
@@ -527,6 +612,8 @@ featureOf plan built = \case
     ResolvedAt _ (_newer : _) -> True
     _unamended                -> False
   FeatureLeadRepair              -> plan.leadRepair && isRight built.decision
+  FeatureParentChain             -> or [ length (lineage written r) >= 3 | r <- Map.elems written.registrations ]
+  FeatureAdoption                -> or [ not (null r.adopts) | r <- Map.elems written.registrations ]
   FeatureDivergentReusePolicies  -> isRight built.decision /= isRight built.decisionOtherPolicy
   FeatureStaleTarget             -> any isTargetMoved (grounds built)
   FeatureStaleEvaluation         -> any isStaleCoordinate (grounds built)
@@ -538,6 +625,9 @@ featureOf plan built = \case
     _stood                              -> False
   where
     grounds current = either (foldr (:) []) (const []) current.decision
+    written = case built.probeWrite of
+      Just (Right accepted) -> accepted
+      _unwritten            -> built.state
     isTargetMoved = \case
       RefusedTargetMoved _ _ -> True
       _other                 -> False
