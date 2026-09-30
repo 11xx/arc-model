@@ -108,6 +108,20 @@ library candidate
     , base        >= 4.21 && < 4.22
     , containers  >= 0.7  && < 0.8
 
+-- the candidate plan, what building it yields, and its generators, shared
+-- by the candidate spec and the differential's candidate channel
+library candidate-plans
+  import:           warnings
+  hs-source-dirs:   candidate-plans
+  exposed-modules:
+      Plan
+  build-depends:
+      arc-model
+    , arc-model:candidate
+    , base        >= 4.21 && < 4.22
+    , containers  >= 0.7  && < 0.8
+    , QuickCheck  >= 2.14 && < 2.16
+
 -- the comparator the differential adjudicates with is pinned here, so the
 -- suite checks it without running arc
 test-suite spec
@@ -182,11 +196,11 @@ test-suite candidate-spec
   other-modules:
       Fixtures
     , Mutants
-    , Plan
     , Render
   build-depends:
       arc-model
     , arc-model:candidate
+    , arc-model:candidate-plans
     , base        >= 4.21 && < 4.22
     , containers  >= 0.7  && < 0.8
     , QuickCheck  >= 2.14 && < 2.16
