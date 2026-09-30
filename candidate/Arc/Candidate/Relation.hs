@@ -96,6 +96,7 @@ data RelationKind = SuppliedContext
                   | Rejected
                   | Superseded
                   | Produced
+                  | Adopted
                   | Evaluated
                   | Reviewed
                   | Selected

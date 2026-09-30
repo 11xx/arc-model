@@ -11,6 +11,7 @@ import Mutants ( Behaviour(..), Mutant(..), allMutants )
 import Plan
 import Render
 
+import Data.Either ( isRight )
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 
@@ -24,7 +25,9 @@ fixtureChecks = concat
   , episodeCardinality
   , retainedAcrossExpiry
   , amendedReference
-  , leadRepairKeepsLead
+  , leadRepairIsRegistration
+  , parentOtherContract
+  , adoptionDropsProducer
   , reusePolicies
   , declarationsAreClaims
   , citationChecked
@@ -114,6 +117,7 @@ episodeCardinality =
       , brief       = briefRef
       , producers   = Set.singleton executorA
       , parents     = []
+      , adopts      = []
       , episodes    = [episodeA, episodeB]
       }
 
@@ -145,26 +149,38 @@ amendedReference =
     plan  = defaultPlan { Plan.briefAmended = True }
     built = build plan
 
--- | A selection with a lead's repair keeps the lead among the contributors,
--- so the lead is not the independent reviewer of what ships.
-leadRepairKeepsLead :: [Check]
-leadRepairKeepsLead =
-  [ expectEq "fixture/lead-repair: the lead is a contributor" (Just (Set.fromList [executorA, lead])) ((.contributors) <$> basisOf plan)
+{- | A lead's repair is a registration whose parent is the repaired
+candidate. Selecting it ships its tree and keeps the lead among the
+contributors, so the lead is not the independent reviewer of what ships,
+and a review of the parent answers for neither the repair's registration
+nor its tree.
+-}
+leadRepairIsRegistration :: [Check]
+leadRepairIsRegistration =
+  [ expectEq "fixture/lead-repair: the repair is a child registration"
+      (candidateRepair, Just ([candidateA], Set.singleton lead, repairTree))
+      (repaired.proposal.chosen, (\r -> (r.parents, r.producers, r.tree)) <$> registration repaired.state candidateRepair)
+  , expectEq "fixture/lead-repair: the lead is a contributor" (Just (Set.fromList [executorA, lead])) ((.contributors) <$> basisOf plan)
   , expectEq "fixture/lead-repair: the repaired tree ships" (Just repairTree) ((.tree) <$> basisOf plan)
+  , expectEq "fixture/lead-repair: the parent's read answers for the repair" (Just [(readRequirement, ToolRecordId "tool-read-1")]) ((.reads) <$> basisOf plan)
   , expectRefusedWith "fixture/lead-repair: the lead cannot review it"
       [RefusedNoIndependentReview [(ReviewId "review-1", ReviewerIsContributor lead)]]
       (build plan { Plan.reviewer = ReviewerLead }).decision
-  , expectRefusedWith "fixture/lead-repair: a review of the unrepaired tree is stale"
+  , expectRefusedWith "fixture/lead-repair: a review of the parent's tree is stale"
       [RefusedNoIndependentReview [(ReviewId "review-1", ReviewOfOtherTree sharedTree)]]
-      (evaluate ReuseNever unreviewed.requirements unreviewed.observations reviewedBefore unreviewed.proposal)
+      (reviewedAt candidateRepair)
+  , expectRefusedWith "fixture/lead-repair: a review of the parent is not a review of the repair"
+      [RefusedNoIndependentReview [(ReviewId "review-1", ReviewOfOtherCandidate candidateA)]]
+      (reviewedAt candidateA)
   ]
   where
-    plan       = defaultPlan { Plan.leadRepair = True }
-    unreviewed = build plan
-    -- the same ledger with the review recorded at the registered tree
-    reviewedBefore = either (const emptyState) id $ replay $ filter (not . isReview) unreviewed.events <> [ReviewRecorded ReviewRecord
+    plan     = defaultPlan { Plan.leadRepair = True }
+    repaired = build plan
+    -- the same ledger with the review recorded at the parent's tree
+    reviewedAt reviewed = evaluate ReuseNever repaired.requirements repaired.observations (reviewedBefore reviewed) repaired.proposal
+    reviewedBefore reviewed = either (const emptyState) id $ replay $ filter (not . isReview) repaired.events <> [ReviewRecorded ReviewRecord
       { reviewId  = ReviewId "review-1"
-      , candidate = candidateA
+      , candidate = reviewed
       , tree      = sharedTree
       , reviewer  = independent
       , kind      = Approves
@@ -172,6 +188,89 @@ leadRepairKeepsLead =
     isReview = \case
       ReviewRecorded _ -> True
       _other           -> False
+
+-- | A parent must answer the same brief at the same version as its child.
+parentOtherContract :: [Check]
+parentOtherContract =
+  [ expectEq "fixture/parent-other-contract: another change's brief is refused"
+      (Just (Left (ParentOtherContract candidateProbe candidateA)))
+      (answer (build defaultPlan { Plan.probe = Just ProbeParentOtherContract }))
+  , expectEq "fixture/parent-other-contract: another version of the brief is refused"
+      (Left (ParentOtherContract candidateProbe candidateA))
+      (() <$ record (build defaultPlan).state (Registered amendedChild))
+  , expectEq "fixture/parent-other-contract: a parent under the same contract is accepted"
+      (Just (Right ()))
+      (answer (build defaultPlan { Plan.probe = Just ProbeParentSameContract }))
+  ]
+  where
+    answer built = fmap (() <$) built.probeWrite
+    amendedChild = Registration
+      { candidateId = candidateProbe
+      , tree        = TreeId "tree-probe"
+      , brief       = briefRef { Context.version = Observed briefAmendment }
+      , producers   = Set.singleton lead
+      , parents     = [candidateA]
+      , adopts      = []
+      , episodes    = []
+      }
+
+{- | Content carried into another contract is adopted, and the adopter's
+producers must include every producer along the adopted registration's
+parent chain. The adopted registration is no ancestor: its producers are
+contributors as the adopter's own, and its reads do not count.
+-}
+adoptionDropsProducer :: [Check]
+adoptionDropsProducer =
+  [ expectEq "fixture/adoption-drops-producer: refused, naming the dropped producer"
+      (Just (Left (AdoptionDropsProducer candidateProbe candidateA (Set.singleton executorA))))
+      (answer (build defaultPlan { Plan.probe = Just ProbeAdoptionDropsProducer }))
+  , expectEq "fixture/adoption-drops-producer: adopting a repair carries the repaired candidate's producers"
+      (Just (Left (AdoptionDropsProducer candidateProbe candidateRepair (Set.singleton executorA))))
+      (answer (build defaultPlan { Plan.leadRepair = True, Plan.probe = Just ProbeAdoptionDropsProducer }))
+  , expectTrue "fixture/adoption-drops-producer: an adoption keeping every producer is accepted"
+      "an adoption whose producers include the adopted producers must be recorded"
+      (maybe False isRight kept.probeWrite)
+  , expectEq "fixture/adoption-drops-producer: the adoption is recorded as a relation"
+      [Relation Adopted (CandidateNode candidateProbe) (CandidateNode candidateA) ByLedger]
+      [ r | r <- relations adopted, r.kind == Adopted ]
+  , expectEq "fixture/adoption-drops-producer: the adopted registration is no ancestor"
+      [candidateProbe]
+      [ r.candidateId | Just adopter <- [registration adopted candidateProbe], r <- lineage adopted adopter ]
+  , expectEq "fixture/adoption-drops-producer: the adopter's producers are its contributors"
+      (Right (Set.fromList [executorA, lead]))
+      ((.contributors) <$> evaluate ReuseNever (requiring []) kept.observations adopted adopting)
+  , expectRefusedWith "fixture/adoption-drops-producer: the adopted registration's reads do not count"
+      [RefusedReadUnsatisfied readRequirement NotRead]
+      (evaluate ReuseNever (requiring [readRequirement]) kept.observations adopted adopting)
+  , expectEq "fixture/adoption-drops-producer: an unknown registration cannot be adopted"
+      (Left (UnknownCandidate (CandidateId "candidate-missing")))
+      (() <$ record kept.state (Registered adoptsMissing))
+  ]
+  where
+    answer built = fmap (() <$) built.probeWrite
+    kept    = build defaultPlan { Plan.probe = Just ProbeAdoptionKeepsProducers }
+    adopted = case kept.probeWrite of
+      Just (Right accepted) -> accepted
+      _refused              -> kept.state
+    requiring required = Requirements { gates = [], independentReview = False, reads = required }
+    adopting = Proposal
+      { selectionId = selection
+      , chosen      = candidateProbe
+      , destination = kept.proposal.destination
+      , target      = kept.proposal.target
+      , evaluations = []
+      , reviews     = []
+      , selector    = lead
+      }
+    adoptsMissing = Registration
+      { candidateId = candidateProbe
+      , tree        = TreeId "tree-probe"
+      , brief       = otherBriefRef
+      , producers   = Set.singleton lead
+      , parents     = []
+      , adopts      = [CandidateId "candidate-missing"]
+      , episodes    = []
+      }
 
 -- | The same selection decided under both reuse policies.
 reusePolicies :: [Check]
@@ -243,6 +342,7 @@ registrationImmutable =
       , brief       = briefRef
       , producers   = Set.singleton lead
       , parents     = []
+      , adopts      = []
       , episodes    = []
       }
     unversioned = Registration
@@ -251,6 +351,7 @@ registrationImmutable =
       , brief       = briefRef { Context.version = Omitted }
       , producers   = Set.singleton lead
       , parents     = []
+      , adopts      = []
       , episodes    = []
       }
 
