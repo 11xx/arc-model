@@ -2,7 +2,8 @@
 
 Each mutant changes exactly one rule. The suite must kill every one, for
 the predicted reason: a fault that lets a selection through is a different
-fault from one that lets rooted content be collected.
+fault from one that lets rooted content be collected, or one that lets a
+registration be written.
 -}
 module Mutants
     ( Behaviour(..)
@@ -16,6 +17,7 @@ module Mutants
     ) where
 
 import Arc.Candidate
+import Arc.Candidate.Registration qualified as Registration
 import Arc.Candidate.State qualified as State
 import Arc.Model.Identifiers ( ActorId(..) )
 import Arc.Model.Observed ( Observed(..) )
@@ -30,11 +32,13 @@ import Data.Maybe ( listToMaybe )
 data Behaviour = BehaviourDecision (Either (NonEmpty Refusal) SelectionBasis)
                | BehaviourPromotion (Maybe (Either Refusal PromotionPlan))
                | BehaviourRetention [(Object, Collection)]
+               | BehaviourWrite (Maybe (Either WriteRefusal ()))
   deriving stock (Eq, Show)
 
 data Channel = ChannelDecision
              | ChannelPromotion
              | ChannelRetention
+             | ChannelWrite
   deriving stock (Eq, Show)
 
 specBehaviour :: Channel -> Built -> Behaviour
@@ -42,10 +46,12 @@ specBehaviour channel built = case channel of
   ChannelDecision  -> BehaviourDecision built.decision
   ChannelPromotion -> BehaviourPromotion built.promotion
   ChannelRetention -> BehaviourRetention [ (object, collection built.finalState object) | object <- objects built.finalState ]
+  ChannelWrite     -> BehaviourWrite (fmap (() <$) built.probeWrite)
 
 -- | How a mutant's answer differs from the model's. On the retention
 -- channel, permitting means some object the model refuses to collect is
--- reported as reached by no root.
+-- reported as reached by no root; on the write channel, that a write the
+-- model refuses is recorded.
 data Divergence = DivergenceAgrees
                 | DivergencePermits
                 | DivergenceRefuses
@@ -63,6 +69,9 @@ divergenceOf mutant spec
       (BehaviourPromotion (Just (Right _)), BehaviourPromotion (Just (Left _)))  -> DivergencePermits
       (BehaviourPromotion (Just (Left _)), BehaviourPromotion (Just (Right _)))  -> DivergenceRefuses
       (BehaviourPromotion (Just (Left _)), BehaviourPromotion (Just (Left _)))   -> DivergenceDifferentRefusal
+      (BehaviourWrite (Just (Right _)), BehaviourWrite (Just (Left _)))          -> DivergencePermits
+      (BehaviourWrite (Just (Left _)), BehaviourWrite (Just (Right _)))          -> DivergenceRefuses
+      (BehaviourWrite (Just (Left _)), BehaviourWrite (Just (Left _)))           -> DivergenceDifferentRefusal
       (BehaviourRetention answers, BehaviourRetention expected)
         | or [ a == NoRootReaches && e /= NoRootReaches | ((_, a), (_, e)) <- zip answers expected ] -> DivergencePermits
       _values                                                                    -> DivergenceDifferentValue
@@ -121,11 +130,30 @@ allMutants =
       , predicted = [DivergencePermits, DivergenceDifferentRefusal]
       , run       = decisionOn declarationsAsReads
       }
+  , Mutant
+      { name      = "parent-contract-ignored"
+      , channel   = ChannelWrite
+      , predicted = [DivergencePermits]
+      , run       = writeOn contractsShared
+      }
+  , Mutant
+      { name      = "adoption-drops-producer-permitted"
+      , channel   = ChannelWrite
+      , predicted = [DivergencePermits]
+      , run       = writeOn producersCarried
+      }
   ]
 
 -- | The decision the model makes on a faulted reading of the built state.
 decisionOn :: (Built -> State) -> Plan -> Built -> Behaviour
 decisionOn fault plan built = BehaviourDecision (evaluate plan.policy built.requirements built.observations (fault built) built.proposal)
+
+-- | The answer the model gives to the plan's probe registration, written
+-- against a faulted reading of the built state.
+writeOn :: (Registration -> State -> State) -> Plan -> Built -> Behaviour
+writeOn fault plan built = BehaviourWrite (written <$> probeRegistration plan)
+  where
+    written probing = () <$ record (fault probing built.state) (Registered probing)
 
 {- | A state where registrations of one tree are one candidate: every
 evaluation and review recorded for a registration sharing the chosen
@@ -203,6 +231,20 @@ declarationsAsReads built = built.state { State.context = built.state.context <>
       , Declared declared <- built.state.context
       , declared.kind `elem` [Cites, ReliesOn]
       ]
+
+-- | A state where every registration reads as registered under the brief
+-- of the one being written: no parent is under another contract.
+contractsShared :: Registration -> State -> State
+contractsShared written state = state { State.registrations = Map.map shared state.registrations }
+  where
+    shared r = r { Registration.brief = written.brief }
+
+-- | A state where every registration reads as produced by the producers of
+-- the one being written: no adoption drops a producer.
+producersCarried :: Registration -> State -> State
+producersCarried written state = state { State.registrations = Map.map carried state.registrations }
+  where
+    carried r = r { Registration.producers = written.producers }
 
 -- | Collection that consults the roots themselves and nothing they reach.
 shallowCollection :: State -> [(Object, Collection)]

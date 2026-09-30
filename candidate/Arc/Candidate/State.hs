@@ -4,7 +4,9 @@ Every write is checked on the way in. A registration is written once and no
 later event can alter it, so selection, evaluation, review, promotion, and
 episode expiry all leave every registration exactly as it was recorded. A
 declaration's citation must resolve to a recorded read; a citation that
-resolves to nothing is refused, never recorded as unknown.
+resolves to nothing is refused, never recorded as unknown. A parent must
+share its child's contract, and an adopting registration's producers must
+include every producer along the adopted registration's parent chain.
 -}
 module Arc.Candidate.State
     ( Event(..)
@@ -16,6 +18,7 @@ module Arc.Candidate.State
     , replay
     , recordPromotion
     , registration
+    , lineage
     , episodeLive
     , candidatesOf
     , sharedStorage
@@ -31,7 +34,7 @@ import Arc.Candidate.Context qualified as Context
 import Arc.Candidate.Evaluation ( EvaluationRecord, ReviewRecord )
 import Arc.Candidate.Evaluation qualified as Evaluation
 import Arc.Candidate.Identifiers
-import Arc.Candidate.Registration ( Registration )
+import Arc.Candidate.Registration ( Registration, contractOf )
 import Arc.Candidate.Registration qualified as Registration
 import Arc.Candidate.Relation
 import Arc.Model.Identifiers ( ActorId, Revision, TreeId )
@@ -80,6 +83,8 @@ data State = State
 data WriteRefusal = DuplicateCandidate !CandidateId
                   | UnknownCandidate !CandidateId
                   | UnknownParent !CandidateId
+                  | ParentOtherContract !CandidateId !CandidateId                   -- ^ The registration, then its parent.
+                  | AdoptionDropsProducer !CandidateId !CandidateId !(Set ActorId) -- ^ The registration, the adopted one, and the producers it drops.
                   | UnknownEpisode !EpisodeId
                   | DuplicateEpisode !EpisodeId
                   | BriefUnversioned !CandidateId
@@ -118,6 +123,9 @@ record state = \case
     when (Set.null registered.producers)               (Left (NoProducers candidate))
     when (registered.brief.version == Omitted)         (Left (BriefUnversioned candidate))
     mapM_ (knownCandidate UnknownParent) registered.parents
+    mapM_ (sameContract registered) registered.parents
+    mapM_ (knownCandidate UnknownCandidate) registered.adopts
+    mapM_ (carriesProducers registered) registered.adopts
     mapM_ knownEpisode registered.episodes
     pure state { registrations = Map.insert candidate registered state.registrations }
 
@@ -177,6 +185,14 @@ record state = \case
     knownCandidate refusal candidate = unless (Map.member candidate state.registrations) (Left (refusal candidate))
     knownEpisode episode = unless (Map.member episode state.episodes) (Left (UnknownEpisode episode))
     citationResolves cited = unless (cited `elem` map (.record) (toolReads state)) (Left (CitationUnresolved cited))
+    sameContract registered parent = case registration state parent of
+      Just found | contractOf found /= contractOf registered -> Left (ParentOtherContract registered.candidateId parent)
+      _shared                                                -> pure ()
+    carriesProducers registered adopted = case registration state adopted of
+      Just found
+        | let dropped = foldMap (.producers) (lineage state found) `Set.difference` registered.producers
+        , not (Set.null dropped) -> Left (AdoptionDropsProducer registered.candidateId adopted dropped)
+      _carried -> pure ()
 
 -- | Replay a ledger, refusing at the first write that would not be recorded.
 replay :: [Event] -> Either WriteRefusal State
@@ -193,6 +209,16 @@ recordPromotion (PromotionPlan basis) effect state = case effect of
 
 registration :: State -> CandidateId -> Maybe Registration
 registration state candidate = Map.lookup candidate state.registrations
+
+-- | A registration and every registration along its parent chain, each
+-- once, the registration first. An adopted registration is not on it.
+lineage :: State -> Registration -> [Registration]
+lineage state start = go Set.empty [start]
+  where
+    go _seen [] = []
+    go seen (current : rest)
+      | Set.member current.candidateId seen = go seen rest
+      | otherwise = current : go (Set.insert current.candidateId seen) (rest <> [ p | parent <- current.parents, Just p <- [registration state parent] ])
 
 -- | An episode is live until it expires. Liveness says nothing about what
 -- the episode produced.
@@ -218,6 +244,7 @@ declarations state = [ declared | Declared declared <- state.context ]
 relations :: State -> [Relation]
 relations state = concat
   [ [ Relation Produced (EpisodeNode episode) (CandidateNode r.candidateId) ByLedger | r <- registered, episode <- r.episodes ]
+  , [ Relation Adopted (CandidateNode r.candidateId) (CandidateNode adopted) ByLedger | r <- registered, adopted <- r.adopts ]
   , map contextRelation state.context
   , [ judged judgement | judgement <- state.judgements ]
   , [ Relation Evaluated (EvaluationNode e.evaluationId) (CandidateNode e.candidate) ByLedger | e <- Map.elems state.evaluations ]
