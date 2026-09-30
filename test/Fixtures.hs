@@ -44,6 +44,7 @@ fixtureChecks = concat
   , authorityStandsDown
   , readinessRebuilt
   , undeclaredInvoker
+  , basisDeclarations
   , prerequisiteClosures
   , everyGround
   , permissionIsNotEffect
@@ -533,6 +534,18 @@ undeclaredInvoker =
     built      = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
     undeclared = built.observation { Observations.invokerDeclared = False }
     decision   = decide undeclared built.state
+
+-- | C19 records consumed values, so later declarations cannot rewrite them.
+basisDeclarations :: [Check]
+basisDeclarations =
+  [ expectEq "fixture/basis: declaration values are captured" (Right [(gateName, declaration)]) ((.integration.declarations) <$> built.execution)
+  , expectEq "fixture/basis: declaration motion with applicable evidence stands down" (Left (RefusedBasisMoved [MovedDeclarations [(gateName, declaration)] [(gateName, unprobed)]])) (execute moved built.state built.decision)
+  , expectEq "fixture/basis: recorded values survive later observations" (Just [(gateName, declaration)]) ((.declarations) <$> latestIntegration built.finalState)
+  ]
+  where
+    built = build defaultScenario
+    unprobed = declaration { Declaration.environment = Nothing }
+    moved = built.executionObservation { Observations.declarations = [unprobed] }
 
 -- | A permission names each prerequisite's closure beside the rest of its
 -- basis (C19); a prerequisite that has not integrated refuses.

@@ -519,18 +519,17 @@ paragraph) and "Files" (`[policy] require_declared_actor`).
 evaluated tree, the target branch and where it stood, the policy, the
 authorization (the approving verdict, the debt when the waiver let the
 approval stand, or the external decision), one covered passing evaluation
-per required gate, each prerequisite's closure, and the blocking-finding and
+per required gate and its normalized declaration values, each prerequisite's closure, and the blocking-finding and
 hold vectors that had to be empty. A refusal names the facts that stood in
 the way.
 
 **Status.** Settled on the integration basis's contents. The guide also
 names an approving verdict's provisional reason, an external approval when
 consumed, normalized gate and policy values, and the danger determination.
-The model's basis identifies verdicts and gate declarations and carries the
-effective policy. The referenced verdict carries its provisional reason;
+The model's basis identifies verdicts, captures required gate declarations,
+and carries the effective policy. The referenced verdict carries its provisional reason;
 the independent-review policy observation represents the danger result,
-without its provenance. The model does not capture normalized gate values
-in an integration record. The coverage channel compares the
+without its provenance. The coverage channel compares the
 authorization slots only, not the full recorded basis.
 
 Unsettled on whether declaration values in the basis are read committed or

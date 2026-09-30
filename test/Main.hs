@@ -136,6 +136,7 @@ prop_basis_grounded scenario = case built.decision of
     , counterexample "the basis tree is the evaluated tree"      (basis.tree == built.observation.evaluatedTree)
     , counterexample "the authorization is recorded"             (authorizationGrounded built.state basis)
     , counterexample "every gate evaluation is recorded"         (all (gateGrounded built.state basis.tree) basis.gates)
+    , counterexample "every consumed declaration is observed" (map (\(gate, d) -> (gate, d.declarationId)) basis.declarations == [ (gate, identifier) | (gate, _, identifier) <- basis.gates ] && all (\(_, d) -> d `elem` built.observation.declarations) basis.declarations)
     , counterexample "every prerequisite closure is observed"   (basis.prerequisites == [ (change, closure) | (change, Just closure) <- built.observation.prerequisites ])
     , counterexample "the consumed finding vector was empty"     (null basis.consumedFindings)
     , counterexample "the consumed hold vector was empty"        (null basis.consumedHolds)
