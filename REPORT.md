@@ -987,6 +987,14 @@ differential depends on the candidate component.
 - **A registration has no change.** `Registration` carries no change or
   patchset field, so registering an alternative cannot open one; only a
   `SelectionBasis` names a `Destination`.
+- **Everything shipped is registered.** `Proposal` names a registration and
+  no content of its own, and `shippedTree` is the chosen registration's
+  tree. A repair is a `Registration` whose parent is the candidate it
+  repairs and whose producers are its authors.
+- **A parent is not an adoption.** `Registration.parents` and
+  `Registration.adopts` are separate fields. `lineage` follows parents
+  only, so `contributorsOf` and `readSatisfaction` never reach through an
+  adoption.
 - **A reference separates address from observation.** `ContextRef` holds a
   `Locator` and, separately, an `Observed VersionId` and an `Observed
   Extent`. `resolve` goes through the version; an omitted version resolves
@@ -1018,7 +1026,7 @@ differential depends on the candidate component.
 
 #### Unit fixtures
 
-`candidate-test/Fixtures.hs`, 63 checks:
+`candidate-test/Fixtures.hs`, 77 checks:
 
 | fixture | what it anchors |
 | --- | --- |
@@ -1029,7 +1037,9 @@ differential depends on the candidate component.
 | `episode` | an episode with no candidate, one with three, and a candidate citing two episodes |
 | `expiry` | an expired episode is not live; the selected candidate and its episode record stay rooted; an unrooted alternative is reached by no root; a declared root retains a losing alternative |
 | `amended` | a read of the first version resolves to it after an amendment and still meets the requirement; an unversioned reference resolves to nothing; a lost version is unavailable |
-| `lead-repair` | the lead is among the contributors and the repaired tree ships; the lead cannot be the independent reviewer; a review of the unrepaired tree is stale |
+| `lead-repair` | the lead's repair is a registration whose parent is the executor's candidate; the lead is among the contributors, the repaired tree ships, and the parent's read answers for it; the lead cannot be the independent reviewer; a review of the parent's tree is stale, and a review of the parent is not a review of the repair |
+| `parent-other-contract` | a parent registered under another change's brief, or another version of the same brief, is refused as `ParentOtherContract`; a parent under the same contract is accepted |
+| `adoption-drops-producer` | an adoption whose producers miss a producer of the adopted lineage is refused as `AdoptionDropsProducer`, naming it, including the repaired candidate's producer when a repair is adopted; an adoption keeping every producer is accepted and recorded as an `Adopted` relation; the adopted registration is no ancestor, so the adopter's producers are its contributors and the adopted registration's reads do not count; an unknown registration cannot be adopted |
 | `reuse` | the same selection is refused under `ReuseNever` (`OtherRegistration`) and permitted under `ReuseOnMatchingCoordinates`; the latter still needs the tree and a recorded environment; review authority is never reused |
 | `claims` | a declared reliance, an inference, a supply, an unknown coverage, a partial read, and no read are each their own shortfall; relations stand as record, claim, or inference by establishment |
 | `citation` | a declaration citing an unrecorded read is refused; one citing a recorded read is accepted and remains a claim |
@@ -1042,7 +1052,7 @@ differential depends on the candidate component.
 
 #### Properties
 
-Fourteen properties over generated plans:
+Fifteen properties over generated plans:
 
 | property | statement |
 | --- | --- |
@@ -1050,9 +1060,10 @@ Fourteen properties over generated plans:
 | selection is named | the basis's candidate, target, selector, destination, evaluations, and review are the proposal's |
 | review authority | a required review in a basis names the chosen registration and shipped tree, approves, and is by no contributor |
 | evidence grounded | every basis evaluation is at the shipped tree, the required declaration, the observed environment, passed, and on the chosen registration unless the policy reuses |
-| repairers contribute | basis contributors are exactly the producers and the repair authors |
+| contributors along the chain | basis contributors are exactly the producers of the chosen registration and of every registration along its parent chain, walked apart from the library's `lineage` |
+| contracts and adoptions | every recorded parent shares its child's brief locator and version, and every adopter's producers include the producers along the adopted lineage, after the plan's probe registration |
 | unknown never permits | an unobserved target, environment, outcome, or coverage never permits |
-| reads are observed | every read in a basis is a tool record of the chosen candidate's episode covering the required version and extent |
+| reads are observed | every read in a basis is a tool record of an episode cited along the chosen registration's parent chain, covering the required version and extent |
 | target moved stands down | a target moved after the decision refuses the promotion as `basis-moved` |
 | roots retain | a selection's candidate, tree, evaluations, brief, and episodes are refused collection |
 | expiry deletes nothing | every collection answer is the same with and without episode expiry |
@@ -1064,32 +1075,38 @@ Fourteen properties over generated plans:
 #### Mutants
 
 Each must be killed, and each divergence must be of the predicted class.
-Decision faults draw from every plan; promotion and retention faults from
-plans the model permits.
+Decision and write faults draw from every plan; promotion and retention
+faults from plans the model permits. The write channel is the answer to
+the plan's probe registration, recorded against the built ledger.
 
 | fault | channel | predicted divergence | killed (seed 20260907) |
 | --- | --- | --- | --- |
 | candidate identity dropped when trees match | decision | permits, different refusal | 2 tests, 9 shrinks |
 | decision reused after the target moved | promotion | permits | 15 tests, 11 shrinks |
-| contributor identity ignored in selection authority | decision | permits, different refusal | 46 tests, 7 shrinks |
+| contributor identity ignored in selection authority | decision | permits, different refusal | 46 tests, 8 shrinks |
 | unknown context treated as complete | decision | permits, different refusal | 1 test, 8 shrinks |
-| collection permitted of rooted content | retention | permits | 1 test, 7 shrinks |
-| episode TTL expires a retained candidate | retention | permits | 2 tests, 10 shrinks |
-| declared context consumed as a read | decision | permits, different refusal | 27 tests, 7 shrinks |
+| collection permitted of rooted content | retention | permits | 1 test, 8 shrinks |
+| episode TTL expires a retained candidate | retention | permits | 2 tests, 11 shrinks |
+| declared context consumed as a read | decision | permits, different refusal | 27 tests, 8 shrinks |
+| parent contract ignored | write | permits | 5 tests, 9 shrinks |
+| adoption dropping a producer permitted | write | permits | 23 tests, 5 shrinks |
 
 Each shrunk counterexample is the smallest plan exhibiting its fault: an
 evaluation of the equal-tree sibling under `ReuseNever`; a target moved
 after a permitted decision; B's producer reviewing B; a read with unobserved
 coverage; any permitted selection, whose candidate is reached only through
-it; an expired episode under a selection; a declared-only reliance. A mutant
-that agrees with the model on every generated plan fails the suite as
-`SURVIVED`.
+it; an expired episode under a selection; a declared-only reliance; a
+probe naming the chosen candidate as its parent under another change's
+brief; a probe adopting the chosen candidate with the lead as its only
+producer. A mutant that agrees with the model on every generated plan
+fails the suite as `SURVIVED`.
 
 #### Generator coverage
 
 4000 plans at seed `20260907`: permitted 529, equal-tree pair 2376,
 zero-candidate episode 1927, episode of three 957, expired episode under a
-root 693, amended reference 1961, lead repair 105, divergent reuse policies
+root 693, amended reference 1961, lead repair permitted 105, parent chain
+of three registrations 133, recorded adoption 664, divergent reuse policies
 51, stale target 509, stale evaluation 593, declared-only read 247, coverage
 unknown 224, retained at risk 825, promotion stood down 114. A class with a
 count of zero fails the suite by name.
@@ -1113,32 +1130,46 @@ reports it unsupported, and states no default:
 Readings the model fixes where the sources do not; each could be chosen
 differently.
 
-- **What selection authority is.** The sources say equal trees share no
-  selection authority without saying what it is. The model reads it as the
-  independent review a selection may require: bound to one registration and
-  tree, and by no contributor, repair authors included. Who may *select* is
-  unconstrained; the selector is recorded only.
-- **Unnamed negative reviews.** A proposal names the reviews it relies on. A
-  changes-requested review of the chosen candidate that the proposal does
-  not name does not refuse the selection. Whether one should, as a standing
-  verdict does on an arc change, is open.
-- **Repairs.** A repair is a proposal field naming its author and resulting
-  tree, not a registration. Evidence and review must be at the repaired
-  tree. Whether a repair should itself be registered is open.
-- **Which reads count.** A read requirement is met by reads from episodes the
-  chosen registration cites. Reads by a repairer, or by the selector, do not
-  count.
 - **Liveness.** Episode expiry gates no write: a registration may cite, and a
   tool may record a read for, an expired episode. What an expired episode may
   still record is not stated by the sources.
 - **What a root reaches.** A candidate reaches its tree, brief, parents,
-  episodes, and declared context; an episode reaches what was supplied to and
-  read by it; a selection reaches its candidate, shipped tree, evaluations,
-  review, and the references its reads resolved. Judgements and inferences
-  reach nothing.
+  the registrations it adopts, episodes, and declared context; an episode
+  reaches what was supplied to and read by it; a selection reaches its
+  candidate, shipped tree, evaluations, review, and the references its
+  reads resolved. Judgements and inferences reach nothing.
 - **Recording a basis.** `SelectionRecorded` accepts any `SelectionBasis`;
   that it came from `evaluate` is the caller's obligation, as a decision
   basis is in the existing model.
+
+### Decided readings
+
+Readings that `20260928T162921Z-agent-native-vcs-settled-decision.md` in
+arc's journal settles, with its amending position, and how the model
+states them:
+
+- **What selection authority is.** Who may select is unconstrained and
+  recorded. The model keeps the independent review a selection may require
+  — bound to one registration and tree, and by no contributor — as
+  `ReviewRecord` and `ReviewShortfall`; it is outside the candidate
+  contract, as "Comparing a future implementation" maps it.
+- **Unnamed negative reviews.** A changes-requested review the proposal does
+  not name refuses nothing. A candidate-level review is not built, so the
+  model requires none: review authority binds to the destination patchset
+  after promotion.
+- **Repairs.** A repair is a registration whose parent is the repaired
+  candidate and whose producers are its authors; the repaired tree ships as
+  that registration's tree. A parent shares its child's contract, the brief
+  locator and version, or the write is refused as `ParentOtherContract`.
+  Content carried into another contract is an adoption, whose producers
+  must include every producer along the adopted registration's parent
+  chain, or the write is refused as `AdoptionDropsProducer`, naming them.
+  The decision names the adopted registration's producers; the model reads
+  those of an adopted repair as including the producers of the candidate it
+  repairs, since both are contributors to what it ships.
+- **Which reads count.** A read requirement is met by reads from episodes
+  cited by the chosen registration or by any registration along its parent
+  chain; the selector's reads, and an adopted registration's, do not count.
 
 ### Comparing a future implementation
 
@@ -1155,3 +1186,10 @@ field; a promotion that re-reads the target; a query for what a root
 retains; and a stated reuse policy, since the model's answer depends on it.
 A mismatch would be classified as elsewhere: implementation defect, model
 defect, or an open decision above.
+
+Review maps to production differently. `Requirements.independentReview` is
+`False` in every production-mapped plan, and `ReviewRecord` and the review
+shortfalls are outside the candidate channel: production records no
+candidate-level review. Review authority binds to the destination patchset
+after promotion, which records a new patchset, so a changes-requested
+verdict on an earlier patchset does not block promoting a repair.
