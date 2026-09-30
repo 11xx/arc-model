@@ -12,7 +12,11 @@ A run compares one channel. The decision channel compares 'refusals' with
 decision and the integration; the coverage channel integrates for real,
 records the scenario's audit, and compares 'historicalAuthorization' and
 'coverageAfterIntegration' with what @arc show@, @arc findings --audit@,
-and @arc query --debt@ report.
+and @arc query --debt@ report. The candidate channel replays the candidate
+model's plans, drawn from the candidate spec's generator, through
+@arc candidate@ and @arc context@, and compares the refusals, the recorded
+basis, the promotion, and the collection answers
+("Differential.Candidate.Compare").
 
 Every row is one of: agreed, skipped with the field the CLI cannot record,
 adjudicated with its class and reason, disagreed, or failed to replay. The
@@ -26,11 +30,15 @@ module Main ( main ) where
 import Arc.Model
 import Differential.Arc ( Answer, Outcome(..) )
 import Differential.Arc qualified as Arc
+import Differential.Candidate.Compare qualified as Candidate
+import Differential.Candidate.Encoding qualified as Candidate
+import Differential.Candidate.Replay qualified as Candidate
 import Differential.Compare
 import Differential.Plan
 import Differential.Sandbox ( SelfCheckRefused(..) )
 import Generators
 import Mutants ( Behaviour(..), Channel(..), Mutant(..), allMutants )
+import Plan qualified as Candidate
 
 import Control.Exception ( handle )
 import Control.Monad ( unless, when )
@@ -50,6 +58,7 @@ import Test.QuickCheck.Random ( mkQCGen )
 data Compared = ComparedDecision
               | ComparedExecution
               | ComparedCoverage
+              | ComparedCandidate
   deriving stock (Eq, Show)
 
 comparedText :: Compared -> String
@@ -57,6 +66,7 @@ comparedText = \case
   ComparedDecision  -> "decision"
   ComparedExecution -> "execution"
   ComparedCoverage  -> "coverage"
+  ComparedCandidate -> "candidate"
 
 data Settings = Settings
   { seed           :: !Int
@@ -83,16 +93,17 @@ defaults = Settings
 
 usage :: String
 usage = unlines
-  [ "arc-model-differential [--channel decision|execution|coverage] [--seed N] [--cases N] [--check-time-cases N]"
+  [ "arc-model-differential [--channel decision|execution|coverage|candidate] [--seed N] [--cases N] [--check-time-cases N]"
   , "                       [--arc PATH] [--mutant NAME] [--keep] [--verbose]"
   , ""
   , "  --channel C   decision: refusals against arc check (default);"
   , "                execution: execute against arc integrate --dry-run;"
-  , "                coverage: the recorded authorization and audit coverage against arc show, findings, and query"
+  , "                coverage: the recorded authorization and audit coverage against arc show, findings, and query;"
+  , "                candidate: the candidate model's selection, promotion, and collection against arc candidate"
   , "  --seed N      the generator seed (default 20260907)"
   , "  --cases N     generated histories after the named ones (default 60)"
   , "  --check-time-cases N"
-  , "                generated histories that also draw check-time facts (default 60)"
+  , "                generated histories that also draw check-time facts (default 60); the candidate channel draws none"
   , "  --arc PATH    the arc binary to replay against (default: arc on PATH)"
   , "  --mutant NAME expect a permission wherever this deliberate fault of the channel permits, to show the comparison objects"
   , "  --keep        leave every sandbox on disk and print where"
@@ -107,6 +118,7 @@ parseSettings = go defaults
       "--channel" : "decision" : rest     -> go settings { compared = ComparedDecision } rest
       "--channel" : "execution" : rest    -> go settings { compared = ComparedExecution } rest
       "--channel" : "coverage" : rest     -> go settings { compared = ComparedCoverage } rest
+      "--channel" : "candidate" : rest    -> go settings { compared = ComparedCandidate } rest
       "--seed" : value : rest             -> go settings { seed = read value } rest
       "--cases" : value : rest            -> go settings { cases = read value } rest
       "--check-time-cases" : value : rest -> go settings { checkTimeCases = read value } rest
@@ -127,12 +139,14 @@ data Oracle = Oracle
 -- | How one scenario's comparison ended. Expected and actual answers are
 -- kept rendered, since each channel has answers of its own shape.
 data Row = Row
-  { label   :: !String
-  , outcome :: !RowOutcome
+  { label    :: !String
+  , outcome  :: !RowOutcome
+  , setAside :: ![String]  -- ^ What the channel set aside of the history before the model answered.
+  , classes  :: ![String]  -- ^ The classes of answer arc gave, where the row did not object.
   }
 
 data RowOutcome = RowAgreed
-                | RowSkipped Skip
+                | RowSkipped String
                 | RowAdjudicated Adjudication String String
                 | RowDisagreed String String
                 | RowFailed String
@@ -140,6 +154,10 @@ data RowOutcome = RowAgreed
 main :: IO ()
 main = do
   settings <- either (\failure -> putStrLn failure >> putStr usage >> exitFailure) pure . parseSettings =<< getArgs
+  if settings.compared == ComparedCandidate then candidateMain settings else scenarioMain settings
+
+scenarioMain :: Settings -> IO ()
+scenarioMain settings = do
   oracle   <- oracleFor settings
   scratch  <- getTemporaryDirectory
   root     <- mkdtemp (scratch </> "arc-model-differential-")
@@ -159,6 +177,55 @@ main = do
     else removePathForcibly root
   if any objectionable rows then exitFailure else exitSuccess
 
+{- | The candidate channel: the named candidate histories, then plans drawn
+from the candidate spec's generator. It compares no mutant: the candidate
+spec's faults are killed by the spec itself.
+-}
+candidateMain :: Settings -> IO ()
+candidateMain settings = do
+  unless (settings.mutant == Nothing) $
+    putStrLn "the candidate channel compares no mutant" >> exitFailure
+  scratch <- getTemporaryDirectory
+  root    <- mkdtemp (scratch </> "arc-model-differential-")
+  putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
+  putStrLn ("channel " <> comparedText settings.compared <> ", seed " <> show settings.seed <> ", " <> show (length Candidate.namedCases) <> " named + " <> show settings.cases <> " generated cases, arc = " <> settings.binary)
+  putStrLn ""
+  let draw index = unGen Candidate.genPlan (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)
+      generated = [ Candidate.Case { label = "candidate-generated-" <> show index, plan = draw index, probeDeclared = True } | index <- [0 .. settings.cases - 1] ]
+  rows <- handle (refused root) (mapM (runCandidateCase settings root) (zip [0 :: Int ..] (Candidate.namedCases <> generated)))
+  putStrLn ""
+  summarize settings.compared rows
+  if settings.keep
+    then putStrLn ("sandboxes kept under " <> root)
+    else removePathForcibly root
+  if any objectionable rows then exitFailure else exitSuccess
+
+runCandidateCase :: Settings -> FilePath -> (Int, Candidate.Case) -> IO Row
+runCandidateCase settings root (index, given) = do
+  putStr ("[" <> show index <> "] " <> given.label <> " ")
+  hFlush stdout
+  let (projected, asides) = Candidate.production given.plan
+      production = given { Candidate.plan = projected }
+      built      = Candidate.build projected
+  (outcome, classes) <- case Candidate.encode production built of
+    Left unexpressed -> pure (RowSkipped (Candidate.unexpressedText unexpressed), [])
+    Right encoding   -> do
+      when settings.verbose (putStrLn "" >> print projected)
+      replayed <- Candidate.replay options (root </> ("case-" <> show index)) encoding
+      pure $ case replayed of
+        ReplayFailed failure         -> (RowFailed failure, [])
+        Answered (coordinates, found) ->
+          let wanted = Candidate.expectedFound projected built encoding coordinates
+          in case Candidate.compareFound production encoding coordinates wanted found of
+               Agreed                   -> (RowAgreed, Candidate.exercised found)
+               Adjudicated adjudication -> (RowAdjudicated adjudication (Candidate.foundText wanted) (Candidate.foundText found), Candidate.exercised found)
+               Disagreed                -> (RowDisagreed (Candidate.foundText wanted) (Candidate.foundText found), [])
+  putStrLn (describe outcome)
+  unless (agreeable outcome) (print projected)
+  pure Row { label = given.label, outcome = outcome, setAside = map Candidate.setAsideText asides, classes = classes }
+  where
+    options = Arc.Options { arcBinary = settings.binary, verbose = settings.verbose }
+
 -- | Stop the run on a sandbox whose self-check refused, keeping the scratch
 -- root for inspection.
 refused :: FilePath -> SelfCheckRefused -> IO a
@@ -174,6 +241,7 @@ channelScenarios = \case
   ComparedDecision  -> []
   ComparedExecution -> namedExecutionScenarios
   ComparedCoverage  -> namedCoverageScenarios
+  ComparedCandidate -> []
 
 {- | The answers the comparison expects: the model's, or, under a mutant of
 the channel compared, a permission wherever the fault permits. A fault that
@@ -228,8 +296,8 @@ runCase :: Settings -> Oracle -> FilePath -> (Int, (String, Scenario)) -> IO Row
 runCase settings oracle root (index, (label, scenario)) = do
   putStr ("[" <> show index <> "] " <> label <> " ")
   hFlush stdout
-  row <- Row label <$> case (plan scenario, settings.compared) of
-    (Left skip, _) -> pure (RowSkipped skip)
+  row <- (\outcome -> Row label outcome [] []) <$> case (plan scenario, settings.compared) of
+    (Left skip, _) -> pure (RowSkipped (skipText skip))
     (Right steps, ComparedDecision) -> do
       when settings.verbose (putStrLn "" >> print scenario)
       let wanted = expected (oracle.grounds built)
@@ -260,6 +328,7 @@ runCase settings oracle root (index, (label, scenario)) = do
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (recordedText wanted) (recordedText found)
           Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found)
+    (Right _, ComparedCandidate) -> pure (RowFailed "the candidate channel replays candidate plans, not scenarios")
   putStrLn (describe row.outcome)
   unless (agreeable row.outcome) (print scenario)
   pure row
@@ -271,7 +340,7 @@ runCase settings oracle root (index, (label, scenario)) = do
 describe :: RowOutcome -> String
 describe = \case
   RowAgreed                              -> "agreed"
-  RowSkipped skip                        -> "skipped: " <> skipText skip
+  RowSkipped skip                        -> "skipped: " <> skip
   RowAdjudicated adjudication wanted got -> "adjudicated " <> kindText adjudication.kind <> ": expected " <> wanted <> ", arc " <> got <> " — " <> adjudication.reason
   RowDisagreed wanted got                -> "DISAGREED: expected " <> wanted <> ", arc " <> got
   RowFailed failure                      -> "REPLAY FAILED: " <> failure
@@ -317,5 +386,11 @@ summarize channel rows = do
     mapM_ (\reason -> putStrLn ("  adjudicated " <> show (length (filter ((== reason) . (.reason)) adjudications)) <> ": " <> reason)) (Set.toList (Set.fromList (map (.reason) adjudications)))
   let skips = [ skip | row <- rows, RowSkipped skip <- [row.outcome] ]
   unless (null skips) $
-    mapM_ (\skip -> putStrLn ("  skipped " <> show (length (filter (== skip) skips)) <> ": " <> skipText skip)) (Set.toList (Set.fromList skips))
+    mapM_ (\skip -> putStrLn ("  skipped " <> show (length (filter (== skip) skips)) <> ": " <> skip)) (Set.toList (Set.fromList skips))
+  let classes = concatMap (.classes) rows
+  unless (null classes) $
+    putStrLn ("  exercised: " <> intercalate ", " [ name <> " " <> show (length (filter (== name) classes)) | name <- Set.toList (Set.fromList classes) ])
+  let asides = concatMap (.setAside) rows
+  unless (null asides) $
+    mapM_ (\aside -> putStrLn ("  set aside in " <> show (length (filter (== aside) asides)) <> ": " <> aside)) (Set.toList (Set.fromList asides))
   when (disagreed + failed == 0) $ putStrLn "a quiet run is supporting evidence, not proof of equivalence"
