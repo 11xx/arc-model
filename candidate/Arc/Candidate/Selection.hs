@@ -34,7 +34,6 @@ import Arc.Model.Observed ( Observed(..) )
 import Data.Either ( lefts, rights )
 import Data.List.NonEmpty ( NonEmpty, nonEmpty )
 import Data.Map.Strict qualified as Map
-import Data.Maybe ( listToMaybe )
 import Data.Set ( Set )
 import Data.Set qualified as Set
 
@@ -50,8 +49,8 @@ evaluate policy requirements observations state proposal = case registration sta
       , chosen       = proposal.chosen
       , destination  = proposal.destination
       , target       = proposal.target
-      , tree         = shippedTree chosen proposal
-      , contributors = contributorsOf chosen proposal
+      , tree         = shippedTree chosen
+      , contributors = contributorsOf state chosen
       , selector     = proposal.selector
       , gates        = rights gateAnswers
       , review       = either (const Nothing) id reviewAnswer
@@ -90,14 +89,18 @@ refusals :: ReusePolicy -> Requirements -> Observations -> State -> Proposal -> 
 refusals policy requirements observations state proposal =
   either (foldr (:) []) (const []) (evaluate policy requirements observations state proposal)
 
--- | The content shipped: the last repair's tree, or the registration's.
-shippedTree :: Registration -> Proposal -> TreeId
-shippedTree chosen proposal = maybe chosen.tree (.tree) (listToMaybe (reverse proposal.repairs))
+-- | The content shipped: the chosen registration's tree. A repair ships
+-- only as the registration that records it.
+shippedTree :: Registration -> TreeId
+shippedTree chosen = chosen.tree
 
--- | The chosen registration's producers and every repair author. A lead
--- who repairs is a contributor, never only the selector.
-contributorsOf :: Registration -> Proposal -> Set ActorId
-contributorsOf chosen proposal = chosen.producers <> Set.fromList (map (.author) proposal.repairs)
+-- | The producers of the chosen registration and of every registration
+-- along its parent chain. A lead who repairs registers the repair, so is a
+-- contributor, never only the selector. A parent chain never crosses a
+-- contract, and an adopted registration's producers are contributors only
+-- as producers of the registration that adopts it.
+contributorsOf :: State -> Registration -> Set ActorId
+contributorsOf state chosen = foldMap (.producers) (lineage state chosen)
 
 -- gates
 
@@ -108,20 +111,20 @@ gateAnswer policy state chosen proposal here gate declaration =
     []             -> Left (RefusedGate gate [ (evaluation, shortfall) | (evaluation, Just shortfall) <- judged ])
   where
     named  = [ evaluation | evaluation <- proposal.evaluations, forGate evaluation ]
-    judged = [ (evaluation, evidenceShortfall policy state chosen proposal here declaration evaluation) | evaluation <- named ]
+    judged = [ (evaluation, evidenceShortfall policy state chosen here declaration evaluation) | evaluation <- named ]
     forGate evaluation = maybe True (\e -> e.gate == gate) (Map.lookup evaluation state.evaluations)
 
 {- | Why a named evaluation does not answer for a gate, or 'Nothing' when it
 does. The registration is checked under the reuse policy first, then the
 coordinates, then the observed outcome.
 -}
-evidenceShortfall :: ReusePolicy -> State -> Registration -> Proposal -> EnvironmentId -> DeclarationId -> EvaluationId -> Maybe EvidenceShortfall
-evidenceShortfall policy state chosen proposal here declaration evaluationId = case Map.lookup evaluationId state.evaluations of
+evidenceShortfall :: ReusePolicy -> State -> Registration -> EnvironmentId -> DeclarationId -> EvaluationId -> Maybe EvidenceShortfall
+evidenceShortfall policy state chosen here declaration evaluationId = case Map.lookup evaluationId state.evaluations of
   Nothing -> Just EvaluationUnrecorded
   Just evaluation
     | evaluation.candidate /= chosen.candidateId
     , policy == ReuseNever                          -> Just (OtherRegistration evaluation.candidate)
-    | evaluation.tree /= shippedTree chosen proposal -> Just (OtherTree evaluation.tree)
+    | evaluation.tree /= shippedTree chosen          -> Just (OtherTree evaluation.tree)
     | evaluation.declaration /= declaration         -> Just (OtherDeclaration evaluation.declaration)
     | otherwise -> case (evaluation.environment, evaluation.outcome) of
         (Omitted, _outcome)                        -> Just EnvironmentUnrecorded
@@ -137,21 +140,21 @@ reviewAnswerFor state chosen proposal = case [ review | (review, Nothing) <- jud
   review : _ -> Right review
   []         -> Left (RefusedNoIndependentReview [ (review, shortfall) | (review, Just shortfall) <- judged ])
   where
-    judged = [ (review, reviewShortfall state chosen proposal review) | review <- proposal.reviews ]
+    judged = [ (review, reviewShortfall state chosen review) | review <- proposal.reviews ]
 
 {- | Why a named review does not authorize the selection, or 'Nothing' when
 it does. Review authority belongs to the registration the review names: an
 equal tree does not carry it to another registration.
 -}
-reviewShortfall :: State -> Registration -> Proposal -> ReviewId -> Maybe ReviewShortfall
-reviewShortfall state chosen proposal reviewId = case Map.lookup reviewId state.reviews of
+reviewShortfall :: State -> Registration -> ReviewId -> Maybe ReviewShortfall
+reviewShortfall state chosen reviewId = case Map.lookup reviewId state.reviews of
   Nothing -> Just ReviewUnrecorded
   Just review
-    | review.candidate /= chosen.candidateId                     -> Just (ReviewOfOtherCandidate review.candidate)
-    | review.tree /= shippedTree chosen proposal                 -> Just (ReviewOfOtherTree review.tree)
-    | review.reviewer `Set.member` contributorsOf chosen proposal -> Just (ReviewerIsContributor review.reviewer)
-    | review.kind == RequestsChanges                             -> Just ReviewRequestsChanges
-    | otherwise                                                  -> Nothing
+    | review.candidate /= chosen.candidateId                    -> Just (ReviewOfOtherCandidate review.candidate)
+    | review.tree /= shippedTree chosen                         -> Just (ReviewOfOtherTree review.tree)
+    | review.reviewer `Set.member` contributorsOf state chosen  -> Just (ReviewerIsContributor review.reviewer)
+    | review.kind == RequestsChanges                            -> Just ReviewRequestsChanges
+    | otherwise                                                 -> Nothing
 
 -- reads
 
@@ -161,9 +164,11 @@ readAnswer state chosen requirement = case readSatisfaction state chosen require
   Left shortfall   -> Left (RefusedReadUnsatisfied requirement shortfall)
 
 {- | A read requirement is met only by a tool's record of a read, made by an
-episode the chosen registration cites, of exactly the required version,
-with an observed coverage that covers the required extent. A declaration,
-a supply, or an inference never meets one; each is reported as what it is.
+episode the chosen registration or a registration along its parent chain
+cites, of exactly the required version, with an observed coverage that
+covers the required extent. A declaration, a supply, or an inference never
+meets one; each is reported as what it is. An adopted registration's
+episodes are not on the chain, so its reads do not count.
 -}
 readSatisfaction :: State -> Registration -> ReadRequirement -> Either ReadShortfall ToolRecordId
 readSatisfaction state chosen requirement = case [ r.record | r <- found, coverageOf r == Just True ] of
@@ -177,15 +182,18 @@ readSatisfaction state chosen requirement = case [ r.record | r <- found, covera
     | otherwise           -> Left NotRead
   where
     sameVersion reference = reference.locator == requirement.locator && reference.version == Observed requirement.version
-    found    = [ r | r <- toolReads state, r.episode `elem` chosen.episodes, sameVersion r.reference ]
+    chain    = lineage state chosen
+    cited    = concatMap (.episodes) chain
+    onChain  = (`elem` map (.candidateId) chain)
+    found    = [ r | r <- toolReads state, r.episode `elem` cited, sameVersion r.reference ]
     coverageOf r = case r.reference.coverage of
       Observed extent -> Just (extent `covers` requirement.extent)
       Omitted         -> Nothing
     partial  = [ r.record | r <- found, coverageOf r == Just False ]
     unknown  = [ r.record | r <- found, coverageOf r == Nothing ]
-    declared = [ d.declarant | d <- declarations state, d.candidate == chosen.candidateId, sameVersion d.reference ]
-    inferred = [ i.source | Inferred i <- state.context, i.candidate == chosen.candidateId, sameVersion i.reference ]
-    supplied = or [ sameVersion s.reference && s.episode `elem` chosen.episodes | Supplied s <- state.context ]
+    declared = [ d.declarant | d <- declarations state, onChain d.candidate, sameVersion d.reference ]
+    inferred = [ i.source | Inferred i <- state.context, onChain i.candidate, sameVersion i.reference ]
+    supplied = or [ sameVersion s.reference && s.episode `elem` cited | Supplied s <- state.context ]
 
 -- promotion
 

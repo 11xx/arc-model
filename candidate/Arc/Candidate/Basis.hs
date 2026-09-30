@@ -7,7 +7,6 @@ refusal names the facts that stood in the way.
 -}
 module Arc.Candidate.Basis
     ( Destination(..)
-    , Repair(..)
     , ReadRequirement(..)
     , Requirements(..)
     , Proposal(..)
@@ -36,13 +35,6 @@ data Destination = Destination
   }
   deriving stock (Eq, Ord, Show)
 
--- | Work a selector adds to the chosen content, and the tree it leaves.
-data Repair = Repair
-  { author :: !ActorId
-  , tree   :: !TreeId
-  }
-  deriving stock (Eq, Ord, Show)
-
 -- | A version of some context that the chosen candidate's episodes must
 -- have read, and how much of it.
 data ReadRequirement = ReadRequirement
@@ -60,7 +52,9 @@ data Requirements = Requirements
   }
   deriving stock (Eq, Show)
 
--- | A named selection: the choice is the caller's, never the model's.
+-- | A named selection: the choice is the caller's, never the model's. A
+-- repair is registered before it is selected, as a child of the candidate
+-- it repairs.
 data Proposal = Proposal
   { selectionId :: !SelectionId
   , chosen      :: !CandidateId
@@ -69,16 +63,15 @@ data Proposal = Proposal
   , evaluations :: ![EvaluationId]
   , reviews     :: ![ReviewId]
   , selector    :: !ActorId
-  , repairs     :: ![Repair]
   }
   deriving stock (Eq, Show)
 
 {- | What a permitted selection rests on.
 
-'tree' is the content shipped: the last repair's tree, or the chosen
-registration's. 'contributors' are the chosen registration's producers and
-every repair author. 'reuse' is the policy the evaluations were judged
-under.
+'tree' is the content shipped: the chosen registration's tree.
+'contributors' are the producers of the chosen registration and of every
+registration along its parent chain. 'reuse' is the policy the evaluations
+were judged under.
 -}
 data SelectionBasis = SelectionBasis
   { selectionId  :: !SelectionId

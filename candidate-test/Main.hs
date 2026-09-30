@@ -96,7 +96,8 @@ properties =
   , ("proposition: the basis names the proposal's choice and nothing else",   prop_selection_is_named)
   , ("proposition: review authority belongs to the reviewed registration",    prop_review_authority)
   , ("proposition: every relied-on evaluation answers under the policy",      prop_evidence_grounded)
-  , ("proposition: repair authors stay among the contributors",               prop_repairers_contribute)
+  , ("proposition: contributors are the producers along the parent chain",   prop_contributors_along_chain)
+  , ("proposition: a parent shares the contract, an adoption its producers",  prop_contracts_and_adoptions)
   , ("proposition: an unknown observation never permits",                     prop_unknown_never_permits)
   , ("proposition: only a tool's read meets a read requirement",              prop_reads_are_observed)
   , ("proposition: a moved target stands the promotion down",                 prop_target_moved_stands_down)
@@ -156,11 +157,38 @@ prop_evidence_grounded _plan built = case basisOf built of
     | (gate, evaluation) <- basis.gates
     ]
 
-prop_repairers_contribute :: Plan -> Built -> Property
-prop_repairers_contribute _plan built = case (basisOf built, registration built.state built.proposal.chosen) of
-  (Just basis, Just chosen) -> counterexample (show basis.contributors) $
-    basis.contributors == chosen.producers <> Set.fromList (map (.author) built.proposal.repairs)
-  _refused -> property True
+-- | The chain is walked here from the recorded parents, apart from the
+-- library's own walk.
+prop_contributors_along_chain :: Plan -> Built -> Property
+prop_contributors_along_chain _plan built = case basisOf built of
+  Just basis -> counterexample (show basis.contributors) $
+    basis.contributors == Set.unions (map (.producers) (ancestry built.state basis.chosen))
+  Nothing -> property True
+
+prop_contracts_and_adoptions :: Plan -> Built -> Property
+prop_contracts_and_adoptions _plan built = conjoin
+  [ conjoin
+      [ conjoin
+          [ counterexample (show (r.candidateId, parent.candidateId)) (contractOf parent == contractOf r)
+          | Just parent <- map (registration written) r.parents
+          ]
+      , conjoin
+          [ counterexample (show (r.candidateId, adopted)) $
+              Set.unions (map (.producers) (ancestry written adopted)) `Set.isSubsetOf` r.producers
+          | adopted <- r.adopts
+          ]
+      ]
+  | r <- Map.elems written.registrations
+  ]
+  where
+    written = case built.probeWrite of
+      Just (Right accepted) -> accepted
+      _unwritten            -> built.state
+
+ancestry :: State -> CandidateId -> [Registration]
+ancestry state candidate = case registration state candidate of
+  Nothing -> []
+  Just r  -> r : concatMap (ancestry state) r.parents
 
 prop_unknown_never_permits :: Plan -> Built -> Property
 prop_unknown_never_permits plan built
@@ -175,10 +203,10 @@ prop_unknown_never_permits plan built
       ]
 
 prop_reads_are_observed :: Plan -> Built -> Property
-prop_reads_are_observed _plan built = case (basisOf built, registration built.state built.proposal.chosen) of
-  (Just basis, Just chosen) -> conjoin
+prop_reads_are_observed _plan built = case basisOf built of
+  Just basis -> conjoin
     [ counterexample (show toolRecord) $ or
-        [ r.episode `elem` chosen.episodes
+        [ r.episode `elem` concatMap (.episodes) (ancestry built.state basis.chosen)
           && r.reference.locator == requirement.locator
           && r.reference.version == Observed requirement.version
           && maybe False (`covers` requirement.extent) (observedExtent r.reference.coverage)
@@ -186,7 +214,7 @@ prop_reads_are_observed _plan built = case (basisOf built, registration built.st
         ]
     | (requirement, toolRecord) <- basis.reads
     ]
-  _refused -> property True
+  Nothing -> property True
   where
     observedExtent = \case
       Observed extent -> Just extent
@@ -274,6 +302,7 @@ prop_read_relation_is_recorded _plan built = conjoin
 mutantGenerator :: Mutant -> Gen Plan
 mutantGenerator mutant = case mutant.channel of
   ChannelDecision -> genPlan
+  ChannelWrite    -> genPlan
   _selected       -> genSelectable
 
 mutantChecks :: IO [Check]
