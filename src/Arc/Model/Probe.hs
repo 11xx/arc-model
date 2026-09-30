@@ -2,8 +2,8 @@
 
 A probe is discharged at the head when a failure is recorded at the brief's
 base and a pass at the head. A brief whose base is the head, or that names
-no base, leaves nothing to fail at: a failure and a pass recorded at one
-revision contradict each other rather than discharge the probe.
+no base, cannot discharge a probe. The newest run for each phase at its
+required revision decides, and both runs must name the brief and probe.
 -}
 module Arc.Model.Probe
     ( ProbeRefusal(..)
