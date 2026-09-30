@@ -527,8 +527,10 @@ the way.
 names an approving verdict's provisional reason, an external approval when
 consumed, normalized gate and policy values, and the danger determination.
 The model's basis identifies verdicts and gate declarations and carries the
-effective policy; it does not model provisional reasons or the provenance
-of the danger determination. The coverage channel compares the
+effective policy. The referenced verdict carries its provisional reason;
+the independent-review policy observation represents the danger result,
+without its provenance. The model does not capture normalized gate values
+in an integration record. The coverage channel compares the
 authorization slots only, not the full recorded basis.
 
 Unsettled on whether declaration values in the basis are read committed or

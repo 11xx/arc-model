@@ -47,4 +47,4 @@ revision is pinned so a reader can compare against a fixed implementation
 rather than a moving branch.
 -}
 comparisonRevision :: String
-comparisonRevision = "b3207313885c269682a3d7ef266a58d24fd36f48"
+comparisonRevision = "b16366df577cce13d094dc0a332eca56c12dcb19"

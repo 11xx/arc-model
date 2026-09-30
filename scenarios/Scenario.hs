@@ -208,6 +208,8 @@ namedScenarios =
   , ("gate-older-pass-newer-unrecorded-environment", defaultScenario { patchsets = 3, revertLatest = True, gateMode = EvidenceUnrecordedEnvironment, gateRuns = [(1, GatePass)] })
   , ("waivers-per-patchset",       defaultScenario { reviewer = Nothing, patchsets = 2, debts = [(1, Nothing), (2, Nothing)] })
   , ("iterating-unreviewed",       defaultScenario { reviewer = Nothing, iterating = True })
+  , ("iterating-gate-failed",      defaultScenario { reviewer = Nothing, iterating = True, gateMode = EvidenceFailing })
+  , ("iterating-refusing-verdict", defaultScenario { verdict = ChangesRequested, iterating = True })
   ]
 
 -- | Histories that move something between the decision and the
