@@ -157,11 +157,16 @@ executable arc-model-differential
   main-is:          Main.hs
   other-modules:
       Differential.Arc
+    , Differential.Candidate.Compare
+    , Differential.Candidate.Encoding
+    , Differential.Candidate.Replay
     , Differential.Compare
     , Differential.Plan
     , Differential.Sandbox
   build-depends:
       arc-model
+    , arc-model:candidate
+    , arc-model:candidate-plans
     , arc-model:scenarios
     , aeson       >= 2.2  && < 3
     , base        >= 4.21 && < 4.22
