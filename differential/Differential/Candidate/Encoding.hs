@@ -234,13 +234,15 @@ encode given built = do
     , evaluations   = built.proposal.evaluations
     , environment   = built.observations.environment
     , selector      = built.proposal.selector
-    , promoting     = if given.plan.targetAfter then StandDownThenMoveTarget
-                      else if given.plan.promotionObserved then PromoteAtSelection
-                      else StandDown
+    , promoting     = promoting
     , probe         = probed
     , retire        = [ r.candidateId | Registered r <- built.events ] <> [ r.candidateId | Just (_, r) <- [probed] ]
     }
   where
+    promoting
+      | given.plan.targetAfter       = StandDownThenMoveTarget
+      | given.plan.promotionObserved = PromoteAtSelection
+      | otherwise                    = StandDown
     observedTarget = \case
       Observed _ -> Right ()
       Omitted    -> Left TargetUnobservable
