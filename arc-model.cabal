@@ -162,7 +162,7 @@ executable arc-model-differential
 -- every command a replay runs by hand, in a sandbox sealed the way the
 -- differential seals its own
 executable arc-model-sandbox
-  import:           warnings
+  import:           warnings, heap-cap
   hs-source-dirs:   sandbox, differential
   main-is:          Main.hs
   other-modules:
