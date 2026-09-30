@@ -43,8 +43,8 @@ counterexample can be generated for them.
   `refusalText` is a rendering, not the carrier.
 - **A permission carries its basis.** `Decision = Permitted DecisionBasis |
   Refused Refusal`. `DecisionBasis` names the patchset, head, tree, target,
-  policy, authorization, one covered evaluation per required gate, each
-  prerequisite's closure, and the finding and hold vectors that had to be
+  policy, authorization, one covered evaluation and the normalized declaration
+  values per required gate, each prerequisite's closure, and the finding and hold vectors that had to be
   empty.
 - **Permission and effect are different values.** `execute :: Observations ->
   ChangeState -> Decision -> Either Refusal ExecutionPlan` checks the store's
@@ -74,7 +74,10 @@ counterexample can be generated for them.
 
 ### Unit fixtures
 
-`test/Fixtures.hs` pins the exact answer for each required case:
+`test/Fixtures.hs` pins the exact answer for each required case: 158 checks
+at seed `20260907`, alongside 52 comparator and 10 sandbox checks. The
+13 properties, 18 killed mutants, and coverage sampler bring the spec
+suite to 252/252 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -85,7 +88,7 @@ counterexample can be generated for them.
 | `repair-review` | an approved first patchset plus an unread repair is a stale approval and an `OwedReview RepairUnread` |
 | `unknown` / `elsewhere` / `changed` / `unreadable` / `failed` | omitted, other-tree, shape-moved, unreadable, and failing gate evidence each produce their own reading and refusal |
 | `environment` | evidence from another environment, evidence recording none, and a probe that fails here are each their own coverage and refusal; a gate without a probe takes evidence from anywhere |
-| `falsified` | any passing run under the key that names a failure makes the gate discriminating; a failing run's label and a pass at another tree do not |
+| `falsified` | any readable passing run for the gate at the counted tree that names a failure discriminates, including another declaration or environment; a later unlabelled pass does not retract it; a failing run or another tree does not discriminate |
 | `keyed` | a newer run at another tree, under another declaration, or in another environment neither answers nor hides the pass at the evaluated tree; an earlier revision with the same tree answers; with nothing under the key, the newest record says why |
 | `equal-tree` | equal trees with different contributor and obligation scopes decide differently; a waiver rescues the contributor; an unused debt is not named |
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
@@ -102,12 +105,14 @@ counterexample can be generated for them.
 | `provisional` | a provisional approval gates like any other |
 | `dirty` | a run on a dirty worktree is not coverage and its result stands beside it; a waiver at its revision counts it, one at another revision does not; a run recording nothing about its worktree is refused; attested evidence carries no worktree |
 | `merged-tree` / `needs-rebase` | a merge nobody ran a gate on is refused beside the gate; an evaluated merge permits on the merge's tree; a head that does not merge owes a rebase and nothing else |
-| `probes` | a discharged probe permits; a pass at the base, a missing or failing final run, and a base that is the head are each their own probe refusal |
+| `probes` | a discharged probe permits; no base, an equal base and head, a newer failing final run, and final evidence from another brief or revision each leave it undischarged |
 | `branch-missing` | a missing branch refuses without a moved head beside it, and refuses execution |
 | `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
 | `question-a` | an older pass at tree A and a newer failing run at tree B, evaluated at A (a latest patchset that reverts to A): the basis names the pass at A (C14) |
 | `question-b` | two waivers for different patchsets: each applies to its own patchset, and the latest one's authorizes (C7) |
-| `question-c` | an iterating change with no approval is refused as iterating; whether the missing approval stands beside it is C11's open reading, and is not asserted |
+| `question-c` / `iterating` | iteration suppresses missing, stale, self-rejected, negative and contested approval grounds; red gates still block; clearing iteration restores the approval check |
+| `effective-author` | a subject overrides the invoker; an empty contributor set uses the effective author; a nonempty set wins; the represented author cannot independently approve |
+| `basis` | consumed declaration values are captured in the decision and integration; declaration motion with applicable evidence stands execution down |
 | `demonstration` | the model refuses a contributor reviewer; the deliberate fault permits |
 
 ### Comparator checks
@@ -115,8 +120,7 @@ counterexample can be generated for them.
 `test/Comparator.hs` pins every adjudication rule of the differential
 (policy motion, external beside local, and the undeclared reviewer on the
 coverage channel; policy motion and authority at execution on the
-execution channel; an iterating change without approval on the decision
-and execution channels; and the reading a history is compared again
+execution channel; and the reading a history is compared again
 under, a declaration or policy move committed on the target) to its exact
 answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
@@ -125,7 +129,9 @@ blockers of the check beside a dry run — expecting each change to be left
 a disagreement. A plan agrees with a dry run that would integrate only where
 the check beside it is ready and names no blocker. A newer run that hides
 an older pass at the evaluated tree is pinned as a disagreement, since C14
-settles that it hides nothing. 51 checks; a rule that accepted an unrelated
+settles that it hides nothing. Iterating checks agree exactly with C11
+and refuse any extra approval blocker; authority refusal stays its own
+adjudication. 52 checks; a rule that accepted an unrelated
 field would fail here without a run against arc.
 
 ### Properties
@@ -177,7 +183,7 @@ even when another ground would be listed first.
 | later audit rewrites the integration basis | historical | different value | 3 tests, 5 shrinks |
 | unreadable evidence counts as review | decision | permits, different refusal | 7 tests, 6 shrinks |
 | external approval counts as independent review | decision | permits, different refusal, different basis | 9 tests, 10 shrinks |
-| environment ignored | decision | permits, different refusal | 9 tests, 9 shrinks |
+| environment ignored | decision | permits, different refusal, different basis | 9 tests, 9 shrinks |
 | authority ignored | execution | permits, different refusal | 72 tests, 9 shrinks |
 | dirty evidence counts | decision | permits, different refusal | 1 test, 12 shrinks |
 | merge read as the head | decision | permits, refuses, different refusal, different basis | 4 tests, 11 shrinks |
@@ -192,7 +198,8 @@ itself: a ground dropped from a refusal surfaces as a permission when nothing
 else stands in the way, and as a different refusal when something does. The
 external-approval fault also surfaces as a different basis: where an external
 approval already authorizes, the fault names a witnessed verdict instead. The
-merge-as-head fault also refuses: evidence recorded against the merge does
+environment fault also changes a permitted basis by dropping its probe
+from the recorded normalized declaration. The merge-as-head fault also refuses: evidence recorded against the merge does
 not answer for the head's tree it reads instead; and where a further run at
 the head does answer for that tree, it permits on a basis naming it.
 
@@ -270,6 +277,10 @@ appear in arc's answer as follows; the claim is what the run tests.
 | `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
 | `gates` | `gates-not-green`, including evidence on a dirty worktree |
 | `acceptance-probes` | `acceptance-probes-not-green` |
+
+While iterating, C11 suppresses `no-valid-approval` in this mapping too,
+including where a moved head or absent patchset would otherwise imply it.
+The head, gate, and every other ground remain.
 
 ### The encoding
 
@@ -555,6 +566,8 @@ fulfilled-implies-approved` agrees everywhere and exits zero.
 
 ### Results against an installed arc
 
+The adjudications in this section describe the contract used for that run.
+
 The same seed and case counts, replayed against the arc installed when the
 run was made, `arc 2026.9.9`, whose binary postdates arc `1170fb4`. The
 model still characterizes `comparisonRevision`. The histories include the
@@ -619,7 +632,7 @@ falls in one class:
 ### Results at arc `b320731`
 
 The same seed and case counts, against arc `b320731`, the comparison
-revision, built from source, with the plan committing its declaration and
+revision of that run, built from source, with the plan committing its declaration and
 policy moves on the target. Every channel ran under the compiled-in heap
 cap.
 
@@ -672,6 +685,57 @@ target's checkout.
 - The iterating, authority, external-beside-local, and undeclared-reviewer
   classes are the ones on record before.
 
+### Results at arc `e10d981`
+
+Installed `arc 2026.9.29`, master
+`e10d981b01c1613fec0b5f0925492ed83df501f6`, seed `20260907`,
+`--cases 200 --check-time-cases 200` on each of decision, execution, and
+coverage. Every channel used one captured installed binary, SHA-256
+`a23ef76b230a8e8a2501813dec724e985909ed97dd6f743b3c48d80848992a02`,
+selected with `--arc`, and the compiled-in heap cap. Replay roots were
+under an ignored `target/` directory and sealed by `Differential.Sandbox`.
+
+| channel | arc `b320731` | installed arc `e10d981` |
+| --- | --- | --- |
+| decision | 447 cases: 362 agreed, 45 adjudicated, 40 skipped, 0 disagreed | 449 cases: 389 agreed, 20 adjudicated, 40 skipped, 0 disagreed |
+| execution | 453 cases: 288 agreed, 125 adjudicated, 40 skipped, 0 disagreed | 455 cases: 300 agreed, 115 adjudicated, 40 skipped, 0 disagreed |
+| coverage | 458 cases: 413 agreed, 5 adjudicated, 40 skipped, 0 disagreed | 460 cases: 415 agreed, 5 adjudicated, 40 skipped, 0 disagreed |
+
+No replay failed. The named histories `iterating-gate-failed` and
+`iterating-refusing-verdict` agree on every channel. C11 has zero
+adjudications: its settled approval suppression is in the model and vocabulary mapping, with no alternate-reading classifier.
+A synthetic extra approval blocker remains a comparator disagreement.
+
+Every remaining mismatch has one of the contract's three diagnoses. The
+comparator retains `Encoding` as its technical label for the two replay
+representation defects; that label does not grant semantic agreement.
+No Rust defect was observed, so no Rust journal todo was filed.
+
+| mismatch | diagnosis | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| declaration/policy committed on the target moves that target too, while the original scenario omits the move | model defect in replay representation (comparator: encoding; C12, C3) | 20 | 70 | 0 |
+| a refused decision beside withheld integration authority | unsettled contract (C20: authority before readiness versus returning the existing refusal) | 0 | 45 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: whether both authorizations are consumed) | 0 | 0 | 4 |
+| undeclared reviewer under required declared identity: replay cannot record the verdict held by the model's unconstrained ledger | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 |
+
+The encoding diagnoses retain their exact reread/recording boundaries;
+neither changes authorization rules to match arc. Authority precedence and
+external-approval consumption retain their stated readings. All are
+separate from the five guide clauses.
+
+| rows | decision | execution | coverage |
+| --- | --- | --- | --- |
+| named | 49: 48 agreed, 1 target | 55: 51 agreed, 3 target, 1 authority | 60: 58 agreed, 1 external, 1 undeclared reviewer |
+| generated | 200: 170 agreed, 11 target, 19 skipped | 200: 121 agreed, 38 target, 22 authority, 19 skipped | 200: 179 agreed, 2 external, 19 skipped |
+| check-time | 200: 171 agreed, 8 target, 21 skipped | 200: 128 agreed, 29 target, 22 authority, 21 skipped | 200: 178 agreed, 1 external, 21 skipped |
+
+The 40 skips on each channel are 20 unreadable evidence, 8 other-tree on
+one patchset, 10 findings without a verdict, and 2 dirty runs against a
+merge that the replay evaluates in its own clean checkout. They are not
+agreements. The coverage channel inspects authorization and audit slots,
+not the full basis encoding or advisory falsification. C13's advisory
+scope and C19's captured declaration values have independent fixtures.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -696,12 +760,22 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names arc `b320731`. The contract's sources are that
-revision's guide, which `arc` prints with no arguments, each command's
-`--help`, and its `README.md`; arc keeps no other reference. Every merge
-between the previous pin, `26f6bdc`, and it was read for its effect on the
-modelled decision, from its message and the guide and `--help` it left, not
-from its diff.
+`comparisonRevision` names arc `e10d981b01c1613fec0b5f0925492ed83df501f6`,
+the master revision recorded beside installed `arc 2026.9.29`. The sources
+are the guide the installed binary prints with no arguments, command
+`--help`, and the public README; no Rust source informs the model.
+
+| clause | settled from the installed guide | remaining readings or limits |
+| --- | --- | --- |
+| C4 | "When no independent reviewer is reachable": subject before actor; nonempty contributor set before effective author fallback | required independence with `forbid_self_approval` off remains ambiguous; model reads dangerous scope and enabled policy together |
+| C11 | "Run a change": iteration suppresses `no-valid-approval`, with every other blocker retained | none; iteration always refuses integration |
+| C13 | "Rules that change what you do": any passing evidence for the gate at the counted tree naming a falsification discriminates; a later unlabelled pass does not retract it | unreadability is the contract's conservative decision; unresolved-tree revision fallback is unsupported |
+| C17 | "Run a change": brief/probe binding, exact baseline and final revisions, newest phase run, and no-base/equal-head refusal | none within discharge; discrimination does not establish relevance |
+| C19 | "Run a change": the recorded integration basis, normalized values, and debt only when consumed | committed versus uncommitted declaration observation remains open; full basis encoding is not compared by the coverage channel |
+
+For the preceding pin `b320731`, every merge since `26f6bdc` was read for
+its effect on the modelled decision from its message and public documentation,
+not from its diff:
 
 | merges | subject | effect on the model |
 | --- | --- | --- |
@@ -733,6 +807,16 @@ behaviour each commit's tests and docs state:
 Points where the model fixes a reading that production or a future slice may
 still choose differently. Each is a deliberate choice, not an oversight.
 
+- **Required independence (C4).** The guide requires another author on a
+  dangerous path and also permits contributor approvals with
+  `forbid_self_approval` off. Whether danger alone requires independence or
+  danger and that policy together do remains open. The model takes the
+  latter; the effective-author and contributor-fallback rules are settled.
+- **Declaration observation (C19).** The basis records normalized values,
+  and the model captures consumed declarations and policy as observations.
+  The guide does not say for every layer whether those values came from
+  committed files or a checkout including local edits. C12 identifies the
+  target as the project source; the operator-layer boundary is still open.
 - **Refusal order is presentation.** The semantics of a refusal is the set
   of grounds that stand (CONTRACT.md, C23). `refusals` lists them in a fixed
   order and `decide` names the first, but neither order carries meaning:
@@ -826,6 +910,23 @@ Disagreements between the model and the contract, each with its class and
 the change that settled it. A model defect carries a fixture that fails on
 the model before the fix.
 
+- **Iteration (C11): model defect under the settled guide rule.** Approval
+  grounds stood beside iteration. The guide explicitly suppresses
+  `no-valid-approval`, so `evaluateDeclared` suppresses approval grounds
+  and `expected` suppresses that blocker when a head or patchset ground
+  implies it. Fixtures retain failed gates and restore the approval check
+  when iteration clears. The differential carries no C11 adjudication.
+- **Counted-tree falsification (C13): model defect.** The advisory reading
+  required the current declaration and environment. The guide says any
+  passing evidence for the gate at the counted tree names a falsification;
+  `readGate` uses that scope, leaving gate coverage under its full key.
+  Fixtures distinguish another tree from another declaration or environment.
+- **Normalized declarations in the basis (C19): model defect.** Declaration
+  identifiers did not preserve the normalized values consumed. The guide
+  explicitly requires those values. Decision and integration records capture
+  each required gate's declaration, and execution compares them when
+  rebuilding the basis. The `basis` fixture keeps evidence applicable while
+  dropping an environment probe, and detects the changed declaration.
 - **Which verification answers a gate (C14): model defect.** `readGate`
   took the newest record for the gate and declaration across every tree,
   so a newer run at tree B hid an older pass at the evaluated tree A, and a
@@ -897,6 +998,15 @@ about them:
 
 ## Known unsupported semantics
 
+- **Full basis encoding.** The model captures normalized gate declarations
+  and policy and references the approving verdict, which carries its
+  provisional reason. The independent-review policy observation represents
+  the danger result, without its source provenance. The differential
+  compares authorization slots only; it does not validate every encoded
+  integration-basis field.
+- **Unresolved counted tree for falsification.** The guide falls back to
+  revision when the tree is unresolved; the model observes an evaluated
+  tree and cannot represent that fallback.
 - **Git effects.** Synthesizing a merged tree, deciding whether it
   conflicts, verifying that a merge commit's tree is the evaluated one,
   closing a change the target already contains, the checkout guards, squash
