@@ -17,8 +17,8 @@ describes behaviour; it is not a port of arc's implementation.
 
 The model is derived independently of the Rust:
 
-- Model-side work — `src/`, `candidate/`, `scenarios/`, `test/`,
-  `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
+- Model-side work — `src/`, `candidate/`, `candidate-plans/`, `scenarios/`,
+  `test/`, `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
   documentation (the guide `arc` prints with no arguments, each command's
   `--help`, and its README), never from arc's source.
 - Only the differential's encoding, `differential/`, reads arc's behaviour,

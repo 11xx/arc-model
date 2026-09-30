@@ -2,9 +2,9 @@
 relations, evaluation applicability, explicit selection, and retention
 roots.
 
-This is a separate model from "Arc.Model". Nothing in arc implements it, so
-it cannot be compared with an implementation; what it states is that the
-rules are consistent, and which decisions remain open. The existing-
+This is a separate model from "Arc.Model". It states the rules, that they
+are consistent, and which decisions remain open; the differential's
+candidate channel compares it with arc's candidate commands. The existing-
 authorization model never imports it.
 -}
 module Arc.Candidate

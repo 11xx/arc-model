@@ -24,8 +24,9 @@ this way, since fixed: a newer gate run recorded under a different environment
 hid an older pass at the same tree, so arc refused a change the contract
 accepts.
 
-The package also models a proposed candidate protocol that arc does not
-implement, so its rules can be tested before anyone builds them.
+The package also models the candidate protocol — alternative answers to one
+brief, registered, evaluated, selected, and promoted — and the differential's
+candidate channel compares it with `arc candidate`.
 
 ## Build
 
@@ -45,6 +46,7 @@ cargo install --git https://github.com/11xx/arc --locked
 cabal v2-run arc-model-differential -- --cases 200           # arc check against the model's refusals
 cabal v2-run arc-model-differential -- --channel execution   # arc integrate --dry-run against execute
 cabal v2-run arc-model-differential -- --channel coverage    # a real integration: authorization and audit coverage
+cabal v2-run arc-model-differential -- --channel candidate   # arc candidate select, promote, and retire against the candidate model
 ```
 
 Each history agrees, is skipped with a reason, or is a disagreement with its

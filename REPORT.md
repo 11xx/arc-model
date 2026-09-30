@@ -260,6 +260,9 @@ sets, because arc reports every blocker and `refusals` returns every ground.
 `generated-i` rows draw the fields the decision rests on; `check-time-i`
 rows draw the same fields from the same seed and then the check-time facts,
 so a check-time row differs from its generated twin only in those facts.
+The candidate channel replays candidate plans instead, and is described with
+the candidate model, under
+[Comparing arc's candidate commands](#comparing-arcs-candidate-commands).
 
 ### The mapping
 
@@ -1054,9 +1057,11 @@ about them:
 
 ## The proposed candidate protocol
 
-A separate model of semantics no arc revision implements. It is checked for
-consistency and for sensitivity to named faults; no differential exists or
-can exist until an implementation does. The evidence below is produced by:
+A separate model of the candidate protocol. The candidate spec checks it for
+consistency and for sensitivity to named faults; the differential's
+candidate channel compares it with arc's candidate commands, as
+[Comparing arc's candidate commands](#comparing-arcs-candidate-commands)
+describes. The spec's evidence below is produced by:
 
 ```sh
 cabal v2-test candidate-spec --test-show-details=direct --test-options="--seed 20260907 --tests 300"
@@ -1083,8 +1088,13 @@ Dependency cycle between the following components:
     library candidate
 ```
 
-No `Arc.Model.*` module, the `spec` suite, the scenarios, or the
-differential depends on the candidate component.
+No `Arc.Model.*` module, the `spec` suite, or the scenarios depend on the
+candidate component. Two components do: the internal library
+`arc-model:candidate-plans`, which holds the candidate plan, what building
+it yields, and its generators, and which the `candidate-spec` suite and the
+differential share; and the differential executable, whose candidate
+channel depends on `arc-model:candidate` and `arc-model:candidate-plans`.
+Neither model library depends on the differential or on the plans.
 
 ### Structural type invariants
 
@@ -1247,7 +1257,21 @@ differently.
   the registrations it adopts, episodes, and declared context; an episode
   reaches what was supplied to and read by it; a selection reaches its
   candidate, shipped tree, evaluations, review, and the references its
-  reads resolved. Judgements and inferences reach nothing.
+  reads resolved. Judgements and inferences reach nothing. arc reads it
+  narrower: a selection or promotion reaches its candidate and what that
+  candidate's parents and adoptions carry, and not the registration whose
+  evaluation it relies on, so `candidate retire` of that registration is
+  permitted where `collection` refuses. The channel classifies the
+  difference as unsettled. It deletes only that registration's pin; the
+  evaluation it relied on answers only at the shipped tree, which the
+  chosen registration and the promotion keep.
+- **An environment where the gate declares no probe.** An evaluation whose
+  environment is `Omitted` answers no gate (`EnvironmentUnrecorded`), since
+  `Requirements` names a declaration and not whether it declares an
+  environment probe. arc takes a candidate evaluation from any environment
+  for a gate that declares no probe, as C15 settles for patchset evidence.
+  The channel classifies the difference as unsettled; adopting C15 would
+  need `Requirements` to carry whether each gate declares a probe.
 - **Recording a basis.** `SelectionRecorded` accepts any `SelectionBasis`;
   that it came from `evaluate` is the caller's obligation, as a decision
   basis is in the existing model.
@@ -1262,7 +1286,7 @@ states them:
   recorded. The model keeps the independent review a selection may require
   — bound to one registration and tree, and by no contributor — as
   `ReviewRecord` and `ReviewShortfall`; it is outside the candidate
-  contract, as "Comparing a future implementation" maps it.
+  contract, as "Review is outside the channel" maps it.
 - **Unnamed negative reviews.** A changes-requested review the proposal does
   not name refuses nothing. A candidate-level review is not built, so the
   model requires none: review authority binds to the destination patchset
@@ -1281,25 +1305,207 @@ states them:
   cited by the chosen registration or by any registration along its parent
   chain; the selector's reads, and an adopted registration's, do not count.
 
-### Comparing a future implementation
+### Comparing arc's candidate commands
 
-An implementation could be compared the way the differential compares arc:
-replay a plan through its commands and compare, over sets, its refusals with
-`refusals`, its selection record with the `SelectionBasis`, its promotion
-refusal with `promote`, and its collection and retention answers with
-`collection` and `retention`. That needs, on the implementation's side: a
-registration command that opens no change and refuses a duplicate identity;
-records for supplied context, tool reads with coverage, declarations with a
-checked citation, and inferences with a source; evaluation and review records
-naming the registration and tree; a selection command taking every proposal
-field; a promotion that re-reads the target; a query for what a root
-retains; and a stated reuse policy, since the model's answer depends on it.
-A mismatch would be classified as elsewhere: implementation defect, model
-defect, or an open decision above.
+`arc-model-differential --channel candidate` replays candidate plans
+through arc's candidate commands and compares, in arc's vocabulary: the
+refusals of a selection as sets of codes, the recorded basis with
+`SelectionBasis`, the promotion with `promote`, the probe registration with
+`record`, and every `candidate retire` with `collection`. It runs the named
+candidate histories, then plans drawn from the candidate spec's own
+generator (`genPlan`, shared through `arc-model:candidate-plans`), each in a
+sandbox of `Differential.Sandbox`:
 
-Review maps to production differently. `Requirements.independentReview` is
-`False` in every production-mapped plan, and `ReviewRecord` and the review
-shortfalls are outside the candidate channel: production records no
-candidate-level review. Review authority binds to the destination patchset
-after promotion, which records a new patchset, so a changes-requested
-verdict on an earlier patchset does not block promoting a repair.
+```sh
+cabal v2-run arc-model-differential -- --channel candidate [--cases N] [--seed N] [--arc PATH]
+```
+
+Every row agrees, is skipped with the reason no command can record it, is
+adjudicated in a class somebody read and named, or disagrees. A disagreement
+nobody has classified, or a replay that broke, fails the run.
+
+#### Review is outside the channel
+
+`Requirements.independentReview` is `False` in every production-mapped
+plan, and `ReviewRecord` and the review shortfalls are outside the candidate
+channel: production records no candidate-level review. Review authority
+binds to the destination patchset after promotion, which records a new
+patchset, so a changes-requested verdict on an earlier patchset does not
+block promoting a repair.
+
+#### The mapping
+
+The encoding (`Differential.Candidate.Encoding`) walks the model's own
+`buildEvents` and maps each event to the one command that records it, so the
+replay records exactly the ledger the model answers for. The fixture gives
+the model's symbolic coordinates their arc meanings: the destination is the
+change `work`, whose brief is `briefRef`; `otherBriefRef` is the brief of a
+second change, `other`; context at `briefLocator` and `briefFirst` is the
+file `contract.md` at the revision the brief is based on; a tree is a tree
+holding the fixture and a file naming it; a declaration is a gate command
+naming it, committed on the target before the runs and the selection that
+consume it; an environment is what the gate's probe prints.
+
+| model | arc |
+| --- | --- |
+| `EpisodeOpened e` | `arc claim work` as an actor named after `e`, then `arc release-claim work`; the episode is the claim's `claim_id` from `arc status --json` |
+| `Registered r` | `arc candidate register --id r.candidateId --tree <tree> --brief work\|other --producer … --parent … --adopts … --episode <claim>…` |
+| `Read t` (`ToolRead`) | `arc context read --subject <registration> --episode <claim> --record t.record --path contract.md --digest sha256:<bytes read> --at <base>`, with `--whole` for `Whole`, `--lines a-b` for `Lines a b`, neither for an omitted coverage. The subject is the first registration along the chosen registration's parent chain that cites the episode |
+| `Declared d` | `arc context declare --subject d.candidate --cites\|--relies-on\|--considers --path contract.md --at <base> [--citation]` as `d.declarant` |
+| `Observations.captures` | `arc context capture --record <each read of the version> --pinned\|--unpinned` |
+| `Judged j` | `arc candidate judge j.candidate --rejected\|--superseded-by` as `j.declarant` |
+| `EvaluationRecorded e` | the gate declared as `e.declaration` on the target, then `arc candidate verify e.candidate` as `e.evaluator`, `PROBE_ENV` set to `e.environment` (unset when `Omitted`) and `GATE_FAIL` set for `Failed`; `e.evaluationId` is the printed `evaluation: <event>` |
+| `Requirements.gates` | `.arc/gates.toml` on the target at the selection, declaring `build` as the requirement's declaration, with an environment probe |
+| `Requirements.reads` | `arc brief work --must-read <base>:contract.md[:a-b]` |
+| `ReusePolicy` | `[candidates] evaluation_reuse = "never"` or `"matching-coordinates"` in `.arc/policy.toml` |
+| `Observations.target` | the target's head when the selection is asked |
+| `Observations.environment` | `PROBE_ENV` of the selection; unset when `Omitted` |
+| `Proposal` | `arc candidate select --chosen --into work --target <head> --evaluation <event>… --rationale` as `proposal.selector`; a proposal target other than `targetNow` is the head before a commit on the target |
+| `SelectionBasis.selectionId` | `candidate-selected` event id (named, not compared) |
+| `.chosen` | the registration whose `arc candidate show --json` lists the selection |
+| `.destination.change` | `.selections[].destination` |
+| `.target` | `.selections[].target` |
+| `.tree` | the chosen registration's `tree` |
+| `.gates` | `.selections[].evaluations[]`: `gate`, `event_id`, and the evaluation's registration as `candidate_id` |
+| `.reads` | `.selections[].reads[]`: `requirement.path@requirement.revision`, `requirement.extent.kind`, `record` |
+| `.reuse` | `.selections[].reuse` |
+| `.contributors` | `.selections[].contributors` |
+| `.selector` | `.selections[].selector` |
+| `.review` | outside the channel |
+| `promote` permits, effect observed | `.selections[].status` `promoted`, `patchset_id` `ps-01` for `Destination.patchset` 1, and `refs/arc/candidate-promotion/<candidate>/<selection>` holding `.selections[].revision` |
+| effect not observed | a dirty destination checkout, which the promotion refuses before any effect: status `unpromoted` |
+| `RefusedBasisMoved` | the effect refused as above, a commit on the target, then `arc candidate promote <selection>`: `basis-moved`, status `unpromoted` |
+| `collection` `CollectionRefused` | `arc candidate retire` exits 1, `rooted-candidate`, naming the selection or promotion |
+| `collection` `NoRootReaches` | `arc candidate retire` exits 0, `retired` |
+
+The refusals, as the codes `arc candidate select` leads its refusal lines
+with, and `arc candidate register` its error:
+
+| model | arc code |
+| --- | --- |
+| `RefusedUnknownCandidate` | `unknown-candidate` |
+| `RefusedTargetMoved` | `target-moved` |
+| `RefusedEnvironmentUnobserved` | `environment-unobserved` |
+| `RefusedGate _ []` | `no-evaluation` |
+| `EvaluationUnrecorded` | `unrecorded` |
+| `OtherRegistration` | `other-registration` |
+| `OtherTree` | `other-tree` |
+| `OtherDeclaration` | `other-declaration` |
+| `EnvironmentUnrecorded` | `environment-unrecorded` |
+| `OtherEnvironment` | `environment-other` |
+| `OutcomeFailed` | `failed` |
+| `ReadPartial` | `partial` |
+| `ReadCoverageUnknown` | `unknown-coverage` |
+| `OnlyDeclared` | `only-declared` |
+| `OnlySupplied` | `only-supplied` (skipped: see below) |
+| `NotRead` | `not-read` |
+| `RefusedBasisMoved` | `basis-moved`, from `arc candidate promote` |
+| `DuplicateCandidate` | `duplicate-candidate` |
+| `NoProducers` | `no-producers` |
+| `UnknownParent` | `unknown-parent` |
+| `UnknownCandidate` of an adoption | `unknown-adopted` |
+| `ParentOtherContract` | `parent-other-contract` |
+| `AdoptionDropsProducer` | `adoption-drops-producer` |
+| `UnknownEpisode` | `unknown-episode` |
+| `CitationUnresolved` | `unknown-citation` |
+| `DuplicateToolRecord` | `duplicate-record` |
+
+`RefusedTargetUnobserved`, `OutcomeUnknown`, `OnlyInferred`, and
+`RefusedNoIndependentReview` have no arc code; their plans are skipped or
+their fields set aside. `BriefUnversioned`, `DuplicateEpisode`, and the
+duplicate and unknown refusals of evaluations, reviews, selections, and
+promotions have none either: arc versions every brief, names its own
+events, and refuses those writes by construction. arc's
+`reuse-policy-undeclared`, `candidate-retired`, `destination-other-contract`,
+and `destination-closed` have no model ground; the fixture always declares
+the policy, retires only after the selection, and selects into the brief's
+own change, so no plan meets them.
+
+#### Outside the channel
+
+Set aside before the model answers, for every plan alike, and counted per
+run:
+
+- **Review** (`ReviewRecord`, the review shortfalls,
+  `Requirements.independentReview`): outside the candidate contract; review
+  authority binds to the destination patchset after promotion.
+- **Declared roots**: arc builds none; its roots are selections and
+  promotions.
+- **Episode expiry**: arc holds one live claim per change, so every episode
+  is released before the next opens; liveness gates no write in either.
+- **A later version of read context**: it changes only what a reference
+  resolves to, which no arc command reports for a candidate.
+- **An inference or a supply nothing requires**: arc records neither for a
+  candidate, and no compared answer rests on one.
+- **Retention risk** (`retention`): arc reports a read `at_risk` in
+  `candidate show` whether or not a root reaches it, and the model answers
+  risk only for what a root retains. Capture reports are recorded; the
+  answers are not compared.
+
+Skipped, the plan unrecorded, when a plan needs:
+
+- **An unobserved target**: arc reads the target at every selection.
+- **An unknown outcome**: arc records the result of every gate run.
+- **An evaluation at a tree its registration does not name**: arc runs a
+  candidate's gates at its own tree.
+- **`only-inferred`**: arc records no inference a read requirement could
+  rest on alone.
+- **`only-supplied`**: arc's supplied context is the contract's own plan or
+  opening artifact, never context supplied to an episode.
+
+#### Classified readings
+
+A disagreement is adjudicated only when arc's answer is, field for field,
+the model's under the fewest readings that explain it, the plan otherwise
+unchanged.
+
+| reading | class | how it shows |
+| --- | --- | --- |
+| a gate that declares no environment probe takes a candidate evaluation from any environment, as C15 has such a gate take patchset evidence; the model binds every evaluation to a recorded environment | unsettled | the named `candidate-environment-unprobed` history: the model refuses `environment-unrecorded`, arc selects and promotes, exactly as the model does for the evaluation run in the observed environment |
+| a selection and a promotion reach the chosen registration and what its parents and adoptions carry, not the registration whose evaluation the selection relies on | unsettled ("What a root reaches") | under `matching-coordinates`, an equal-tree sibling's evaluation answers; the model refuses to collect the sibling, arc retires it, and every other answer agrees |
+
+arc keeps a promotion at `refs/arc/candidate-promotion/<candidate>/<selection>`.
+The model names no ref, so this is no disagreement with it; the channel
+checks the ref holds the promoted commit. A name under
+`refs/arc/candidate/<id>/` would be refused by Git beside the pin
+`refs/arc/candidate/<id>` itself (`'refs/arc/candidate/c1' exists; cannot
+create 'refs/arc/candidate/c1/promotion-s1'`).
+
+#### Results at arc `37b0e72`
+
+`arc 2026.9.29` built from arc's `agent/work-history/candidate-selection`,
+whose head was `37b0e7274f772b03e8dbe9a9be4725536bffacfe` at the run,
+binary SHA-256
+`0887bd220854e3e9c75fc73ab463ee336171387f8f1091b61d60ddc62c9eeeea`,
+selected with `--arc`, seed `20260907`, the compiled-in heap cap.
+
+| run | cases | agreed | adjudicated | skipped | disagreed | failed |
+| --- | --- | --- | --- | --- | --- | --- |
+| default: 13 named + 60 generated | 73 | 47 | 3 | 23 | 0 | 0 |
+| `--cases 240`: 13 named + 240 generated | 253 | 165 | 3 | 85 | 0 | 0 |
+
+The three adjudications at the default are `candidate-environment-unprobed`
+(probe-less gate) and `candidate-sibling-evidence-reused` and
+`candidate-generated-12` (what a root reaches); the 240-case run finds no
+other. The default run's 23 skips are 8 unobserved targets, 6
+`only-inferred`, 4 evaluations at another tree, 3 `only-supplied`, and 2
+unknown outcomes; review was set aside in all 73 plans, episode expiry in
+34, a later context version in 32, declared roots in 19, and an unrequired
+inference or supply in 1. The rows that did not object exercised: 21
+selections, 12 promoted, 5 promotions refused `basis-moved`, 4 left
+unpromoted; refusals `target-moved` 4, `environment-unobserved` 4,
+`no-evaluation` 4, `other-tree` 4, `only-declared` 4, `other-registration`
+3, `failed` 3, `partial` 3, `other-declaration` 2, `unknown-coverage` 2,
+`environment-unrecorded` 1, `not-read` 1; probe registrations accepted 15,
+refused `parent-other-contract` 10 and `adoption-drops-producer` 5; a
+retirement refused in 21 rows and permitted in 50. No plan the generator
+draws reaches `duplicate-candidate`, `unknown-episode`, `unknown-citation`,
+or `unrecorded`.
+
+No Rust defect was observed, so none was filed in arc's journal. The
+decision, execution, and coverage channels, run at their defaults against
+the same binary, summarize as at `e10d981`: decision 169 cases, 148
+agreed, 7 adjudicated, 14 skipped; execution 175 cases, 130 agreed, 31
+adjudicated, 14 skipped; coverage 180 cases, 161 agreed, 5 adjudicated, 14
+skipped; none disagreed or failed to replay, and every adjudication is one
+of the classes recorded there.
