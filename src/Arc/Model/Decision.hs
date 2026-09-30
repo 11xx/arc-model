@@ -109,6 +109,12 @@ evaluateDeclared observations state = case latestPatchset state of
       , policy           = policy
       , authorization    = authorization
       , gates            = gates
+      , declarations     =
+          [ (gate, declaration)
+          | (gate, _, wanted) <- gates
+          , declaration <- observations.declarations
+          , declaration.declarationId == wanted
+          ]
       , prerequisites    = [ (change, closure) | (change, Just closure) <- observations.prerequisites ]
       , consumedFindings = openFindings
       , consumedHolds    = []
@@ -239,6 +245,7 @@ execute observations state = \case
       , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
       , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
       , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
+      , [ MovedDeclarations basis.declarations rebuilt.declarations   | basis.declarations  /= rebuilt.declarations ]
       , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
       ]
     -- with no basis to rebuild, the observed facts the recorded one named
@@ -262,6 +269,7 @@ execute observations state = \case
       , tree             = basis.tree
       , authorization    = basis.authorization
       , gates            = basis.gates
+      , declarations     = basis.declarations
       , prerequisites    = basis.prerequisites
       , consumedFindings = basis.consumedFindings
       , consumedHolds    = basis.consumedHolds
