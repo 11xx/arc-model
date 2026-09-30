@@ -100,7 +100,7 @@ to a tree; a change behind its target is refused with
 
 **Rule.** The effective author of an event is the subject it was recorded
 on behalf of, otherwise its actor. A patchset's contributor set is the set
-declared for it, or, where none was declared, its effective author alone.
+declared for it when nonempty, otherwise its effective author alone.
 Where independent review is required, an approval is rejected when its
 effective author is a contributor to the patchset it approves, or when arc
 assumed the reviewing identity rather than anyone declaring it.
@@ -108,7 +108,8 @@ Independence is judged against the patchset the verdict binds to, never
 against a later one. A rejected self-approval is no approval (C5), and a
 waiver bound to the same patchset can rescue it (C6).
 
-**Status.** Unsettled on two points.
+**Status.** Settled on the effective author and contributor fallback.
+Unsettled on when independent review is required.
 
 - *When independent review is required.*
   - (i) A change that touches a declared danger path, or was raised with
@@ -124,17 +125,13 @@ waiver bound to the same patchset can rescue it (C6).
     the identity that wrote the work is recorded rather than refused").
 
   The model reads (ii).
-- *Who the effective author is.* The guide names the invoker and the
-  effective author apart in `review_subject`, and `--on-behalf-of` records
-  a subject "beside the invoker", but neither defines the effective author.
-  (i) The subject where one was recorded, otherwise the actor. (ii) The
-  invoker always, with the subject recorded beside it. The model reads (i).
-
-**Source.** The guide, "When no independent reviewer is reachable"
-(`review_subject`; independence is judged against the patchset a reviewer
-read; an assumed reviewing identity cannot be the second party; danger
-paths); `arc begin --help`, `--dangerous`; each command's `--help`,
-`--on-behalf-of`.
+**Source.** The guide, "When no independent reviewer is reachable":
+"An event's effective author is its `--on-behalf-of` subject when set,
+otherwise its actor. A patchset's effective contributors are its recorded
+set when nonempty, otherwise its effective author alone." The same section
+states that independence is judged against the patchset a reviewer read,
+and an assumed reviewing identity cannot be the second party; `arc begin
+--help`, `--dangerous`; each command's `--help`, `--on-behalf-of`.
 
 **Realized by.** `effectiveActor`, `effectiveContributors`,
 `authorizationFor`.
@@ -216,8 +213,8 @@ the recorded basis names when several are bound to the one patchset:
 - (ii) the oldest, the first one that let the approval stand;
 - (iii) all of them.
 
-The guide and `--help` do not describe the recorded basis (C19). The model
-reads (i).
+The guide names a consumed debt in the recorded basis (C19) but does not
+choose among several applicable debts. The model reads (i).
 
 **Source.** The guide, "When no independent reviewer is reachable" (the
 waiver binds to the exact patchset head declared).
@@ -310,21 +307,17 @@ codes" (2, 4, 6, 7, 13); `arc release-hold --help` (one hold at a time);
 ### C11. An iterating change and the missing approval (question c)
 
 **Rule.** A change that declares it is iterating is refused on that ground
-until the declaration is cleared.
+until the declaration is cleared. While it iterates, the approval check is
+suppressed: no missing, stale, self-rejected, or contested approval ground
+is reported. Every other blocker still applies. Clearing the declaration
+restores the approval check; iteration grants no integration permission.
 
-**Status.** Unsettled: whether it also owes the missing-approval ground.
+**Status.** Settled.
 
-- (i) Iterating is one more ground. Every other ground still stands beside
-  it, so an iterating change with no approval is refused on both.
-- (ii) Iterating replaces the review request: the check reports the
-  iterating blocker instead of requesting a review, so the missing approval
-  is not reported while the change iterates.
-
-The guide and `--help` state the iterating refusal and say nothing about
-the review request beside it. The model reads (i).
-
-**Source.** The guide, "Exit codes" (13); `arc iterating --help`; `arc
-begin --help`, `--iterating`.
+**Source.** The guide, "Run a change": "While a change declares `iterating`,
+`check` reports `iterating` and suppresses `no-valid-approval`; every other
+blocker still applies." `arc iterating --help`; `arc begin --help`,
+`--iterating`; the guide, "Exit codes" (13).
 
 **Realized by.** `evaluateDeclared`.
 
@@ -389,16 +382,21 @@ declaration, tree, or environment, and evidence of unknown cleanliness each
 leave the gate not green. Attested evidence counts like any other, marked as
 attested. Falsification is advisory and never blocks.
 
-**Status.** Settled, except which passing evidence makes a gate
-discriminating. (i) Any passing evidence for it at the counted revision
-that names a falsification, so a later pass naming none does not retract
-it. (ii) The newest passing run. The guide says only that the gate line
-reads `discriminating` once a pass names the failure it answers. The model
-reads (i). That an unreadable record is not a result is a decision the
-contract makes; the documentation does not describe unreadable records.
+A passing gate is discriminating when any readable passing evidence for
+that gate at the counted tree names a falsification. A later pass naming
+none does not retract it. Falsification does not require that the evidence
+answer the current declaration or environment; coverage does (C14, C15).
+Where the counted tree is unresolved, the guide uses the counted revision;
+the model always observes an evaluated tree and does not model that fallback.
 
-**Source.** The guide, "Rules that change what you do" (evidence binds to a
-tree; the run under the declared gate decides; falsification is advisory);
+**Status.** Settled. That an unreadable record is not a result is a decision
+the contract makes; the documentation does not describe unreadable records.
+
+**Source.** The guide, "Rules that change what you do": "A passing gate row
+is `discriminating` when any passing evidence for that gate at the counted
+tree (or revision when the tree is unresolved) names a falsification. A
+later pass without one does not retract it." The same section binds gate
+coverage to a tree and declaration and makes falsification advisory;
 `arc verify --help`, `--attest`, `--falsified-by`, `--predicted`.
 
 **Realized by.** `readGate`, `gateGreen`, `gateEvidence`.
@@ -480,30 +478,21 @@ the next commit ends it") and `--attest`.
 ### C17. Acceptance probes
 
 **Rule.** Every acceptance probe declared on the brief a patchset binds to
-blocks until evidence bound to that brief fails at the brief's base
-(baseline) and passes at the patchset's head (final). The pair proves
-discrimination, not relevance.
+blocks until evidence bound to that brief and probe fails at the brief's
+base (baseline) and passes at the patchset's head (final). The newest run
+for each phase at its required revision decides. A brief with no base, or
+with its base equal to the patchset head, cannot discharge a probe. The pair
+proves discrimination, not relevance.
 
-**Status.** Settled that a declared probe blocks until it discriminates,
-through a baseline failure and a final pass. Unsettled where the two runs
-must be: `arc verify --help` names the phases, and the guide says only that
-a finding's probe "must fail against the affected revision". (i) The
-baseline at the brief's base, the final at the patchset's head. (ii) The
-phases name no revision; one failing baseline run and one passing final run
-suffice. The model reads (i), and under it:
+**Status.** Settled.
 
-- *A brief whose base is the head, or that names no base.* (i) Nothing can
-  fail at the base apart from the head, and a failure and a pass at one
-  revision contradict each other, so the probe cannot be discharged. (ii) A
-  baseline failure and a final pass satisfy the rule as written, whatever
-  revisions they share. The model reads (i).
-- *Several runs of one probe in one phase at one revision.* (i) The newest
-  decides. (ii) Any run with the expected result suffices. The model reads
-  (i).
-
-**Source.** The guide, "Exit codes" (12, "a declared acceptance probe is
-not discriminating") and "Review and repair"; `arc brief --help`,
-`--probes-json`, `--base`; `arc verify --help`, `--probe`, `--probe-phase`.
+**Source.** The guide, "Run a change": "Both runs must name that brief and
+probe; the newest run for each phase at its required revision decides. A
+brief with no base, or with a base equal to the patchset head, cannot
+discharge a probe." The preceding sentence requires baseline failure at
+that brief's base and final success at the patchset's head; the guide,
+"Exit codes" (12); `arc brief --help`, `--probes-json`, `--base`;
+`arc verify --help`, `--probe`, `--probe-phase`.
 
 **Realized by.** `briefOf`, `newestProbeRun`, `probeRefusals`.
 
@@ -530,20 +519,34 @@ paragraph) and "Files" (`[policy] require_declared_actor`).
 evaluated tree, the target branch and where it stood, the policy, the
 authorization (the approving verdict, the debt when the waiver let the
 approval stand, or the external decision), one covered passing evaluation
-per required gate, each prerequisite's closure, and the blocking-finding and
+per required gate and its normalized declaration values, each prerequisite's closure, and the blocking-finding and
 hold vectors that had to be empty. A refusal names the facts that stood in
 the way.
 
-**Status.** Unsettled: the guide and `--help` do not say what an
-integration records as its basis. (i) Every slot above. (ii) The
-authorization alone — the verdict, the debt, or the external decision —
-with the rest read again from the ledger when asked. The model reads (i).
-The coverage channel compares only the authorization slots, which both
-readings share.
+**Status.** Settled on the integration basis's contents. The guide also
+names an approving verdict's provisional reason, an external approval when
+consumed, normalized gate and policy values, and the danger determination.
+The model's basis identifies verdicts, captures required gate declarations,
+and carries the effective policy. The referenced verdict carries its provisional reason;
+the independent-review policy observation represents the danger result,
+without its provenance. The coverage channel compares the
+authorization slots only, not the full recorded basis.
 
-**Source.** The facts C1 to C18 read, which the contract lists; the guide,
-"Run a change" (the closing summary of `integrate`) and "Exit codes" (a
-refusal names its blocker).
+Unsettled on whether declaration values in the basis are read committed or
+uncommitted: (i) values from committed declaration files; (ii) values from
+the checkout including local edits. The guide states what is recorded but
+does not settle this observation boundary for every declaration layer. The
+model takes declaration and policy values as observations, without choosing
+how files supplied them. C12 specifies the target as the project source;
+it does not settle the operator layer's observation boundary.
+
+**Source.** The guide, "Run a change", the paragraph beginning "A guarded
+integration records the shipped patchset and head": it enumerates the basis,
+including "the normalized gate and policy values consumed, and the danger
+determination", and records a debt only when its waiver supplied the
+approval or let it stand. `integrate --dry-run` prints the basis; readiness
+and the basis are rebuilt before merging. The facts C1 to C18 read name the
+model's corresponding slots; the guide, "Exit codes", names refusals.
 
 **Realized by.** `evaluateDeclared`, `authorizationFor`, `gateEvidence`.
 

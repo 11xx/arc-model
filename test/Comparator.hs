@@ -132,13 +132,14 @@ executionWouldIntegrate =
 -- nothing for the approval; any other difference stays a disagreement.
 decisionIterating :: [Check]
 decisionIterating =
-  [ expectTrue "comparator/decision iterating: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared False (Set.singleton "iterating")))
+  [ expectEq "comparator/decision iterating: the exact answer agrees" Agreed (compared False (Set.singleton "iterating"))
+  , expectEq "comparator/decision iterating: an approval blocker is a disagreement" Disagreed (compared False (Set.fromList ["iterating", "no-valid-approval"]))
   , expectEq "comparator/decision iterating: a ready check is not adjudicated" Disagreed (compared True Set.empty)
   , expectEq "comparator/decision iterating: other blockers are not adjudicated" Disagreed (compared False (Set.fromList ["iterating", "gates-not-green"]))
-  , expectTrue "comparator/decision iterating: with a moved head, only the approval is left out" "" (adjudicatedAs Unsettled (compareAnswer moved (wantedFor moved) (Answer False (Set.fromList ["iterating", "gates-not-green"]))))
+  , expectEq "comparator/decision iterating: with a moved head, only the approval is left out" Agreed (compareAnswer moved (wantedFor moved) (Answer False (Set.fromList ["iterating", "gates-not-green"])))
   , expectEq "comparator/decision iterating: with a moved head, the gates are not left out" Disagreed (compareAnswer moved (wantedFor moved) (Answer False (Set.singleton "iterating")))
-  , expectTrue "comparator/execution iterating: a refusal without the approval" "" (adjudicatedAs Unsettled (executionComparison scenario 13 False (Set.singleton "iterating")))
-  , expectTrue "comparator/execution iterating: without authority, exit 17 beside that refusal" "" (adjudicatedAs Unsettled (executionComparison scenario { Scenario.authorityWithheld = True } 17 False (Set.singleton "iterating")))
+  , expectEq "comparator/execution iterating: a refusal without the approval agrees" Agreed (executionComparison scenario 13 False (Set.singleton "iterating"))
+  , expectTrue "comparator/execution iterating: without authority, exit 17 is an authority adjudication" "" (adjudicatedAs Unsettled (executionComparison scenario { Scenario.authorityWithheld = True } 17 False (Set.singleton "iterating")))
   , expectEq "comparator/execution iterating: a dry run that would integrate is not adjudicated" Disagreed (executionComparison scenario 0 True Set.empty)
   ]
   where

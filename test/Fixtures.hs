@@ -7,6 +7,11 @@ module Fixtures ( fixtureChecks ) where
 import Arc.Model
 import Arc.Model.Declaration qualified as Declaration
 import Arc.Model.Ledger.Audit qualified as Audit
+import Arc.Model.Ledger.Brief qualified as Brief
+import Arc.Model.Ledger.Patchset qualified as Patchset
+import Arc.Model.Ledger.ProbeRun qualified as ProbeRun
+import Arc.Model.Ledger.Verdict qualified as Verdict
+import Arc.Model.State qualified as State
 import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
 import Generators
@@ -15,6 +20,7 @@ import Render
 import Scenario qualified
 
 import Data.Maybe ( fromMaybe, listToMaybe )
+import Data.Set qualified as Set
 
 
 fixtureChecks :: [Check]
@@ -28,6 +34,8 @@ fixtureChecks = concat
   , environmentCoverage
   , evidenceKeyedByTree
   , contractQuestions
+  , iteratingApproval
+  , effectiveAuthors
   , equalTreeDifferentContributors
   , externalDecisions
   , retainedAcrossEpisodeExpiry
@@ -36,6 +44,7 @@ fixtureChecks = concat
   , authorityStandsDown
   , readinessRebuilt
   , undeclaredInvoker
+  , basisDeclarations
   , prerequisiteClosures
   , everyGround
   , permissionIsNotEffect
@@ -214,6 +223,8 @@ evidenceKeyedByTree =
   , expectEq "fixture/keyed: an earlier revision with the same tree answers" (Covered (EventId 1)) (keyedAt [passHere { Verification.revision = Revision "rev0" }]).coverage
   , expectEq "fixture/keyed: with nothing here, the newest record says why" (EvaluatedOtherTree (TreeId "tree2")) (keyedAt [run 2 (Revision "rev2") (TreeId "tree2") GatePass here]).coverage
   , expectEq "fixture/falsified: any passing run here that names a failure discriminates" (Observed known) (keyedAt [passHere { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
+  , expectEq "fixture/falsified: a pass in another environment discriminates at this tree" (Observed known) (keyedAt [passHere, (run 2 (Revision "rev1") (TreeId "tree1") GatePass (Just (EnvironmentId "elsewhere"))) { Verification.answers = Just known }]).falsified
+  , expectEq "fixture/falsified: a pass under another declaration discriminates at this tree" (Observed known) (keyedAt [passHere, passHere { Verification.declaration = DeclarationId "old-build", Verification.shape = DeclarationShape "old command" 60, Verification.answers = Just known }]).falsified
   , expectEq "fixture/falsified: a failing run's label is no demonstration" Omitted (keyedAt [(run 1 (Revision "rev1") (TreeId "tree1") GateFail here) { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
   , expectEq "fixture/falsified: a pass at another tree is no demonstration here" Omitted (keyedAt [(run 1 (Revision "rev2") (TreeId "tree2") GatePass here) { Verification.answers = Just known }, passHere]).falsified
   ]
@@ -234,9 +245,7 @@ The run at B says nothing; the pass at A answers.
 patchset only, and the latest one's waiver authorizes.
 
 (c) C11: an iterating change with no approval is refused as iterating.
-Whether the missing approval stands beside it is unsettled — the model
-reads (i), one more ground; arc's check may read (ii) — so it is not
-asserted.
+The approval ground is suppressed; gates and other blockers still stand.
 -}
 contractQuestions :: [Check]
 contractQuestions =
@@ -245,7 +254,7 @@ contractQuestions =
   , expectEq "fixture/question-b: the first waiver applies to ps-01" (Just (DebtId 1)) ((.debtId) <$> newestWaiver waivers.state (PatchsetId 1))
   , expectEq "fixture/question-b: the second waiver applies to ps-02" (Just (DebtId 2)) ((.debtId) <$> newestWaiver waivers.state (PatchsetId 2))
   , expectPermittedWith "fixture/question-b: the latest patchset's waiver authorizes" (AuthorizedByWaiver (DebtId 2)) waivers.decision
-  , expectTrue "fixture/question-c: iterating refuses (the missing approval beside it is unsettled, C11)" "an iterating change must be refused as iterating" (RefusedIterating `elem` refusals iterating.observation iterating.state)
+  , expectEq "fixture/question-c: iteration suppresses the approval ground" [RefusedIterating] (refusals iterating.observation iterating.state)
   ]
   where
     named name = maybe (error ("no named scenario " <> name)) build (lookup name namedScenarios)
@@ -256,6 +265,37 @@ contractQuestions =
     basisGates = \case
       Permitted basis -> Right basis.gates
       Refused refusal -> Left refusal
+
+-- | C11 suppresses approval grounds while every other blocker stands.
+iteratingApproval :: [Check]
+iteratingApproval =
+  [ expectEq "fixture/iterating: stale approval suppressed" [RefusedIterating] (grounds defaultScenario { Scenario.patchsets = 2, Scenario.verdictOnFirst = True })
+  , expectEq "fixture/iterating: self-approval suppressed" [RefusedIterating] (grounds defaultScenario { Scenario.reviewer = Just Scenario.ActorContributor })
+  , expectEq "fixture/iterating: negative verdict suppressed" [RefusedIterating] (grounds defaultScenario { Scenario.verdict = ChangesRequested })
+  , expectEq "fixture/iterating: contested verdict suppressed" [RefusedIterating] (refusals contested.observation contested.state { State.verdicts = [tip, tip { Verdict.event = EventId 799 }] })
+  , expectEq "fixture/iterating: a red gate still blocks" ["iterating", "gates"] (map refusalTag (grounds defaultScenario { Scenario.reviewer = Nothing, Scenario.gateMode = EvidenceFailing }))
+  , expectRefusedWith "fixture/iterating: clearing iteration restores approval check" "no-approval" (build defaultScenario { Scenario.reviewer = Nothing }).decision
+  ]
+  where
+    grounds scenario = let built = build scenario { Scenario.iterating = True } in refusals built.observation built.state
+    contested = build defaultScenario { Scenario.iterating = True }
+    tip = fromMaybe (error "fixture needs verdict") (governingVerdict contested.state)
+
+-- | C4 uses the represented subject and falls back only for an empty set.
+effectiveAuthors :: [Check]
+effectiveAuthors =
+  [ expectEq "fixture/effective-author: subject overrides invoker" authorActor (effectiveActor represented)
+  , expectEq "fixture/effective-author: absent subject uses invoker" reviewActor (effectiveActor verdict)
+  , expectEq "fixture/effective-author: empty contributors use effective author" (Set.singleton otherActor) (effectiveContributors representedPatchset)
+  , expectEq "fixture/effective-author: declared contributors win" (Set.singleton authorActor) (effectiveContributors representedPatchset { Patchset.contributors = Set.singleton authorActor })
+  , expectEq "fixture/effective-author: represented author cannot approve independently" (Left (RefusedSelfApproval verdict.event authorActor (effectiveContributors patchset))) (authorizationFor built.observation.policy built.state { State.verdicts = [represented] } patchset)
+  ]
+  where
+    built = build defaultScenario
+    verdict = fromMaybe (error "fixture needs verdict") (governingVerdict built.state)
+    patchset = fromMaybe (error "fixture needs patchset") (latestPatchset built.state)
+    represented = verdict { Verdict.onBehalfOf = Just authorActor }
+    representedPatchset = patchset { Patchset.author = otherActor, Patchset.contributors = Set.empty }
 
 {- | A run on a dirty worktree describes content no checkout of its
 revision reproduces. It counts only under a waiver naming exactly the
@@ -314,10 +354,17 @@ acceptanceProbes =
   , expectEq "fixture/probes: no final run" [ProbeNotDiscriminating accept (Observed GateFail) Omitted] (probeGrounds ProbeFinalMissing)
   , expectEq "fixture/probes: a failing final run" [ProbeNotDiscriminating accept (Observed GateFail) (Observed GateFail)] (probeGrounds ProbeFinalFailed)
   , expectEq "fixture/probes: fail and pass at one revision" [ProbeCannotDischarge accept] (probeGrounds ProbeUndischargeable)
+  , expectEq "fixture/probes: no brief base cannot discharge" [ProbeCannotDischarge accept] (at discharged.state { State.briefs = map (\b -> b { Brief.base = Nothing }) discharged.state.briefs })
+  , expectEq "fixture/probes: newer failing final supersedes pass" [ProbeNotDiscriminating accept (Observed GateFail) (Observed GateFail)] (at discharged.state { State.probeRuns = discharged.state.probeRuns <> [finalRun { ProbeRun.event = EventId 800, ProbeRun.result = GateFail }] })
+  , expectEq "fixture/probes: another brief supplies no final evidence" [ProbeNotDiscriminating accept (Observed GateFail) Omitted] (at discharged.state { State.probeRuns = [ r { ProbeRun.brief = if r.phase == Final then EventId 799 else r.brief } | r <- discharged.state.probeRuns ] })
+  , expectEq "fixture/probes: another revision supplies no final evidence" [ProbeNotDiscriminating accept (Observed GateFail) Omitted] (at discharged.state { State.probeRuns = [ r { ProbeRun.revision = if r.phase == Final then Revision "elsewhere" else r.revision } | r <- discharged.state.probeRuns ] })
   , expectRefusedWith "fixture/probes: refused" "acceptance-probes" (probeDecision ProbeFinalMissing)
   ]
   where
     accept = ProbeName "accept"
+    discharged = build defaultScenario { Scenario.probe = ProbeDischarged }
+    finalRun = fromMaybe (error "fixture needs final run") (listToMaybe [ r | r <- discharged.state.probeRuns, r.phase == Final ])
+    at state = probeRefusals state (fromMaybe (error "fixture needs patchset") (latestPatchset state))
     probeDecision mode = (build defaultScenario { Scenario.probe = mode }).decision
     probeGrounds mode = concat
       [ refused
@@ -487,6 +534,18 @@ undeclaredInvoker =
     built      = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
     undeclared = built.observation { Observations.invokerDeclared = False }
     decision   = decide undeclared built.state
+
+-- | C19 records consumed values, so later declarations cannot rewrite them.
+basisDeclarations :: [Check]
+basisDeclarations =
+  [ expectEq "fixture/basis: declaration values are captured" (Right [(gateName, declaration)]) ((.integration.declarations) <$> built.execution)
+  , expectEq "fixture/basis: declaration motion with applicable evidence stands down" (Left (RefusedBasisMoved [MovedDeclarations [(gateName, declaration)] [(gateName, unprobed)]])) (execute moved built.state built.decision)
+  , expectEq "fixture/basis: recorded values survive later observations" (Just [(gateName, declaration)]) ((.declarations) <$> latestIntegration built.finalState)
+  ]
+  where
+    built = build defaultScenario
+    unprobed = declaration { Declaration.environment = Nothing }
+    moved = built.executionObservation { Observations.declarations = [unprobed] }
 
 -- | A permission names each prerequisite's closure beside the rest of its
 -- basis (C19); a prerequisite that has not integrated refuses.

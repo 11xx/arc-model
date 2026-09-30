@@ -158,7 +158,8 @@ allMutants =
   , Mutant
       { name      = "environment-ignored"
       , channel   = ChannelDecision
-      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      -- dropping the probe also corrupts a permitted basis's declaration
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceDifferentValue]
       , run       = \b -> BehaviourDecision (evaluate (probesDropped b.observation) b.state)
       }
   , Mutant
