@@ -171,7 +171,7 @@ authorizationFor policy state patchset
       Just external
         | external.kind == ExternalApproved, not independentRequired -> Just (AuthorizedByExternalVerdict external.event)
       _absent -> Nothing
-    independentRequired = policy.independentVerdictRequired && policy.forbidSelfApproval
+    independentRequired = Policy.independenceOwed policy
     selfApprovalRejected verdict
       = independentRequired
       && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset)
