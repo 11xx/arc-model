@@ -67,7 +67,7 @@ adjudicatedAs kind = \case
 -- decides afresh under the loosened policy, audit included.
 coveragePolicyMotion :: [Check]
 coveragePolicyMotion =
-  pinned "comparator/coverage policy motion" scenario Unsettled
+  pinned "comparator/coverage policy motion" scenario ModelDefect
     (PostIntegration True (Set.singleton "verdict") (Just "changes-requested") 1 False)
   <> [ expectEq "comparator/coverage policy motion: an unrelated answer is not adjudicated" Disagreed
          (compareCoverage scenario built wanted (PostIntegration True (Set.singleton "nonsense") (Just "nonsense") 999 True))
@@ -96,7 +96,7 @@ coverageUndeclaredReviewer =
 -- is no such history.
 executionPolicyMotion :: [Check]
 executionPolicyMotion =
-  [ expectTrue "comparator/execution policy motion: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared 0 True Set.empty))
+  [ expectTrue "comparator/execution policy motion: the exact answer is adjudicated" "" (adjudicatedAs ModelDefect (compared 0 True Set.empty))
   , expectEq "comparator/execution policy motion: a refusing check is not adjudicated" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a refusal under the unmoved policy is not adjudicated" Disagreed (compared 3 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a ready check naming a blocker is not adjudicated" Disagreed (compared 0 True (Set.singleton "no-valid-approval"))
