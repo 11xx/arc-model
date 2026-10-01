@@ -131,8 +131,8 @@ adjudicateExecution scenario built wanted dry
   , dry.after.ready
   , Set.null dry.after.blockers
   = Just Adjudication
-      { kind   = Unsettled
-      , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
+      { kind   = ModelDefect
+      , reason = "policy motion: arc decides again under the policy in force at integration, which permits, as C20 settles; the model acts only on the decision made before the policy moved"
       }
   -- a refused decision in a store without authority: arc refuses the store
   -- before it reads readiness, the model answers with the decision's
@@ -237,8 +237,8 @@ adjudicateCoverage scenario built wanted found
   , redecided.integrated
   , found == redecided
   = Just Adjudication
-      { kind   = Unsettled
-      , reason = "policy motion: arc decides again under the policy in force at integration, which permits; the model acts only on the decision made before the policy moved"
+      { kind   = ModelDefect
+      , reason = "policy motion: arc decides again under the policy in force at integration, which permits, as C20 settles; the model acts only on the decision made before the policy moved"
       }
   | otherwise = Nothing
   where
