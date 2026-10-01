@@ -337,8 +337,7 @@ prop_grounds_are_facts scenario = conjoin
         -> Just patchset /= latestId
         && any (\v -> v.event == event && v.kind == Approved && v.patchset == patchset) state.verdicts
       RefusedSelfApproval event actor contributors
-        -> observation.policy.independentVerdictRequired
-        && observation.policy.forbidSelfApproval
+        -> independenceOwed observation.policy
         && Just contributors == (effectiveContributors <$> latest)
         && any (\v -> v.event == event && effectiveActor v == actor) state.verdicts
       RefusedNoApproval

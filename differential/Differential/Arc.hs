@@ -19,7 +19,7 @@ module Differential.Arc
     , checkRefusedConflictingGates
     ) where
 
-import Arc.Model ( DebtKind(..), ExternalKind(..), Policy, VerdictKind(..) )
+import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), Policy, VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 import Differential.Plan
 import Differential.Sandbox qualified as Sandbox
@@ -178,18 +178,27 @@ operatorGatesToml = unlines
   , "command = \"true\""
   ]
 
--- | The policy file, declaring these paths dangerous.
+-- | The policy file, declaring these paths dangerous. With no path, the
+-- file declares no danger table at all.
 policyToml :: Policy -> [FilePath] -> String
-policyToml policy dangerous = unlines
+policyToml policy dangerous = unlines $
   [ "[policy]"
   , "forbid_self_approval = " <> bool policy.forbidSelfApproval
   , "require_declared_actor = " <> bool policy.requireDeclaredActor
-  , ""
-  , "[danger]"
-  , "paths = [" <> commaList [ show path | path <- dangerous ] <> "]"
+  ]
+  <> concat
+  [ [ "", "[danger]", "paths = [" <> commaList [ show path | path <- dangerous ] <> "]" ]
+  | not (null dangerous)
   ]
   where
     bool value = if value then "true" else "false"
+
+-- | The paths a policy declares dangerous, given the file the change edits.
+dangerPaths :: DangerScope -> FilePath -> [FilePath]
+dangerPaths scope file = case scope of
+  DangerScoped     -> [file]
+  DangerOutside    -> ["untouched.txt"]
+  DangerUndeclared -> []
 
 -- | Run one plan in a fresh sandbox under the given directory and ask
 -- arc for its answer.
@@ -295,7 +304,7 @@ mkSandbox options root policy = do
       sandbox     = Sandbox { repo = repo, peer = sandboxRoot </> "peer", home = home, worktree = home </> ".worktrees" </> ("repo-" <> changeSlug), sealed = sealed }
   createDirectoryIfMissing True (repo </> ".arc")
   writeFile (repo </> ".arc" </> "gates.toml") gatesToml
-  writeFile (repo </> ".arc" </> "policy.toml") (policyToml policy ["danger.txt"])
+  writeFile (repo </> ".arc" </> "policy.toml") (policyToml policy [ "danger.txt" | policy.danger /= DangerUndeclared ])
   writeFile (repo </> "README.md") "differential fixture\n"
   git sandbox repo ["init", "-q", "-b", "master"]
   git sandbox repo ["config", "user.name", "Tester"]
@@ -358,10 +367,10 @@ runSteps options sandbox = mapM_ step
         git sandbox sandbox.repo ["add", "target-after.txt"]
         git sandbox sandbox.repo ["commit", "-q", "-m", "the target moves after the decision"]
       -- arc reads policy from the target's commits; the file the change
-      -- edits is dangerous exactly when the policy requires independence,
-      -- as the plan's own policy has danger.txt
+      -- edits is dangerous exactly when the policy scopes it so, as the
+      -- plan's own policy has danger.txt
       MovePolicy policy file -> do
-        writeFile (sandbox.repo </> ".arc" </> "policy.toml") (policyToml policy [ if policy.independentVerdictRequired then file else "untouched.txt" ])
+        writeFile (sandbox.repo </> ".arc" </> "policy.toml") (policyToml policy (dangerPaths policy.danger file))
         git sandbox sandbox.repo ["commit", "-q", "-m", "the policy moves after the decision", "--", ".arc/policy.toml"]
       Audit kind independent ->
         -- arc refuses an audit of a change that did not integrate, which is
