@@ -74,10 +74,10 @@ counterexample can be generated for them.
 
 ### Unit fixtures
 
-`test/Fixtures.hs` pins the exact answer for each required case: 158 checks
+`test/Fixtures.hs` pins the exact answer for each required case: 165 checks
 at seed `20260907`, alongside 52 comparator and 10 sandbox checks. The
 13 properties, 18 killed mutants, and coverage sampler bring the spec
-suite to 252/252 passing checks.
+suite to 259/259 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -92,6 +92,8 @@ suite to 252/252 passing checks.
 | `keyed` | a newer run at another tree, under another declaration, or in another environment neither answers nor hides the pass at the evaluated tree; an earlier revision with the same tree answers; with nothing under the key, the newest record says why |
 | `equal-tree` | equal trees with different contributor and obligation scopes decide differently; a waiver rescues the contributor; an unused debt is not named |
 | `external` | an external approval authorizes where no independent review is owed and is refused as `no-approval` where one is; beside a local approval the witnessed verdict is named; a change request stands over a local approval and over a waiver; a local refusal stands over an external approval; a rejection stands; an external approval is no independent read |
+| `external-scope` | an external approval alone on a declared danger path is refused with self-approval permitted; a local approval beside it authorizes; where no danger path is declared it authorizes alone, unless self-approval is forbidden |
+| `debt-beside-external` | beside an external approval that authorizes alone, a debt is left out of the basis and is still owed after the merge |
 | `episode` | an expired claim ends liveness, not the retained debt and evidence; the waiver still applies |
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
 | `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree and the readiness it refuses |
@@ -306,7 +308,9 @@ makes them, patchset by patchset, so the newest run is the same run on both
 sides. The decision is asked with the probe printing the local identity,
 or nothing when the scenario fails it. Policy is written to
 `.arc/policy.toml` and the change edits the declared dangerous path exactly
-when independent review is required.
+when the policy's danger scope puts it inside the gate; outside the gate,
+the declared path is one the change never edits, and a repository that
+declares no danger path writes no `[danger]` table.
 
 The check-time facts are commands too. Dirty evidence is `arc verify` with
 an uncommitted edit in the worktree, removed after the run; a dirty-tree
@@ -437,7 +441,8 @@ nobody evaluated, so `merged-tree-unevaluated` and `gates-not-green`.
 The moves are commands made after `arc check` answers: a target moved is a
 commit on `master`; a policy moved is a commit on `master` rewriting
 `.arc/policy.toml` to the other policy, with the file the change edits
-declared dangerous exactly when the new policy requires independence;
+declared dangerous exactly when the new policy's scope puts it inside the
+gate;
 withheld authority is the store paired with a second repository's store
 through `arc replica init`, `pair`, and `authority offer`, which relinquishes
 it. The dry run and the second check run where the decision was asked.
@@ -460,9 +465,10 @@ the points of the same name under "Unsettled design"; the third is
 - **Policy motion.** A policy moved between the decision and the
   integration, where the model's own grounds under the new policy are none:
   arc decides again under that policy and would integrate; the model acts
-  only on the decision made before the policy moved, and stands down. The
-  rule applies only where the check beside the dry run is ready and names
-  no blocker.
+  only on the decision made before the policy moved, and stands down. C20
+  settles the re-decision, so the class names a model defect. The rule
+  applies only where the check beside the dry run is ready and names no
+  blocker.
 - **A move committed on the target.** arc reads declarations and policy
   from the target's commits, so the plan commits a declaration or policy
   move there, and the target moves with it; the scenario states the
@@ -518,11 +524,11 @@ verdict say; whether the pair should read as approved stays unsettled.
 
 "External beside local" is measured as a disagreement. Where a witnessed
 approval and an external approval of the head both stand and the policy
-lets an external approval count, arc's basis names both, and the model's
-`AuthorizedByVerdict` names the verdict alone. Under a policy that
-requires independent review the external approval does not count and arc
-names the verdict alone, as the model does. The class is adjudicated
-`unsettled`.
+lets an external approval count alone, arc's basis names both, and the
+model's `AuthorizedByVerdict` names the verdict alone. Inside the danger
+gate, or where independent review is owed, the external approval cannot
+count alone and arc names the verdict alone, as the model does. The class
+is adjudicated `unsettled`.
 
 Policy motion is adjudicated only where arc's record is, field for field,
 the one the model makes when it decides afresh under the moved policy:
@@ -531,7 +537,8 @@ the one the model makes when it decides afresh under the moved policy:
 audit included, and the rule compares arc's answer with that history's
 authorization, audit verdict, open audit findings, and owed review. The
 expectation is the model's alone; nothing in it is read from arc's answer.
-Any other difference on such a history stays a disagreement.
+Any other difference on such a history stays a disagreement. C20 settles
+the re-decision, so the class is adjudicated a model defect.
 
 One class is `encoding`. Where policy requires a declared actor, arc
 refuses to record a verdict nobody declared, and the model's ledger holds
@@ -739,6 +746,76 @@ agreements. The coverage channel inspects authorization and audit slots,
 not the full basis encoding or advisory falsification. C13's advisory
 scope and C19's captured declaration values have independent fixtures.
 
+### Results at arc `01c618a`
+
+Installed `arc 2026.9.29`, master
+`01c618a92f08739edd4d4c5cb2573e637105571b`, seed `20260907`, `--cases 200
+--check-time-cases 200` on each of decision, execution, and coverage, and
+`--cases 240` on the candidate channel. Every channel used one captured
+copy of the installed binary, SHA-256
+`a998a28104966ee53d47c254a7df4378c0c2ad0d10f10a79fadb622fb1b26555`,
+selected with `--arc`, and the compiled-in heap cap. Replay roots were
+under an ignored `target/` directory and sealed by `Differential.Sandbox`.
+
+| channel | installed arc `e10d981` | installed arc `01c618a` |
+| --- | --- | --- |
+| decision | 449 cases: 389 agreed, 20 adjudicated, 40 skipped, 0 disagreed | 454 cases: 394 agreed, 20 adjudicated, 40 skipped, 0 disagreed |
+| execution | 455 cases: 300 agreed, 115 adjudicated, 40 skipped, 0 disagreed | 460 cases: 305 agreed, 115 adjudicated, 40 skipped, 0 disagreed |
+| coverage | 460 cases: 415 agreed, 5 adjudicated, 40 skipped, 0 disagreed | 467 cases: 422 agreed, 5 adjudicated, 40 skipped, 0 disagreed |
+| candidate | 253 cases at `37b0e72`: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed | 253 cases: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed |
+
+No replay failed. Every generated and check-time row answers as it did at
+`e10d981`; the new rows are the named histories that reach the two
+authorization rules arc `01c618a` changed, and each of them agrees.
+
+| rows | decision | execution | coverage |
+| --- | --- | --- | --- |
+| named | 54: 53 agreed, 1 target | 60: 56 agreed, 3 target, 1 authority | 67: 65 agreed, 1 external, 1 undeclared reviewer |
+| generated | 200: 170 agreed, 11 target, 19 skipped | 200: 121 agreed, 38 target, 22 authority, 19 skipped | 200: 179 agreed, 2 external, 19 skipped |
+| check-time | 200: 171 agreed, 8 target, 21 skipped | 200: 128 agreed, 29 target, 22 authority, 21 skipped | 200: 178 agreed, 1 external, 21 skipped |
+
+| mismatch | diagnosis | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| declaration/policy committed on the target moves that target too, while the original scenario omits the move | model defect in replay representation (comparator: encoding; C12, C3) | 20 | 70 | 0 |
+| a refused decision beside withheld integration authority | unsettled contract (C20: authority before readiness versus returning the existing refusal) | 0 | 45 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: whether both authorizations are consumed) | 0 | 0 | 4 |
+| undeclared reviewer under required declared identity: replay cannot record the verdict held by the model's unconstrained ledger | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 |
+
+The candidate channel's three adjudications are its two classified
+readings, both unsettled: a gate that declares no environment probe
+(`candidate-environment-unprobed`) and what a root reaches
+(`candidate-sibling-evidence-reused`, `candidate-generated-12`). Its 85
+skips are 29 unobserved targets, 18 evaluations at another tree, 16
+`only-supplied`, 14 `only-inferred`, and 8 unknown outcomes. No Rust defect
+was observed on any channel, so nothing was filed in arc's journal.
+
+The policy-motion class is adjudicated a model defect since C20 settles
+the re-decision, and no row of this run falls in it: every policy the plan
+moves is committed on the target, which moves the target too.
+
+#### The authorization rules arc `01c618a` changed
+
+The operator ruled that an external approval never counts alone inside
+the danger gate, and that a debt beside an approval that stands without it
+is left out of the basis and still owed (C9, C6). The named histories that
+reach each case, replayed before and after the model followed the
+contract, against the binary at each revision (arc `e10d981` built from
+source for the comparison):
+
+| history | channel | model before, arc `e10d981` | model before, arc `01c618a` | model after, arc `e10d981` | model after, arc `01c618a` |
+| --- | --- | --- | --- | --- | --- |
+| `external-approved-danger-self-permitted`: an external approval alone on a declared danger path, self-approval permitted | decision, coverage | agreed (ready; basis `external`) | disagreed: arc refuses `no-valid-approval` | disagreed: arc is ready | agreed (refused) |
+| `external-beside-local-danger-self-permitted`: the same beside an independent local approval | decision, coverage | agreed (decision); external beside local (coverage) | agreed (basis `verdict`) | agreed (decision); external beside local (coverage) | agreed (basis `verdict`) |
+| `external-approved-danger-undeclared`, `cover-external-danger-undeclared`: alone where no danger path is declared, self-approval permitted | decision, coverage | agreed (ready; basis `external`) | agreed | agreed | agreed |
+| `external-approved-danger-undeclared-self-forbidden`: the same with self-approval forbidden | decision, coverage | agreed (refused) | agreed | agreed | agreed |
+| `external-approved-beside-debt`, `cover-debt-beside-external`: a debt beside a standing external approval, outside the gate | coverage | disagreed: arc's basis names `debt external`, the model's `debt` | disagreed: arc's basis names `external` | disagreed: arc's basis names `debt external` | agreed (basis `external`; review owed) |
+
+The two histories whose answer arc `01c618a` changed disagree with the
+model of the earlier rule and agree with the model of the contract. Arc
+`e10d981` already disagreed with the model on the debt beside an external
+approval, recording both, which no history reached before. On every
+revision arc still lists that debt under `arc query --debt`.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -763,20 +840,51 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names arc `e10d981b01c1613fec0b5f0925492ed83df501f6`,
-the master revision recorded beside installed `arc 2026.9.29`. The sources
-are the guide the installed binary prints with no arguments, command
-`--help`, and the public README; no Rust source informs the model.
+`comparisonRevision` names arc `01c618a92f08739edd4d4c5cb2573e637105571b`,
+the master revision the installed `arc 2026.9.29` was built from. The
+sources are the guide the installed binary prints with no arguments,
+command `--help`, the public README, and the operator's ruling
+`authorization-rules-follow-the-guide` in arc's journal, with its
+amendment, where it reads the guide; no Rust source informs the model.
 
-| clause | settled from the installed guide | remaining readings or limits |
+Every clause citing the guide or `--help` was re-sourced against the
+installed binary's text, compared with the text arc `e10d981` prints. Each
+quotation the contract makes still stands. The guide's authorization text
+is unchanged; what moved is the operator's reading of two of its passages,
+which arc `01c618a` implements, and the integration plan paragraph.
+
+| clause | re-sourced | change |
 | --- | --- | --- |
-| C4 | "When no independent reviewer is reachable": subject before actor; nonempty contributor set before effective author fallback | required independence with `forbid_self_approval` off remains ambiguous; model reads dangerous scope and enabled policy together |
-| C11 | "Run a change": iteration suppresses `no-valid-approval`, with every other blocker retained | none; iteration always refuses integration |
-| C13 | "Rules that change what you do": any passing evidence for the gate at the counted tree naming a falsification discriminates; a later unlabelled pass does not retract it | unreadability is the contract's conservative decision; unresolved-tree revision fallback is unsupported |
-| C17 | "Run a change": brief/probe binding, exact baseline and final revisions, newest phase run, and no-base/equal-head refusal | none within discharge; discrimination does not establish relevance |
-| C19 | "Run a change": the recorded integration basis, normalized values, and debt only when consumed | committed versus uncommitted declaration observation remains open; full basis encoding is not compared by the coverage channel |
+| C1, C2, C3, C5, C7, C8, C10, C11, C12, C13, C15, C16, C17, C18, C21, C23 | the same passages, unchanged | none; C5's patchset at an unchanged head, C7's several debts, C12's declaration fields, and C16's waiver readings stay open |
+| C4 | "When no independent reviewer is reachable" and the ruling's amendment | the danger scopes stated: inside the gate (declared, escalated, or undetermined), outside it, uniform where none is declared. When independence is owed stays open; the two readings agree in a uniform repository |
+| C6 | "Run a change" ("only when its waiver supplied the approval or let it stand"), the ruling, `arc integrate --help` `--debt` | a debt beside an approval that stands without it, local or external, is out of the basis and still owed |
+| C9 | the same section ("never alone on a dangerous path") and the ruling | an external approval never counts alone inside the gate, whatever `forbid_self_approval` says; in a uniform repository it counts alone unless independence is owed. Its four unsettled readings stay open |
+| C14 | `arc verify --help` `--skip-green` | reuse is keyed by the tree it answers; no rule change |
+| C19 | "Run a change", the integration plan (`arc-integration-plan/1`, `--json`) | the danger determination is the policy's danger scope, without provenance; committed versus uncommitted declaration observation stays open |
+| C20 | "Run a change" (`--expect-basis` "never changes the decision"; a moved declaration is a warning when the integration proceeds) | policy motion settled on re-deciding, which the model does not take: see "Open decisions against the contract". Authority before readiness stays open |
+| C22 | "The history model" | a discharge never rewrites the basis; no rule change |
 
-For the preceding pin `b320731`, every merge since `26f6bdc` was read for
+The new history-model and context sections, the candidate selection and
+promotion commands, and the restated network guarantee ("Every transport
+it offers is a file the caller moves") change no clause: the candidate
+protocol is outside the contract, except that a promoted patchset is read
+as any other, which the scope now says; context relations authorize
+nothing; and the network guarantee bears on the sandbox, which already
+gives arc nothing to reach.
+
+Every merge since `e10d981` was read for its effect on the modelled
+decision from its message and public documentation, not from its diff:
+
+| merges | subject | effect on the model |
+| --- | --- | --- |
+| `01c618a` (`3a79d0a`) | external approvals and debt waivers follow the guide | modelled: `DangerScope`, `independenceOwed`, `externalApprovalCountsAlone`; `authorizationFor` asks an external approval before a waiver; coverage owes a debt left out of the basis. Fixtures `external-scope` and `debt-beside-external` |
+| `c41eabe` (`c5af997`, `30767a0`, `c0532be`, `d7c6d4b`) | the integration decision as one pure function; `integrate --dry-run --json` and `--expect-basis` | C19 and C20 re-sourced; C20's policy motion settled. The execution channel still compares the dry run's exit and the check beside it, not the printed plan |
+| `9fa0df1` (`c1c2118`, `fa47bbc`, `1bc59bd`) | the history model and the network guarantee in the guide | C22 and the scope re-sourced; no rule change |
+| `a4f4b86` (`0662db3`, `a529987`, `4bf0d41`) | reuse bound to its content tree; unreadable changes isolated in aggregate reads | C14 re-sourced; an unreadable prerequisite cannot authorize, which `Observations.prerequisites` already states as an open one |
+| `7a4ed7a` (`a3a2220`, `1b2c663`) | candidate selection and promotion | the candidate channel, already exercising them; the scope reads a promoted patchset as any other |
+| `e6010c6` (`0fc29d6`, `8ef2253`, `f4fe2d2`, `8c4d6a0`) | context relations | outside the contract; the candidate channel's read requirements |
+
+For the pin before `e10d981`, `b320731`, every merge since `26f6bdc` was read for
 its effect on the modelled decision from its message and public documentation,
 not from its diff:
 
@@ -814,7 +922,10 @@ still choose differently. Each is a deliberate choice, not an oversight.
   dangerous path and also permits contributor approvals with
   `forbid_self_approval` off. Whether danger alone requires independence or
   danger and that policy together do remains open. The model takes the
-  latter; the effective-author and contributor-fallback rules are settled.
+  latter; the effective-author and contributor-fallback rules and the
+  danger scopes are settled. The operator's ruling on external approvals
+  decides nothing here: it keys an external approval on danger alone and
+  leaves a witnessed self-approval where it was.
 - **Declaration observation (C19).** The basis records normalized values,
   and the model captures consumed declarations and policy as observations.
   The guide does not say for every layer whether those values came from
@@ -875,15 +986,6 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
-- **Policy motion.** A policy that changes between decision and execution
-  produces `RefusedBasisMoved` rather than a re-decision. Re-deciding under
-  the new policy would be a different action, with a different basis.
-  Production re-decides: `integrate` evaluates readiness under the policy in
-  force when it runs, and the execution channel adjudicates the difference
-  where that re-decision permits. Production reads project policy from the
-  target's commits, so a moved policy moves the target, and the merge
-  nobody evaluated refuses under either reading wherever a gate is
-  required.
 - **Contested verdicts.** The model treats more than one active tip as
   contested and refuses. It does not model the repair of a contested chain
   beyond the arrival of a single superseding verdict.
@@ -906,6 +1008,20 @@ names the reading the model takes, and nothing is listed here.
   as a model defect or as a fact the model leaves to its observations, as
   it leaves which layer a declaration comes from. No differential history
   deletes the target, so the run cannot show it.
+- **A decision made earlier never changes the integration's (C20).** The
+  clause has the integration decide afresh from what it observes, under the
+  policy in force, and name what moved since an earlier plan beside its
+  refusal or as a warning when it proceeds. The model's `execute` compares
+  the earlier decision's basis with the one it rebuilds and stands down
+  with `RefusedBasisMoved` wherever they differ, even where readiness
+  holds: a moved policy, target, tree, gate evidence, or authorization
+  stands the action down, where the clause proceeds on the rebuilt basis.
+  `prop_basis_moved_stands_down` and the `policy-moved` fixture pin the
+  model's present answer. Open until it is
+  adjudicated; the differential classifies arc's re-decision as a model
+  defect, and no row of the seeded run reaches it, since every move the plan
+  makes moves the target and the merge nobody evaluated then refuses on
+  both sides.
 
 ## Adjudicated
 
@@ -913,6 +1029,17 @@ Disagreements between the model and the contract, each with its class and
 the change that settled it. A model defect carries a fixture that fails on
 the model before the fix.
 
+- **External approvals and debts beside them (C9, C6): model defect.**
+  The model let an external approval authorize alone wherever no
+  independent review was owed, so on a declared danger path with
+  `forbid_self_approval` off, and asked a waiver before an external
+  approval, so a debt beside a standing external approval became the
+  authorization. The clauses, re-sourced with the operator's ruling, refuse
+  the first and leave the debt out of the basis, still owed. `Policy`
+  carries the danger scope; `externalApprovalCountsAlone` decides the
+  first, `authorizationFor` asks the external approval before the waiver,
+  and `coverageAfterIntegration` owes a debt the basis left out. Fixtures
+  `external-scope` and `debt-beside-external`; commit `b4a3f5d`.
 - **Iteration (C11): model defect under the settled guide rule.** Approval
   grounds stood beside iteration. The guide explicitly suppresses
   `no-valid-approval`, so `evaluateDeclared` suppresses approval grounds
@@ -1003,10 +1130,11 @@ about them:
 
 - **Full basis encoding.** The model captures normalized gate declarations
   and policy and references the approving verdict, which carries its
-  provisional reason. The independent-review policy observation represents
-  the danger result, without its source provenance. The differential
-  compares authorization slots only; it does not validate every encoded
-  integration-basis field.
+  provisional reason. The policy's danger scope represents the danger
+  determination, without its source provenance. The differential compares
+  authorization slots only; it does not validate every encoded
+  integration-basis field, and it does not read the
+  `arc-integration-plan/1` plan `integrate --dry-run --json` prints.
 - **Unresolved counted tree for falsification.** The guide falls back to
   revision when the tree is unresolved; the model observes an evaluated
   tree and cannot represent that fallback.
@@ -1264,7 +1392,13 @@ differently.
   permitted where `collection` refuses. The channel classifies the
   difference as unsettled. It deletes only that registration's pin; the
   evaluation it relied on answers only at the shipped tree, which the
-  chosen registration and the promotion keep.
+  chosen registration and the promotion keep. arc's guide states arc's
+  reach in its history model ("A retention root is a selection or a
+  promotion. It reaches its candidate and what that candidate's parents and
+  adoptions carry"), as its candidates section did, and names no declared
+  root any more; it still does not say whether the registration a
+  selection relied on for an evaluation is retained, so the reading stays
+  open.
 - **An environment where the gate declares no probe.** An evaluation whose
   environment is `Omitted` answers no gate (`EnvironmentUnrecorded`), since
   `Requirements` names a declaration and not whether it declares an
@@ -1430,7 +1564,7 @@ run:
   `Requirements.independentReview`): outside the candidate contract; review
   authority binds to the destination patchset after promotion.
 - **Declared roots**: arc builds none; its roots are selections and
-  promotions.
+  promotions, which is all its guide names.
 - **Episode expiry**: arc holds one live claim per change, so every episode
   is released before the next opens; liveness gates no write in either.
 - **A later version of read context**: it changes only what a reference

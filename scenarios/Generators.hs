@@ -484,7 +484,7 @@ isIntegratable scenario
       Nothing               -> debtBindsLatest scenario || externallyApproved
     externallyApproved
       = scenario.externalVerdict == Just ExternalApproved
-      && not (scenario.policy.independentVerdictRequired && scenario.policy.forbidSelfApproval)
+      && externalApprovalCountsAlone scenario.policy
 
 -- | One invalidating transition applied to a valid history. Each mutation
 -- removes exactly one load-bearing fact.
@@ -525,8 +525,7 @@ mutations scenario = concat
     ]
   , [ Mutation "reviewer-is-contributor" scenario { Scenario.reviewer = Just ActorContributor }
     | scenario.reviewer == Just ActorIndependent
-    , scenario.policy.independentVerdictRequired
-    , scenario.policy.forbidSelfApproval
+    , independenceOwed scenario.policy
     , not (debtBindsLatest scenario)
     ]
   , [ Mutation "waiver-expired" scenario { Scenario.patchsets = scenario.patchsets + 1 }

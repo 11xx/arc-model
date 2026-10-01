@@ -35,6 +35,7 @@ import Arc.Model.Probe ( probeRefusals )
 import Arc.Model.State
 import Arc.Model.State qualified as State
 
+import Control.Applicative ( (<|>) )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe ( fromMaybe, listToMaybe )
@@ -136,9 +137,11 @@ decide observations state = either (Refused . NE.head) Permitted (evaluate obser
 
 A refusal recorded on the current patchset, local or external, is the
 answer: a waiver declares a missing review and does not clear one that was
-given. Otherwise a local approval or waiver authorizes; an external approval
-of exactly this head authorizes only where no independent review is owed,
-because arc cannot verify who gave it.
+given. Otherwise a local approval authorizes, then an external approval of
+exactly this head where it may count alone, because arc cannot verify who
+gave it, and only then a waiver: for an absent approval, or to let a
+rejected self-approval stand. A waiver beside an approval that stands
+without it authorizes nothing.
 -}
 authorizationFor :: Policy -> ChangeState -> Patchset -> Either Refusal Authorization
 authorizationFor policy state patchset
@@ -146,34 +149,31 @@ authorizationFor policy state patchset
       = Left (RefusedVerdictStands verdict.kind verdict.event)
   | Just external <- externalHere, external.kind /= ExternalApproved
       = Left (RefusedExternalVerdictStands external.kind external.event)
-  | otherwise = case local of
+  | otherwise = case witnessed of
       Right authorization -> Right authorization
-      Left refusal        -> maybe (Left refusal) Right externalAuthorization
+      Left refusal        -> maybe (Left refusal) Right (externalAuthorization <|> waived refusal)
   where
     governing    = governingVerdict state
     externalHere = externalVerdictAt state patchset.revision
     waiver       = newestWaiver state patchset.patchsetId
-    local = case governing of
-      Nothing -> maybe (Left RefusedNoApproval) (Right . AuthorizedByWaiver . (.debtId)) waiver
+    witnessed = case governing of
+      Nothing -> Left RefusedNoApproval
       Just verdict
         | verdict.kind == Approved && verdict.patchset == patchset.patchsetId ->
             if selfApprovalRejected verdict
-              then case waiver of
-                Just debt -> Right (AuthorizedByVerdictUnderWaiver verdict.event debt.debtId)
-                Nothing   -> Left (RefusedSelfApproval verdict.event (effectiveActor verdict) (effectiveContributors patchset))
+              then Left (RefusedSelfApproval verdict.event (effectiveActor verdict) (effectiveContributors patchset))
               else Right (AuthorizedByVerdict verdict.event)
-        | otherwise -> case waiver of
-            Just debt -> Right (AuthorizedByWaiver debt.debtId)
-            Nothing   -> case verdict.kind of
-              Approved -> Left (RefusedStaleApproval verdict.event verdict.patchset)
-              _refused -> Left RefusedNoApproval
+        | verdict.kind == Approved -> Left (RefusedStaleApproval verdict.event verdict.patchset)
+        | otherwise                -> Left RefusedNoApproval
     externalAuthorization = case externalHere of
       Just external
-        | external.kind == ExternalApproved, not independentRequired -> Just (AuthorizedByExternalVerdict external.event)
+        | external.kind == ExternalApproved, Policy.externalApprovalCountsAlone policy -> Just (AuthorizedByExternalVerdict external.event)
       _absent -> Nothing
-    independentRequired = policy.independentVerdictRequired && policy.forbidSelfApproval
+    waived = \case
+      RefusedSelfApproval event _ _ -> (AuthorizedByVerdictUnderWaiver event . (.debtId)) <$> waiver
+      _absent                       -> AuthorizedByWaiver . (.debtId) <$> waiver
     selfApprovalRejected verdict
-      = independentRequired
+      = Policy.independenceOwed policy
       && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset)
 
 -- C6, C7

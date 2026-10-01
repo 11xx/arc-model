@@ -263,13 +263,15 @@ prop_debt_unused :: Scenario -> Property
 prop_debt_unused scenario = case built.decision of
   Refused _       -> property True
   Permitted basis -> case basis.authorization of
-    AuthorizedByVerdict _ -> counterexample (show scenario) (all (`elem` unused) bound)
+    AuthorizedByVerdict _         -> unusedBeside basis
+    AuthorizedByExternalVerdict _ -> unusedBeside basis
+    _waived                       -> property True
+  where
+    built = build scenario
+    unusedBeside basis = counterexample (show scenario) (all (`elem` unused) bound)
       where
         bound  = [ record.debtId | record <- built.state.debts, record.patchset == Just basis.patchset ]
         unused = debtsNotUsed built.state basis.authorization
-    _waived -> property True
-  where
-    built = build scenario
 
 -- | 'decide' is a projection of the grounds: permitted exactly when none
 -- stands, and otherwise the first in presentation order.
@@ -337,8 +339,7 @@ prop_grounds_are_facts scenario = conjoin
         -> Just patchset /= latestId
         && any (\v -> v.event == event && v.kind == Approved && v.patchset == patchset) state.verdicts
       RefusedSelfApproval event actor contributors
-        -> observation.policy.independentVerdictRequired
-        && observation.policy.forbidSelfApproval
+        -> independenceOwed observation.policy
         && Just contributors == (effectiveContributors <$> latest)
         && any (\v -> v.event == event && effectiveActor v == actor) state.verdicts
       RefusedNoApproval

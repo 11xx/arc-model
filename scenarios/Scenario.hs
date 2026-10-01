@@ -16,6 +16,8 @@ module Scenario
     , defaultScenario
     , dangerPolicy
     , openPolicy
+    , dangerPermittingSelfPolicy
+    , undeclaredDangerPolicy
     , requireDeclaredPolicy
     , genAnyScenario
     , genDecisionScenario
@@ -26,7 +28,7 @@ module Scenario
     , namedCoverageScenarios
     ) where
 
-import Arc.Model ( DebtKind(..), ExternalKind(..), GateResult(..), Policy(..), VerdictKind(..) )
+import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), GateResult(..), Policy(..), VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 
 import Data.List ( sortOn )
@@ -140,17 +142,26 @@ defaultScenario = Scenario
 
 dangerPolicy :: Policy
 dangerPolicy = Policy
-  { independentVerdictRequired = True
-  , forbidSelfApproval         = True
-  , requireDeclaredActor       = False
+  { danger               = DangerScoped
+  , forbidSelfApproval   = True
+  , requireDeclaredActor = False
   }
 
 openPolicy :: Policy
 openPolicy = Policy
-  { independentVerdictRequired = False
-  , forbidSelfApproval         = False
-  , requireDeclaredActor       = False
+  { danger               = DangerOutside
+  , forbidSelfApproval   = False
+  , requireDeclaredActor = False
   }
+
+-- | A change on a declared danger path where self-approval is not forbidden.
+dangerPermittingSelfPolicy :: Policy
+dangerPermittingSelfPolicy = dangerPolicy { Policy.forbidSelfApproval = False }
+
+-- | A repository that declares no danger path, where self-approval is not
+-- forbidden.
+undeclaredDangerPolicy :: Policy
+undeclaredDangerPolicy = openPolicy { Policy.danger = DangerUndeclared }
 
 requireDeclaredPolicy :: Policy
 requireDeclaredPolicy = dangerPolicy { Policy.requireDeclaredActor = True }
@@ -189,6 +200,11 @@ namedScenarios =
   , ("external-changes-requested", defaultScenario { externalVerdict = Just ExternalChangesRequested })
   , ("external-over-waiver",       defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], externalVerdict = Just ExternalChangesRequested })
   , ("external-rejected",          defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalRejected, policy = openPolicy })
+  , ("external-approved-danger-self-permitted", defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = dangerPermittingSelfPolicy })
+  , ("external-beside-local-danger-self-permitted", defaultScenario { externalVerdict = Just ExternalApproved, policy = dangerPermittingSelfPolicy })
+  , ("external-approved-danger-undeclared", defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = undeclaredDangerPolicy })
+  , ("external-approved-danger-undeclared-self-forbidden", defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = undeclaredDangerPolicy { Policy.forbidSelfApproval = True } })
+  , ("external-approved-beside-debt", defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("extra-contributor",          defaultScenario { extraContributor = True })
   , ("gate-dirty",                 defaultScenario { worktree = WorktreeDirty })
   , ("gate-dirty-waived",          defaultScenario { worktree = WorktreeDirtyWaived })
@@ -238,6 +254,8 @@ namedCoverageScenarios =
   , ("cover-external-only",              defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-external-beside-local",      defaultScenario { externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-external-beside-local-danger", defaultScenario { externalVerdict = Just ExternalApproved })
+  , ("cover-external-danger-undeclared", defaultScenario { reviewer = Nothing, externalVerdict = Just ExternalApproved, policy = undeclaredDangerPolicy })
+  , ("cover-debt-beside-external",       defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-undeclared-reviewer-waived", defaultScenario { reviewer = Just ActorAssumed, debts = [(1, Nothing)], policy = requireDeclaredPolicy })
   ]
 
