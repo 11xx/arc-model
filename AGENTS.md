@@ -1,64 +1,29 @@
 # arc-model
 
-An independent semantic model of arc's integration authorization, and the
-oracle that compares it with the arc binary. `CONTRACT.md` states what it
-models, and `README.md` how to run it.
-
-## Design authority
-
-The settled design is what `CONTRACT.md` and `REPORT.md` state. A question
-those two leave open is open, and `REPORT.md` records it among its unsettled
-design and open decisions.
+`CONTRACT.md` and `REPORT.md` are the design authority. A question they leave
+open stays open, recorded in `REPORT.md`.
 
 ## Invariants
 
-The model characterizes one arc revision, named by `comparisonRevision`. It
-describes behaviour; it is not a port of arc's implementation.
-
-The model is derived independently of the Rust:
-
-- Model-side work — `src/`, `candidate/`, `candidate-plans/`, `scenarios/`,
-  `test/`, `candidate-test/` — derives its rules from `CONTRACT.md` and arc's public
-  documentation (the guide `arc` prints with no arguments, each command's
-  `--help`, and its README), never from arc's source.
-- Only the differential's encoding, `differential/`, reads arc's behaviour,
-  and arc's Rust source is read only there.
-- A task on the model names no Rust file or line, and never requires the
-  model to agree with arc. A rule the contract does not settle is settled in
+- The model is a clean room. Its rules come from `CONTRACT.md` and arc's public
+  documentation (the guide, `--help`, README) at the pinned comparison
+  revision, never from arc's source (it shouldn't become a Rust translation, or
+  it'll lose its oracle/model utility). Only the differential's encoding,
+  `differential/`, reads arc's Rust.
+- A brief for model work names no Rust file or line and never asks the model
+  to agree with arc. A rule the contract does not settle is settled in
   `CONTRACT.md` first, from the documentation, or left unsettled with its
   readings.
+- A mismatch, model against arc or model against `CONTRACT.md`, is classified
+  and recorded in `REPORT.md`, never closed by editing either side to match.
+  Neither side is the oracle for the other.
+- The library is pure (no clock, filesystem, Git, or arc ledger) and depends
+  on `base` and `containers` only.
+- Every `arc` or `git` process for a scenario, replay, or reproduction runs in
+  the sandbox, through the differential or `arc-model-sandbox`. Never build
+  such an environment by hand, set `HOME` for one, or run
+  `git config --global` outside it.
+- Every test suite and executable imports the `heap-cap` stanza.
+- Nothing here enters arc's build, gates, or releases.
 
-The library is pure. It never reads the clock, the filesystem, Git, or an arc
-ledger. Only the differential executable runs `arc`, and it runs the binary
-already on `PATH` in a temporary repository of its own.
-
-Every test and differential binary runs under a heap cap compiled in through
-the `heap-cap` stanza of `arc-model.cabal`, so a runaway structure fails with
-a heap overflow instead of exhausting the host. A new test suite or
-executable imports it.
-
-Every process that runs `arc` or `git` for a scenario, a replay, or the
-reproduction of a disagreement runs inside `Differential.Sandbox`: through
-the differential, or by hand through
-`cabal v2-run arc-model-sandbox -- [--keep] <command> [args…]`. The sandbox
-builds its environment from nothing and refuses to run anything until its
-self-check passes. Nobody builds a sandbox environment by hand, sets `HOME`
-for one, or runs `git config --global` outside it.
-
-A mismatch between the model and arc is classified — a Rust defect, a model
-defect, or an unsettled contract — never made to disappear. Neither side is
-the oracle for the other. A mismatch between the model and `CONTRACT.md` is
-recorded in `REPORT.md` and adjudicated the same way, not closed by editing
-either side to match.
-
-Nothing here enters the arc build, its gates, or its releases, so no arc
-change needs a Haskell toolchain.
-
-## Toolchain
-
-ghcup, GHC 9.12.x, GHC2024, cabal, `-Wall` as errors — incomplete patterns
-included, since a non-exhaustive match over a refusal is a dropped ground
-rather than a lint nit. The library depends on `base` and `containers` only.
-
-Code presentation, including the record dialect, follows
-`~/code/haskell-style.md`.
+Haskell presentation, records included, follows `~/code/haskell-style.md`.
