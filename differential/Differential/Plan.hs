@@ -17,7 +17,7 @@ module Differential.Plan
     , plan
     ) where
 
-import Arc.Model ( DebtKind, ExternalKind, GateResult(..), Policy, VerdictKind )
+import Arc.Model ( DangerScope(..), DebtKind, ExternalKind, GateResult(..), Policy, VerdictKind )
 import Arc.Model.Policy qualified as Policy
 import Generators ( flipPolicy, reverts )
 import Scenario
@@ -111,7 +111,7 @@ plan scenario
       , audits        = [ Audit kind independent | Just (kind, independent) <- [scenario.audit] ]
       }
   where
-    touchesDanger = scenario.policy.independentVerdictRequired
+    touchesDanger = scenario.policy.danger == DangerScoped
     changed       = if touchesDanger then "danger.txt" else "work.txt"
     -- a probe based before the first commit runs its baseline there; one
     -- that cannot be discharged is based at the last patchset's head
