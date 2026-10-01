@@ -4,6 +4,7 @@ module Arc.Model.Policy
     ( Policy(..)
     , DangerScope(..)
     , independenceOwed
+    , externalApprovalCountsAlone
     ) where
 
 
@@ -26,3 +27,10 @@ data Policy = Policy
 -- danger path applies to every change, and self-approval is forbidden.
 independenceOwed :: Policy -> Bool
 independenceOwed policy = policy.forbidSelfApproval && policy.danger /= DangerOutside
+
+-- C9
+-- | Whether an external approval can be the authorization on its own:
+-- never inside the danger gate, whatever self-approval policy
+-- says, and elsewhere only where no independent review is owed.
+externalApprovalCountsAlone :: Policy -> Bool
+externalApprovalCountsAlone policy = policy.danger /= DangerScoped && not (independenceOwed policy)

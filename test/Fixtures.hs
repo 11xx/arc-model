@@ -38,6 +38,8 @@ fixtureChecks = concat
   , effectiveAuthors
   , equalTreeDifferentContributors
   , externalDecisions
+  , externalDangerScopes
+  , debtBesideExternal
   , retainedAcrossEpisodeExpiry
   , debtAuthorizedNothing
   , staleAndMovedBases
@@ -437,6 +439,41 @@ externalDecisions =
     localRefusal    = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
     rejected        = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalRejected, Scenario.policy = openPolicy }
     coverage        = coverageAfterIntegration (build open).finalState
+
+{- | An external approval never counts alone inside the danger gate,
+whatever self-approval policy says, though a local approval beside it
+still authorizes. A repository that declares no danger path lets it count
+alone unless self-approval is forbidden.
+-}
+externalDangerScopes :: [Check]
+externalDangerScopes =
+  [ expectRefusedWith "fixture/external-scope: alone on a danger path with self-approval permitted" "no-approval" (decisionOf dangerAlone)
+  , expectPermittedWith "fixture/external-scope: a local approval beside it on that path" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerBeside)
+  , expectPermittedWith "fixture/external-scope: alone where no danger path is declared" (AuthorizedByExternalVerdict (EventId 2)) (decisionOf undeclared)
+  , expectRefusedWith "fixture/external-scope: alone where none is declared and self-approval is forbidden" "no-approval" (decisionOf undeclaredForbidden)
+  ]
+  where
+    decisionOf scenario = (build scenario).decision
+    dangerAlone         = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = dangerPermittingSelfPolicy }
+    dangerBeside        = dangerAlone { Scenario.reviewer = Just ActorIndependent }
+    undeclared          = dangerAlone { Scenario.policy = undeclaredDangerPolicy }
+    undeclaredForbidden = dangerAlone { Scenario.policy = undeclaredDangerPolicy { forbidSelfApproval = True } }
+
+-- | A debt beside an external approval that authorizes alone supplied
+-- nothing: the basis names the external approval, and the review the debt
+-- records is still owed after the merge.
+debtBesideExternal :: [Check]
+debtBesideExternal =
+  [ expectPermittedWith "fixture/debt-beside-external: the external approval authorizes" (AuthorizedByExternalVerdict (EventId 2)) built.decision
+  , expectEq "fixture/debt-beside-external: the debt is not in the basis" [DebtId 1] (debtsNotUsed built.state authorization)
+  , expectEq "fixture/debt-beside-external: the debt is still owed" (Just (DebtId 1), Nothing) (coverage.debt, coverage.read)
+  ]
+  where
+    built         = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
+    coverage      = coverageAfterIntegration built.finalState
+    authorization = case built.decision of
+      Permitted basis -> basis.authorization
+      Refused _       -> AuthorizedByWaiver (DebtId 0)
 
 -- | An expired liveness episode ends the claim, never the facts recorded
 -- while it ran.
