@@ -484,7 +484,7 @@ isIntegratable scenario
       Nothing               -> debtBindsLatest scenario || externallyApproved
     externallyApproved
       = scenario.externalVerdict == Just ExternalApproved
-      && not (independenceOwed scenario.policy)
+      && externalApprovalCountsAlone scenario.policy
 
 -- | One invalidating transition applied to a valid history. Each mutation
 -- removes exactly one load-bearing fact.

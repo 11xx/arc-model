@@ -22,6 +22,7 @@ import Arc.Model.Ledger
 import Arc.Model.Observed ( newest )
 import Arc.Model.State
 
+import Control.Applicative ( (<|>) )
 import Data.Maybe ( isJust, listToMaybe )
 import Data.Set qualified as Set
 
@@ -90,7 +91,7 @@ the read was satisfied.
 -}
 data CoverageAfterIntegration = CoverageAfterIntegration
   { read          :: !(Maybe ReadEvidence)
-  , debt          :: !(Maybe DebtId)
+  , debt          :: !(Maybe DebtId)  -- ^ The debt the basis consumed, otherwise the newest bound to the shipped patchset: owed either way until a read fulfils it.
   , verdict       :: !(Maybe VerdictKind)
   , approved      :: !Bool
   , openFindings  :: ![FindingId]
@@ -98,7 +99,7 @@ data CoverageAfterIntegration = CoverageAfterIntegration
   }
   deriving stock (Eq, Ord, Show)
 
--- C9, C22
+-- C6, C9, C22
 coverageAfterIntegration :: ChangeState -> CoverageAfterIntegration
 coverageAfterIntegration state = case latestIntegration state of
   Nothing -> CoverageAfterIntegration
@@ -111,7 +112,7 @@ coverageAfterIntegration state = case latestIntegration state of
     }
   Just record -> CoverageAfterIntegration
     { read          = readEvidence record
-    , debt          = listToMaybe (authorizationDebts record.authorization)
+    , debt          = listToMaybe (authorizationDebts record.authorization) <|> ((.debtId) <$> newestWaiver state record.patchset)
     , verdict       = (.kind) <$> newest state.audits
     , approved      = independentApproval record
     , openFindings  = openAuditFindings state
