@@ -65,9 +65,10 @@ data MovedFact = MovedHead Revision Revision
                | MovedReadiness [Refusal]  -- ^ Readiness computed again refuses, on these grounds, so no basis can be rebuilt.
   deriving stock (Eq, Ord, Show)
 
-{- | Why an integration is refused. The last three arise only when a
-permitted decision is executed; every other is a ground a decision can
-stand on, and a missing branch is also refused at execution.
+{- | Why an integration is refused. An undeclared invoker and a moved basis
+arise only when a decision is executed. Every other is a ground a decision
+can stand on; a missing branch is also refused at execution, and a store
+without integration authority is refused there before anything else.
 -}
 data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedClosed Closure
@@ -129,7 +130,7 @@ refusalText = \case
   RefusedNoPatchset         -> "no patchset is recorded"
   RefusedBlockedBy changes  -> "blocked by " <> unwords (map show changes)
   RefusedBranchMissing      -> "the change's branch is gone"
-  RefusedNeedsRebase        -> "the head does not merge with its target"
+  RefusedNeedsRebase        -> "the head does not merge with its target, or is behind it under ff-only"
   RefusedMergedTreeUnevaluated tree
     -> "no required gate was evaluated at the merged tree " <> show tree
   RefusedNoApproval         -> "no approval and no waiver is recorded"
