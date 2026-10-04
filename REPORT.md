@@ -76,8 +76,8 @@ counterexample can be generated for them.
 
 `test/Fixtures.hs` pins the exact answer for each required case: 178 checks
 at seed `20260907`, alongside 54 comparator and 10 sandbox checks. The
-13 properties, 18 killed mutants, and coverage sampler bring the spec
-suite to 274/274 passing checks.
+14 properties, 18 killed mutants, and coverage sampler bring the spec
+suite to 275/275 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -141,7 +141,8 @@ run against arc.
 
 ### Properties
 
-Thirteen properties run over generated scenarios, deterministically from one
+Fourteen properties run, thirteen over generated scenarios and one over the
+named histories, deterministically from one
 seed: by default seed `20260907` and 300 cases each. Property `n` derives seed
 `seed + n * 13`, mutant checks use `1000 + index * 31` and `2000 + index * 31`,
 and the coverage sampler uses `seed + index`. The same seed and case count
@@ -164,8 +165,9 @@ cabal v2-test spec --test-show-details=direct --test-options="--seed 20260907 --
 | debt unused | a debt bound to an approved patchset is reported as recorded debt, not as an authorization input |
 | negative audit does not approve | a negative audit that fulfils the read leaves the approval flag false unless an independent approving answer exists |
 | decision is the first ground | `decide` permits exactly when `refusals` is empty and otherwise refuses on its first element |
-| grounds are facts | every ground `refusals` returns names a fact the history and observations hold, checked constructor by constructor, a probe refusal against the probe runs themselves; execution-only refusals never appear |
-| check-time facts refuse | unwaived dirty evidence, a merge nobody evaluated, a head that does not merge, a probe left undischarged, a missing branch, and conflicting declarations never permit |
+| grounds are facts | every ground `refusals` returns names a fact the history and observations hold, checked constructor by constructor, a probe refusal against the probe runs themselves, a rebase against a conflicting head or one behind its target under `ff-only`, and withheld authority against the observed authority; execution-only refusals never appear |
+| named grounds are facts | the same, over every named history, which reach the `ff-only` shape and the policies the generators never draw |
+| check-time facts refuse | unwaived dirty evidence, a merge nobody evaluated, a head that does not merge with its target, a probe left undischarged, a missing branch, and conflicting declarations never permit |
 
 ### Mutants
 
@@ -1268,8 +1270,9 @@ about them:
   origin, it has no staging destination or provisional obligation, and
   acceptance records no decision of its own, so realizing them is an
   extension of the ledger, not a correction of the decision. The
-  differential replays one store, plus the paired store that takes its
-  authority, and imports nothing, so no history reaches them either.
+  differential replays one store, which offers its authority to a paired
+  store and so relinquishes it, while the peer imports nothing and never
+  holds it; no history reaches them either.
 - **A multi-obligation debt representation.** The single-slot waiver query
   is the production reducer's semantics; a representation carrying several
   obligations would be a different model, not a refinement of this one.
@@ -1332,6 +1335,18 @@ about them:
 - **A closure's own head.** The model's closures record no head, so a
   closed change is judged at its latest patchset's head; a closure recording
   another one, such as an asserted integration, is not represented.
+- **A closed change's declarations (C12).** arc reads a closed change's
+  project gates and policy at the target revision its closure recorded,
+  plus the gates its judged head adds, and the target's current ones only
+  where the closure recorded no target revision; the operator's layer is
+  read as it stands. The model selects no revision: it takes the
+  declaration set as an observation. Its closures, abandoned and
+  superseded, are exactly the ones that record no target revision, and a
+  change the model integrates is never closed for readiness, so the
+  closure that pins its declarations to a recorded target revision is not
+  represented. The differential closes a change only through an external
+  rejection, an abandonment, and hands the model the target's current
+  declarations, which is the guide's reading for that closure.
 - **Dispositions after integration.** `arc resolve` on an integrated change
   records how a finding stood after it shipped. It is no verdict and
   discharges nothing, and the model records no disposition after an
