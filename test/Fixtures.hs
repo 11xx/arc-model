@@ -57,6 +57,7 @@ fixtureChecks = concat
   , fastForwardOnly
   , acceptanceProbes
   , missingBranch
+  , closedWhereItClosed
   , conflictingDeclarations
   , demonstratedCounterexample
   ]
@@ -365,6 +366,24 @@ fastForwardOnly =
     behind      = under TargetBehind
     conflicting = under TargetConflicting
     contained   = under TargetContained
+
+{- | A closed change is judged at its latest patchset's head (C2): a commit
+after the closure, a deleted branch, and a target that moved raise no
+ground, and the gate answers at that head's own tree, not at a merge.
+-}
+closedWhereItClosed :: [Check]
+closedWhereItClosed =
+  [ expectEq "fixture/closed: the rejection closes it" closedAlone (tagsOf rejected)
+  , expectEq "fixture/closed: a later commit raises no ground" closedAlone (tagsOf rejected { Scenario.headMoved = True })
+  , expectEq "fixture/closed: a deleted branch raises no ground" closedAlone (tagsOf rejected { Scenario.branchMissing = True })
+  , expectEq "fixture/closed: a moved target raises no ground" closedAlone (tagsOf rejected { Scenario.targetMode = TargetBehind })
+  , expectEq "fixture/closed: a conflicting target raises no ground" closedAlone (tagsOf rejected { Scenario.targetMode = TargetConflicting })
+  , expectEq "fixture/closed: evidence at the merge does not answer the head" (closedAlone <> ["gates"]) (tagsOf rejected { Scenario.targetMode = TargetBehindEvaluated })
+  ]
+  where
+    rejected    = defaultScenario { Scenario.reviewer = Nothing, Scenario.externalVerdict = Just ExternalRejected, Scenario.policy = openPolicy }
+    closedAlone = ["closed", "external-verdict-stands"]
+    tagsOf scenario = let built = build scenario in map refusalTag (refusals built.observation built.state)
 
 {- | A probe a brief declares is discharged by a failure at the brief's base
 and a pass at the head. A pass at the base, a missing or failing final run,

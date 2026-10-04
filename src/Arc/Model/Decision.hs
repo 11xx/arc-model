@@ -56,12 +56,27 @@ evaluate observations state
   | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
   | otherwise                                = evaluateDeclared observations state
 
--- C1, C2, C3, C5, C10, C11, C19, C20
--- | 'evaluate' under one declaration set. It reads, so it never refuses the
--- invoker's identity; 'execute' does. A store without integration
--- authority is one more ground beside the rest.
+-- C2
+-- | 'evaluate' under one declaration set, where a closed change is judged:
+-- at its latest patchset's head and that head's own tree, with neither its
+-- branch nor its target read.
 evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
-evaluateDeclared observations state = case latestPatchset state of
+evaluateDeclared observations state = evaluateJudged judged state
+  where
+    judged = case (state.closed, latestPatchset state) of
+      (Just _, Just patchset) -> observations
+        { Observations.head           = Observed patchset.revision
+        , Observations.targetRelation = HeadContainsTarget
+        , Observations.evaluatedTree  = patchset.tree
+        }
+      _open -> observations
+
+-- C1, C2, C3, C5, C10, C11, C19, C20
+-- | 'evaluate' under one declaration set, as judged. It reads, so it never
+-- refuses the invoker's identity; 'execute' does. A store without
+-- integration authority is one more ground beside the rest.
+evaluateJudged :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
+evaluateJudged observations state = case latestPatchset state of
   Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
   Just patchset ->
     let authorization = authorizationFor policy state patchset
