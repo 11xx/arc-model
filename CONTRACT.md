@@ -87,8 +87,8 @@ A closed change is judged where it closed: at the head its closure
 recorded, or at its latest patchset's head where the closure recorded none.
 Its branch and its target are not read, so neither a missing branch, a
 commit after the closure, nor a target that moved raises a ground, and its
-gate evidence answers at that head's own tree (C3). It is still refused as
-closed (C10).
+gate evidence answers at that head's own tree (C3), under the declarations
+C12 reads for a closed change. It is still refused as closed (C10).
 
 **Status.** Settled. arc reports a moved head as no valid approval and gates
 not green, since both bind to the head; the model names the moved head as
@@ -180,8 +180,8 @@ the danger scopes. Unsettled on when independent review is required.
 - *When independent review is required.*
   - (i) A change that touches a declared danger path, or was raised with
     `arc begin --dangerous`, requires a verdict from somebody other than its
-    author, whatever `forbid_self_approval` says (the guide, "When no
-    independent reviewer is reachable": "A change touching a declared path
+    author, whatever `forbid_self_approval` says (the guide, "Review coverage
+    and debt": "A change touching a declared path
     needs a verdict from somebody other than its author"; `arc begin
     --help`, `--dangerous`).
   - (ii) Independence is required only where the change is dangerous *and*
@@ -448,6 +448,15 @@ one gate name with a different command or a different environment probe are
 in conflict. The check refuses, and no other ground is evaluated, because
 there is no declaration set to evaluate against. Execution refuses too.
 
+A closed change (C2) reads the project's gate and policy declarations
+where it closed: the target's at the revision its closure recorded as where
+the target stood, plus the gates its judged head adds, so a gate the target
+declares later is not owed and a declaration the target breaks later does
+not fail it. A closure that recorded no target revision — an abandoned or
+superseded change, a legacy closure, or an asserted fast-forward given no
+`--target-before` — reads the target's current declarations. The
+operator's layer is read as it stands now either way.
+
 **Status.** Settled, except which fields of a declaration its evidence
 answers. The guide says the run "under the declared gate" decides, and that
 two layers agreeing on command and probe combine with the shorter timeout.
@@ -458,12 +467,20 @@ through C15. The model reads (i).
 The model takes the effective declaration set, the required gates, and the
 conflicting names as observations. That a required gate with no declaration
 is refused is a decision the contract makes: an unknown is never success
-(C13).
+(C13). Which revision a closed change's project declarations come from is
+an observation boundary the model does not select: its observations name
+the set in force.
 
 **Source.** The guide, "Run a change" (required gates are read from the
 target branch plus the gates the change adds; `target-unreadable`; a
-profile with no declared gate runs none), "Review coverage and debt" (layers combine by name; the same name with a different command
-or probe is a conflict that `arc check` and gate execution refuse), "Rules
+profile with no declared gate runs none; a closed change's "gate and
+policy declarations are the target's at the revision the closure recorded
+as where the target stood, plus the gates its judged head adds"; "A
+closure that recorded no target revision … reads the target's current
+declarations instead. The operator's own gate and policy files are read as
+they stand now"), "Review coverage and debt" (layers combine by name; the
+same name with a different command or probe is a conflict that `arc check`
+and gate execution refuse), "Rules
 that change what you do" (the run under the declared gate decides), and
 "Files" (the `[gates.<name>]` table); `arc policy --help`.
 
