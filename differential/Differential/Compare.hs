@@ -9,10 +9,11 @@ disagreement is classified, never dropped.
 
 The execution channel compares 'execute' with @arc integrate --dry-run@.
 arc keeps no decision to re-check: it re-evaluates readiness when asked to
-integrate, after refusing a store without integration authority (exit 17).
-So a permitted plan is a dry run that would integrate, withheld authority
-is exit 17, and any other refusal is a dry run that refuses on the blockers
-the model's own grounds name under the observations of that moment.
+integrate, and refuses a store without integration authority first (exit
+17). So a permitted plan is a dry run that would integrate, and a refusal
+is a dry run that refuses, with exit 17 exactly where the authority is
+withheld, beside a check that names the blockers the model's own grounds
+name under the observations of that moment.
 -}
 module Differential.Compare
     ( expected
@@ -72,22 +73,22 @@ expected grounds = suppressApproval (Set.fromList (concatMap blockersOf grounds)
       RefusedGates _                   -> ["gates-not-green"]
       RefusedAcceptanceProbes _        -> ["acceptance-probes-not-green"]
       RefusedHoldActive _              -> ["hold-active"]
+      RefusedAuthorityWithheld         -> ["integration-mode"]
       -- refused only at execution, which a check never reaches
-      RefusedAuthorityWithheld         -> []
       RefusedUndeclaredActor           -> []
       RefusedBasisMoved _              -> []
 
 -- | What an integration attempted after the moves would do, by the model.
 data Execution = WouldIntegrate
-               | AuthorityRefused
-               | StoodDown (Set String)  -- ^ Refused, with the blockers arc's re-evaluation is expected to report.
+               | AuthorityRefused (Set String)  -- ^ Refused for the store's missing authority, with the blockers the check beside it is expected to report.
+               | StoodDown (Set String)         -- ^ Refused, with the blockers arc's re-evaluation is expected to report.
   deriving stock (Eq, Show)
 
 executionText :: Execution -> String
 executionText = \case
-  WouldIntegrate    -> "{would integrate}"
-  AuthorityRefused  -> "{exit 17}"
-  StoodDown refused -> "{refused " <> unwords (Set.toList refused) <> "}"
+  WouldIntegrate           -> "{would integrate}"
+  AuthorityRefused refused -> "{exit 17, refused " <> unwords (Set.toList refused) <> "}"
+  StoodDown refused        -> "{refused " <> unwords (Set.toList refused) <> "}"
 
 {- | The model's execution, mapped onto what a dry run reports. A refusal is
 expected to show as the blockers of the model's grounds under the
@@ -97,30 +98,33 @@ re-evaluates.
 expectedExecution :: Built -> Either Refusal ExecutionPlan -> Execution
 expectedExecution built = \case
   Right _                       -> WouldIntegrate
-  Left RefusedAuthorityWithheld -> AuthorityRefused
-  Left _                        -> StoodDown (expected (refusals built.executionObservation built.state))
+  Left RefusedAuthorityWithheld -> AuthorityRefused reported
+  Left _                        -> StoodDown reported
+  where
+    reported = expected (refusals built.executionObservation built.state)
 
-compareExecution :: Scenario -> Built -> Execution -> DryRun -> Comparison
+compareExecution :: Scenario -> Execution -> DryRun -> Comparison
 compareExecution = compareExecutionAs MayReread
 
-compareExecutionAs :: Reread -> Scenario -> Built -> Execution -> DryRun -> Comparison
-compareExecutionAs mode scenario built wanted dry
+compareExecutionAs :: Reread -> Scenario -> Execution -> DryRun -> Comparison
+compareExecutionAs mode scenario wanted dry
   | executionAgrees wanted dry = Agreed
-  | otherwise = orAdjudicated (adjudicateExecution scenario built wanted dry) $ rereading mode scenario $ \reread ->
-      let rebuilt = build reread in compareExecutionAs Literal reread rebuilt (expectedExecution rebuilt rebuilt.execution) dry
+  | otherwise = orAdjudicated (adjudicateExecution scenario wanted dry) $ rereading mode scenario $ \reread ->
+      let rebuilt = build reread in compareExecutionAs Literal reread (expectedExecution rebuilt rebuilt.execution) dry
+
 -- | Whether a dry run is the model's execution. A dry run that would
 -- integrate answers beside a check that is ready and names no blocker.
 executionAgrees :: Execution -> DryRun -> Bool
 executionAgrees wanted dry = case wanted of
-  WouldIntegrate    -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
-  AuthorityRefused  -> dry.exit == 17
-  StoodDown refused -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
+  WouldIntegrate           -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
+  AuthorityRefused refused -> dry.exit == 17 && not dry.after.ready && dry.after.blockers == refused
+  StoodDown refused        -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
 
 {- | The execution disagreements that have been read and classified, each
 with the exact shape it applies to.
 -}
-adjudicateExecution :: Scenario -> Built -> Execution -> DryRun -> Maybe Adjudication
-adjudicateExecution scenario built wanted dry
+adjudicateExecution :: Scenario -> Execution -> DryRun -> Maybe Adjudication
+adjudicateExecution scenario wanted dry
   -- a policy that moved and now permits: arc decides again under it, and
   -- the model acts only on the decision made before it moved, whether that
   -- decision permitted on a basis that no longer holds or refused
@@ -133,19 +137,6 @@ adjudicateExecution scenario built wanted dry
   = Just Adjudication
       { kind   = ModelDefect
       , reason = "policy motion: arc decides again under the policy in force at integration, which permits, as C20 settles; the model acts only on the decision made before the policy moved"
-      }
-  -- a refused decision in a store without authority: arc refuses the store
-  -- before it reads readiness, the model answers with the decision's
-  -- refusal, and the check beside the dry run refuses on exactly its grounds
-  | StoodDown refused <- wanted
-  , scenario.authorityWithheld
-  , not (isPermitted built.decision)
-  , dry.exit == 17
-  , not dry.after.ready
-  , dry.after.blockers == refused
-  = Just Adjudication
-      { kind   = Unsettled
-      , reason = "authority at execution: arc refuses a store without authority before readiness; the model's execute answers a refused decision with its refusal"
       }
   | otherwise = Nothing
 

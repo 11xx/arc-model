@@ -314,7 +314,7 @@ runCase settings oracle root (index, (label, scenario)) = do
       outcome <- Arc.runExecution options dir steps
       pure $ case outcome of
         ReplayFailed failure -> RowFailed failure
-        Answered dry         -> case compareExecution scenario built wanted dry of
+        Answered dry         -> case compareExecution scenario wanted dry of
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (executionText wanted) (dryRunText dry)
           Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry)
@@ -358,7 +358,6 @@ answerText answer
 dryRunText :: Arc.DryRun -> String
 dryRunText dry = case dry.exit of
   0    -> "{would integrate}"
-  17   -> "{exit 17}"
   code -> "{exit " <> show code <> ", refused " <> unwords (Set.toList dry.after.blockers) <> "}"
 
 agreeable :: RowOutcome -> Bool

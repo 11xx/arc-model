@@ -105,17 +105,19 @@ executionPolicyMotion =
     compared = executionComparison defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.policyAfter = True }
 
 -- | A refused decision in a store without authority: exit 17, with the
--- check beside it refusing on exactly the model's grounds.
+-- check beside it naming the missing authority and the model's grounds.
 executionAuthority :: [Check]
 executionAuthority =
-  [ expectTrue "comparator/execution authority: the exact answer is adjudicated" "" (adjudicatedAs Unsettled (compared 17 False refusedOn))
-  , expectEq "comparator/execution authority: a ready check is not adjudicated" Disagreed (compared 17 True Set.empty)
-  , expectEq "comparator/execution authority: other blockers are not adjudicated" Disagreed (compared 17 False (Set.singleton "closed"))
+  [ expectEq "comparator/execution authority: the exact answer agrees" Agreed (compared 17 False refusedOn)
+  , expectEq "comparator/execution authority: the decision's own exit is a disagreement" Disagreed (compared 3 False refusedOn)
+  , expectEq "comparator/execution authority: a ready check is a disagreement" Disagreed (compared 17 True Set.empty)
+  , expectEq "comparator/execution authority: a check without the authority is a disagreement" Disagreed (compared 17 False (Set.singleton "no-valid-approval"))
+  , expectEq "comparator/execution authority: other blockers are a disagreement" Disagreed (compared 17 False (Set.insert "closed" refusedOn))
   ]
   where
     scenario  = defaultScenario { Scenario.verdict = ChangesRequested, Scenario.authorityWithheld = True }
     compared  = executionComparison scenario
-    refusedOn = Set.singleton "no-valid-approval"
+    refusedOn = Set.fromList ["integration-mode", "no-valid-approval"]
 
 -- | A plan agrees with a dry run that would integrate only where the check
 -- beside it is ready and names no blocker.
@@ -139,7 +141,7 @@ decisionIterating =
   , expectEq "comparator/decision iterating: with a moved head, only the approval is left out" Agreed (compareAnswer moved (wantedFor moved) (Answer False (Set.fromList ["iterating", "gates-not-green"])))
   , expectEq "comparator/decision iterating: with a moved head, the gates are not left out" Disagreed (compareAnswer moved (wantedFor moved) (Answer False (Set.singleton "iterating")))
   , expectEq "comparator/execution iterating: a refusal without the approval agrees" Agreed (executionComparison scenario 13 False (Set.singleton "iterating"))
-  , expectTrue "comparator/execution iterating: without authority, exit 17 is an authority adjudication" "" (adjudicatedAs Unsettled (executionComparison scenario { Scenario.authorityWithheld = True } 17 False (Set.singleton "iterating")))
+  , expectEq "comparator/execution iterating: without authority, exit 17 beside the check agrees" Agreed (executionComparison scenario { Scenario.authorityWithheld = True } 17 False (Set.fromList ["integration-mode", "iterating"]))
   , expectEq "comparator/execution iterating: a dry run that would integrate is not adjudicated" Disagreed (executionComparison scenario 0 True Set.empty)
   ]
   where
@@ -190,6 +192,6 @@ hiddenByNewerRun =
 
 executionComparison :: Scenario -> Int -> Bool -> Set String -> Comparison
 executionComparison scenario code isReady blockers =
-  compareExecution scenario built (expectedExecution built built.execution) (DryRun code Answer { ready = isReady, blockers = blockers })
+  compareExecution scenario (expectedExecution built built.execution) (DryRun code Answer { ready = isReady, blockers = blockers })
   where
     built = build scenario

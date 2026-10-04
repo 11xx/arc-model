@@ -54,6 +54,7 @@ fixtureChecks = concat
   , provisionalGates
   , dirtyTree
   , mergedTree
+  , fastForwardOnly
   , acceptanceProbes
   , missingBranch
   , conflictingDeclarations
@@ -345,6 +346,26 @@ mergedTree =
       Permitted basis -> Just basis.tree
       Refused _       -> Nothing
 
+{- | Under @ff-only@ the target must already be in the approved head (C3): a
+head behind a target that moved owes a rebase even where the merge
+resolves, and every ground the merge raises still stands beside it. A head
+that contains its target lands as it would under a merge commit.
+-}
+fastForwardOnly :: [Check]
+fastForwardOnly =
+  [ expectEq "fixture/ff-only: an evaluated merge still owes the rebase" [RefusedNeedsRebase] (refusals evaluated.observation evaluated.state)
+  , expectTrue "fixture/ff-only: an unevaluated merge owes the rebase beside its grounds" "needs-rebase stands beside merged-tree-unevaluated and the gate"
+      (all (`elem` map refusalTag (refusals behind.observation behind.state)) ["needs-rebase", "merged-tree-unevaluated", "gates"])
+  , expectEq "fixture/ff-only: a conflicting head owes the rebase alone" [RefusedNeedsRebase] (refusals conflicting.observation conflicting.state)
+  , expectTrue "fixture/ff-only: a head containing its target permits" "the shape owes nothing where the target is in the head" (isPermitted contained.decision)
+  ]
+  where
+    under mode  = build defaultScenario { Scenario.policy = fastForwardPolicy, Scenario.targetMode = mode }
+    evaluated   = under TargetBehindEvaluated
+    behind      = under TargetBehind
+    conflicting = under TargetConflicting
+    contained   = under TargetContained
+
 {- | A probe a brief declares is discharged by a failure at the brief's base
 and a pass at the head. A pass at the base, a missing or failing final run,
 and a base that is the head itself each leave it undischarged.
@@ -546,15 +567,22 @@ readinessRebuilt =
       }
     rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree))
 
--- | Integration authority is asked of the store that acts, not of the
--- history: the decision permits, and the execution stands down.
+{- | Integration authority is asked of the store the question is asked in
+(C20): a check there reports the missing authority beside every other
+ground, and an integration there is refused for it first, whether or not
+its decision permitted.
+-}
 authorityStandsDown :: [Check]
 authorityStandsDown =
-  [ expectTrue "fixture/authority: decision permits" "a check does not consult replica authority" (isPermitted built.decision)
+  [ expectTrue "fixture/authority: decision with authority permits" "the decision was taken while the store held authority" (isPermitted built.decision)
   , expectEq "fixture/authority: execution stands down" (Left RefusedAuthorityWithheld) built.execution
+  , expectEq "fixture/authority: the check reports the missing authority" [RefusedAuthorityWithheld] (refusals built.executionObservation built.state)
+  , expectEq "fixture/authority: the check reports it beside a refusal" ["authority-withheld", "verdict-stands"] (map refusalTag (refusals refused.executionObservation refused.state))
+  , expectEq "fixture/authority: a refused decision answers with the authority" (Left RefusedAuthorityWithheld) refused.execution
   ]
   where
-    built = build defaultScenario { Scenario.authorityWithheld = True }
+    built   = build defaultScenario { Scenario.authorityWithheld = True }
+    refused = build defaultScenario { Scenario.authorityWithheld = True, Scenario.verdict = ChangesRequested }
 
 {- | Under @require_declared_actor@, reading is unaffected (C18): a readiness
 check does not refuse an undeclared invoker, and the integration refuses

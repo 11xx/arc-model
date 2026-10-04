@@ -3,6 +3,7 @@
 module Arc.Model.Policy
     ( Policy(..)
     , DangerScope(..)
+    , IntegrationShape(..)
     , independenceOwed
     , externalApprovalCountsAlone
     ) where
@@ -14,10 +15,17 @@ data DangerScope = DangerScoped      -- ^ The change touches a declared danger p
                  | DangerUndeclared  -- ^ The repository declares no danger path, so one gate applies to every change.
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
+-- C3
+-- | How an integration lands on its target, as resolved for it.
+data IntegrationShape = ShapeFastForwardOnly  -- ^ The target must be an ancestor of the approved head, or already contain it.
+                      | ShapeMergeCommit      -- ^ A merge commit of the target and the approved head.
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
 data Policy = Policy
   { danger               :: !DangerScope
-  , forbidSelfApproval   :: !Bool  -- ^ A self-recorded approval is rejected rather than accepted.
-  , requireDeclaredActor :: !Bool  -- ^ An event whose author nobody claimed is refused.
+  , forbidSelfApproval   :: !Bool              -- ^ A self-recorded approval is rejected rather than accepted.
+  , requireDeclaredActor :: !Bool              -- ^ An event whose author nobody claimed is refused.
+  , shape                :: !IntegrationShape
   }
   deriving stock (Eq, Ord, Show)
 

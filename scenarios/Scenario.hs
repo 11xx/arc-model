@@ -19,6 +19,7 @@ module Scenario
     , dangerPermittingSelfPolicy
     , undeclaredDangerPolicy
     , requireDeclaredPolicy
+    , fastForwardPolicy
     , genAnyScenario
     , genDecisionScenario
     , genIntegratable
@@ -28,7 +29,7 @@ module Scenario
     , namedCoverageScenarios
     ) where
 
-import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), GateResult(..), Policy(..), VerdictKind(..) )
+import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), GateResult(..), IntegrationShape(..), Policy(..), VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 
 import Data.List ( sortOn )
@@ -145,6 +146,7 @@ dangerPolicy = Policy
   { danger               = DangerScoped
   , forbidSelfApproval   = True
   , requireDeclaredActor = False
+  , shape                = ShapeMergeCommit
   }
 
 openPolicy :: Policy
@@ -152,6 +154,7 @@ openPolicy = Policy
   { danger               = DangerOutside
   , forbidSelfApproval   = False
   , requireDeclaredActor = False
+  , shape                = ShapeMergeCommit
   }
 
 -- | A change on a declared danger path where self-approval is not forbidden.
@@ -165,6 +168,11 @@ undeclaredDangerPolicy = openPolicy { Policy.danger = DangerUndeclared }
 
 requireDeclaredPolicy :: Policy
 requireDeclaredPolicy = dangerPolicy { Policy.requireDeclaredActor = True }
+
+-- | The danger policy under the built-in integration shape, which lands
+-- only a head that already contains its target.
+fastForwardPolicy :: Policy
+fastForwardPolicy = dangerPolicy { Policy.shape = ShapeFastForwardOnly }
 
 {- | Histories worth naming: each pins one rule the model states, so a reader
 of a differential report can find the case by what it exercises rather than

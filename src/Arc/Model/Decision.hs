@@ -56,9 +56,10 @@ evaluate observations state
   | not (null observations.conflictingGates) = Left (RefusedConflictingDeclarations observations.conflictingGates :| [])
   | otherwise                                = evaluateDeclared observations state
 
--- C1, C2, C3, C5, C10, C11, C19
+-- C1, C2, C3, C5, C10, C11, C19, C20
 -- | 'evaluate' under one declaration set. It reads, so it never refuses the
--- invoker's identity; 'execute' does.
+-- invoker's identity; 'execute' does. A store without integration
+-- authority is one more ground beside the rest.
 evaluateDeclared :: Observations -> ChangeState -> Either (NonEmpty Refusal) DecisionBasis
 evaluateDeclared observations state = case latestPatchset state of
   Nothing       -> Left (NE.prependList preliminary (RefusedNoPatchset :| []))
@@ -71,7 +72,7 @@ evaluateDeclared observations state = case latestPatchset state of
           , case observations.head of
               Omitted       -> [RefusedBranchMissing]
               Observed seen -> [ RefusedHeadMoved seen patchset.revision | seen /= patchset.revision ]
-          , [ RefusedNeedsRebase | observations.targetRelation == HeadConflictsWithTarget ]
+          , [ RefusedNeedsRebase | needsRebase ]
           , [ RefusedMergedTreeUnevaluated observations.evaluatedTree | mergedTreeUnevaluated ]
           , [ RefusedBlockingFindings openFindings | not (null openFindings) ]
           , [ RefusedContestedVerdict (map (.event) (activeVerdicts state)) | not state.iterating, verdictContested state ]
@@ -90,10 +91,17 @@ evaluateDeclared observations state = case latestPatchset state of
     openFindings = openBlockingFindings state
     blockedBy    = [ change | (change, Nothing) <- observations.prerequisites ]
     preliminary  = concat
-      [ [ RefusedClosed closure | Just closure <- [state.closed] ]
+      [ [ RefusedAuthorityWithheld | observations.authority == AuthorityWithheld ]
+      , [ RefusedClosed closure | Just closure <- [state.closed] ]
       , [ RefusedIterating | state.iterating ]
       , [ RefusedBlockedBy blockedBy | not (null blockedBy) ]
       ]
+    -- a head that does not merge with its target, or that a fast-forward
+    -- cannot reach because the target moved past it
+    needsRebase = case observations.targetRelation of
+      HeadConflictsWithTarget -> True
+      HeadBehindTarget        -> policy.shape == Policy.ShapeFastForwardOnly
+      HeadContainsTarget      -> False
     -- a merge nobody ran any required gate on: evidence at the head says
     -- nothing about content neither branch committed
     required              = map fst observations.requiredGates
@@ -213,8 +221,9 @@ gateEvidence observations state =
 
 -- C2, C12, C18, C20
 {- | Re-check a basis at execution time. A store that does not hold
-integration authority cannot act at all, an invoker nobody declared is
-refused where policy requires a declared actor, and declarations two
+integration authority cannot act at all, whatever was decided. A refused
+decision is answered with its refusal; otherwise an invoker nobody declared
+is refused where policy requires a declared actor, and declarations two
 policy layers disagree on and a missing branch leave nothing to act on.
 Otherwise readiness is computed again from the history and the
 observations, and the basis rebuilt; where it refuses, or the rebuilt basis
@@ -223,9 +232,10 @@ recorded basis is never reused, and the plan records nothing.
 -}
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
 execute observations state = \case
+  _decided
+    | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
   Refused refusal -> Left refusal
   Permitted basis
-    | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
     | observations.policy.requireDeclaredActor && not observations.invokerDeclared
                                                   -> Left RefusedUndeclaredActor
     | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
