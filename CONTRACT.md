@@ -35,8 +35,14 @@ with its own open decisions in `REPORT.md`, and is outside this contract.
 The patchset a promotion produces is not: it is reviewed, waived, and
 integrated as any other (the guide, "The history model"), so every clause
 here reads it as a patchset like any other. Git effects, durability,
-locking, forks, and the other items `REPORT.md` lists under "Known
+locking, forks, queues, and the other items `REPORT.md` lists under "Known
 unsupported semantics" are outside the contract too.
+
+Replicas bring three rules of their own: which imported reviews count
+(C24), what a replica without authority may prepare (C25), and how the
+authority accepts a delivered change (C26). The contract states them; the
+model does not realize them yet, and `REPORT.md` says why under "Deferred
+out of this package".
 
 ## Clauses
 
@@ -53,11 +59,16 @@ nothing to authorize and is refused.
 the contract makes: approvals bind to patchsets, so without one nothing can
 be approved. The guide lets a patchset's contributors be amended until the
 first verdict on it; after that they are fixed, which is all C4 reads.
+Recording a patchset while another actor holds a live claim on the change
+requires declared contributors or `--solo`; that is a condition on
+recording a patchset, not on authorizing one, and the model's ledger holds
+only patchsets that were recorded.
 
 **Source.** `arc snapshot --help` (`--base`, `--brief-version`,
-`--contributors`, `--amend`); the guide, "Rules that change what you do" (a
-verdict binds to the exact approved patchset head) and "When no independent
-reviewer is reachable" (coverage is measured against the final patchset;
+`--contributors`: "Recording a patchset while another actor holds a live
+claim on the change requires this or --solo", `--amend`); the guide, "Rules that change what you do" (a
+verdict binds to the exact approved patchset head) and "Review coverage and
+debt" (coverage is measured against the final patchset;
 attribution is repaired only before any verdict); `README.md`, "One change,
 end to end" (`arc integrate` merges only the patchset a verdict approved).
 
@@ -92,12 +103,38 @@ change none of whose required gates was evaluated at that tree is refused
 (`merged-tree-unevaluated`). Where the merge does not resolve, there is no
 single tree to evaluate and the change is refused as needing a rebase.
 
-**Status.** Settled.
+The integration shape resolved for the target decides whether a head behind
+it may ship as a merge at all. Under `no-ff` the integration is a merge
+commit of the target and the approved head, and ships the merge's tree as
+above. Under `ff-only`, the built-in shape, the target must be an ancestor
+of the approved head or already contain it, so a head behind a target that
+moved is refused as needing a rebase even where the two merge cleanly. The
+shape resolves from the `--shape` flag, the operator's defaults, the target
+project's defaults, the user's configuration, and the built-in `ff-only`,
+in that order; the model takes the resolved shape as part of the policy it
+observes.
+
+**Status.** Settled, except what else stands beside the rebase `ff-only`
+owes a head behind its target. (i) Everything that stands under `no-ff`:
+the guide's rule that a change behind its target is refused with
+`merged-tree-unevaluated` until the merge is evaluated names no shape, and
+the shape adds a refusal to it. (ii) The rebase alone: under `ff-only` no
+merge ships, so no merge's tree is owed evidence. The model reads (i).
+Which history an integration then writes — a fast-forward, a merge commit,
+or nothing because the target already contains the head — is a Git effect,
+outside the contract.
 
 **Source.** The guide, "Rules that change what you do" (gate evidence binds
 to a tree; a change behind its target is refused with
-`merged-tree-unevaluated` until the merge is evaluated) and "Exit codes" (11,
-14); `arc verify --help`, `--against`.
+`merged-tree-unevaluated` until the merge is evaluated), "Run a change"
+("Under ff-only, the observed target must be an ancestor of the approved
+head, or already contain it"; "Integration performs no automatic rebase
+under ff-only"; "`--shape no-ff` creates a merge commit with the observed
+target and approved head as its parents"), "Files" (the style precedence;
+`[defaults.integration] shape`; `[integration] shapes`), and "Exit codes"
+(11, "when the target conflicts or ff-only ancestry requires rebasing";
+14); `arc integrate --help` and `arc check --help`, `--shape`; `arc verify
+--help`, `--against`.
 
 **Realized by.** `evaluateDeclared`, `gateEvidence`.
 
@@ -141,9 +178,11 @@ the danger scopes. Unsettled on when independent review is required.
   The model reads (ii). In a uniform repository the two readings agree:
   no change touches a declared path, so (i) owes nothing beyond what
   `forbid_self_approval` owes, which is (ii) with every change inside the
-  gate.
+  gate. The section's opening, "An independent reviewer is asked for only
+  where policy requires one, or when someone asks for one", names policy
+  as what requires one without saying which policy, so it decides neither.
 
-**Source.** The guide, "When no independent reviewer is reachable":
+**Source.** The guide, "Review coverage and debt":
 "An event's effective author is its `--on-behalf-of` subject when set,
 otherwise its actor. A patchset's effective contributors are its recorded
 set when nonempty, otherwise its effective author alone." The same section
@@ -152,8 +191,8 @@ and an assumed reviewing identity cannot be the second party. The scopes
 come from the same section ("Both path lists apply, so a path declared
 dangerous by either file is dangerous"; "Declare no danger paths and the
 gate stays uniform"; `arc begin --dangerous` "raises a single change
-whatever it turns out to touch"; "A required-review or unknown-danger
-change offers review alone") and from the operator's ruling
+whatever it turns out to touch"; "a required-review or undetermined-danger
+change lists `request_review` alone") and from the operator's ruling
 `authorization-rules-follow-the-guide` in arc's journal, as amended, which
 names a dangerous path "a declared, escalated (`begin --dangerous`) or
 undetermined danger scope" and reads a repository declaring no danger
@@ -191,7 +230,7 @@ any other successor leaves it stale. What happens to the approval of a
 change that has already closed is not stated. The model records no rewrite,
 so rewrites are unsupported.
 
-**Source.** The guide, "When no independent reviewer is reachable" (the
+**Source.** The guide, "Review coverage and debt" (the
 verdict chain, contested verdicts, provisional verdicts), "Rules that
 change what you do" (staleness), and "History rewrites"; `arc review
 --help`, `--relation`, `--provisional`; `README.md`, "One change, end to
@@ -218,9 +257,11 @@ guide binds a debt to "the exact patchset head declared", which is C5's
 question for a later patchset at the same head; the model reads the
 patchset there too. That a debt declared after integration waives nothing
 is a decision the contract makes: nothing is left to authorize. What the
-recorded basis names is C19's.
+recorded basis names is C19's. A debt `arc integrate --debt` declared
+stays declared when that integration is refused, and waives like any other
+on the patchset it names; an imported debt waives only as C24 allows.
 
-**Source.** The guide, "When no independent reviewer is reachable" (the
+**Source.** The guide, "Review coverage and debt" (the
 debt "can stand in for an absent verdict or rescue a self-approval rejected
 by repository policy"; it "binds to the exact patchset head declared, so
 new work needs a new declaration") and "Run a change" ("A debt declaration
@@ -229,7 +270,8 @@ it stand"); the operator's ruling `authorization-rules-follow-the-guide` in
 arc's journal (a debt beside an external approval that makes the approval
 valid is left out of the basis, and "the obligation itself is untouched");
 `arc integrate --help`, `--debt` ("The obligation survives closure and
-`arc query --debt` finds it").
+`arc query --debt` finds it"); the guide, "Review coverage and debt" ("A
+refused `arc integrate --debt` keeps the debt it declared").
 
 **Realized by.** `debtsForPatchset`, `newestWaiver`, `authorizationFor`,
 `waiverUsed`, `debtsNotUsed`, `coverageAfterIntegration`.
@@ -251,7 +293,7 @@ the recorded basis names when several are bound to the one patchset:
 The guide names a consumed debt in the recorded basis (C19) but does not
 choose among several applicable debts. The model reads (i).
 
-**Source.** The guide, "When no independent reviewer is reachable" (the
+**Source.** The guide, "Review coverage and debt" (the
 waiver binds to the exact patchset head declared).
 
 **Realized by.** `newestWaiver`, `debtsForPatchset`.
@@ -266,7 +308,7 @@ new patchset is what answers it.
 
 **Status.** Settled.
 
-**Source.** The guide, "When no independent reviewer is reachable" ("A
+**Source.** The guide, "Review coverage and debt" ("A
 current `changes-requested` or `comment-only` verdict is its own next action
 and offers no debt route: a waiver records a missing review, not a way past
 a refusal"); `arc integrate --help`, `--debt`.
@@ -313,7 +355,7 @@ ruling's amendment; the guide's text does not decide it. Unsettled:
   the old revision and stops matching. Rewrites are unsupported in the
   model.
 
-**Source.** The guide, "When no independent reviewer is reachable" (an
+**Source.** The guide, "Review coverage and debt" (an
 external decision is recorded "beside, never as, a verdict arc witnessed";
 an approval "gates only the revision it names and never alone on a
 dangerous path"; it "never supersedes a local refusal"; "A change request
@@ -405,8 +447,7 @@ is refused is a decision the contract makes: an unknown is never success
 
 **Source.** The guide, "Run a change" (required gates are read from the
 target branch plus the gates the change adds; `target-unreadable`; a
-profile with no declared gate runs none), "When no independent reviewer is
-reachable" (layers combine by name; the same name with a different command
+profile with no declared gate runs none), "Review coverage and debt" (layers combine by name; the same name with a different command
 or probe is a conflict that `arc check` and gate execution refuse), "Rules
 that change what you do" (the run under the declared gate decides), and
 "Files" (the `[gates.<name>]` table); `arc policy --help`.
@@ -475,10 +516,12 @@ binds to a tree, not to a commit"; the gate line reads "`inherited from
 holding that tree"; "The newest run at the evaluated tree under the
 declared gate and applicable environment decides; other runs cannot hide
 it". A reuse of passing evidence is keyed the same way: `arc verify
---help`, `--skip-green` ("Reuse records that tree and requires evidence
-carrying the same content key"), so a reuse for a head that already
-contains its target answers at that head's tree, and evidence carrying no
-tree is run again rather than reused.
+--help`, `--skip-green` ("Evidence counts for its tree whichever commit it
+ran on, as it does for readiness, and only the newest evidence readiness
+counts there is a candidate. Reuse records that tree and requires that
+evidence to carry the same content key"), so a reuse for a head that
+already contains its target answers at that head's tree, and a gate whose
+newest evidence failed or carries no tree is run again rather than reused.
 
 **Realized by.** `readGate`.
 
@@ -552,25 +595,31 @@ that brief's base and final success at the patchset's head; the guide,
 ### C18. Declared actors
 
 **Rule.** Under `require_declared_actor`, an event whose effective author
-nobody claimed is refused. `integrate` checks this before it merges.
+nobody claimed is refused. `integrate` checks this before it merges, against
+the destination's declaration at the revision the integration observes.
 Reading is unaffected, so a readiness check does not refuse an undeclared
 invoker. A declared `--on-behalf-of` subject satisfies the policy.
 
 **Status.** Settled. The guide makes an undeclared identity "a refusal
 instead of a record", so a command that records nothing refuses nothing,
-and `integrate`, which records, refuses. That a declared subject satisfies
-the policy follows C4's reading of the effective author.
+and `integrate`, which records, refuses. The guide lists `check` among the
+commands that record nothing and never parse that policy. That a declared
+subject satisfies the policy follows C4's reading of the effective author.
 
 **Source.** The guide, "Say who you are" (the `require_declared_actor`
-paragraph) and "Files" (`[policy] require_declared_actor`).
+paragraph: "These commands record nothing, in any form or flag", a list
+that names `check`), "Run a change" ("Destination declarations are pinned
+to the transition's observed revision; their actor requirement and
+agreement with the authorization readings are required for integration"),
+and "Files" (`[policy] require_declared_actor`).
 
 **Realized by.** `evaluateDeclared`.
 
 ### C19. The decision basis
 
 **Rule.** A permission names what it rests on: the patchset, its head, the
-evaluated tree, the target branch and where it stood, the policy, the
-authorization (the approving verdict, the debt when its waiver supplied
+evaluated tree, the target branch and where it stood, the policy and the
+integration shape resolved under it (C3), the authorization (the approving verdict, the debt when its waiver supplied
 the approval or let a rejected self-approval stand (C6), or the external
 decision), one covered passing evaluation per required gate and its
 normalized declaration values, each prerequisite's closure, and the
@@ -584,8 +633,11 @@ The model's basis identifies verdicts, captures required gate declarations,
 and carries the effective policy. The referenced verdict carries its
 provisional reason; the policy's danger scope (C4) represents the danger
 determination, without its provenance: which path, the escalation, or why
-the scope was undetermined. The coverage channel compares the
-authorization slots only, not the full recorded basis.
+the scope was undetermined. The guide's recorded shape names the history
+the integration wrote (`fast-forward`, `merge`, or `already-contained`);
+the model's basis names the resolved shape the decision was taken under,
+and the history written is C3's Git effect. The coverage channel compares
+the authorization slots only, not the full recorded basis.
 
 Unsettled on whether declaration values in the basis are read committed or
 uncommitted: (i) values from committed declaration files; (ii) values from
@@ -596,7 +648,8 @@ how files supplied them. C12 specifies the target as the project source;
 it does not settle the operator layer's observation boundary.
 
 **Source.** The guide, "Run a change", the paragraph beginning "A guarded
-integration records the shipped patchset and head": it enumerates the basis,
+integration records the shipped patchset and head": it enumerates the
+basis, the shape among it,
 including "the normalized gate and policy values consumed, and the danger
 determination", and records a debt only when its waiver supplied the
 approval or let it stand. `integrate --dry-run` prints the basis; readiness
@@ -619,37 +672,43 @@ is written. A decision made earlier, such as a dry run's plan handed back,
 never changes the integration's decision: the integration decides afresh
 from what it observes, under the policy in force when it runs, and names
 what moved since the earlier plan — the approved head, the target revision,
-the gate or policy declarations, or the approval — beside its refusal, or
-as a warning when it still proceeds. A store paired with replicas acts only
-while it holds integration authority; a readiness check does not consult
-authority. A missing branch or conflicting declarations leave nothing to
-act on.
+the gate or policy declarations, the approval, or provisional routing and
+prerequisites — beside its refusal, or as a warning when it still proceeds.
+A store paired with replicas integrates only while it holds integration
+authority. A readiness check reports a store without it as a ground of its
+own, `integration-mode`, beside every other ground that stands, and an
+integration there is refused for the missing authority whatever else
+refuses it. The explicit provisional preparation such a store may make
+instead is C25's. A missing branch or conflicting declarations leave
+nothing to act on.
 
-**Status.** Settled, except below. A policy that changes between a decision
-and the integration is re-decided under the policy in force, which the
-guide's integration plan settles; project policy is committed on the
-target, so moving it moves the target too (C12), and the change then
-evaluates a merge nobody evaluated (C3), refused wherever a gate is
-required.
-
-- *A refused decision in a store without authority.* Both refuse; which
-  refusal answers first is not stated. (i) The missing authority answers,
-  since the store is refused before readiness is read. (ii) The decision's
-  own refusal answers. The model reads (ii).
+**Status.** Settled. A policy that changes between a decision and the
+integration is re-decided under the policy in force, which the guide's
+integration plan settles; project policy is committed on the target, so
+moving it moves the target too (C12), and the change then evaluates a merge
+nobody evaluated (C3), refused wherever a gate is required. Which refusal
+answers an integration in a store without authority when its decision is
+refused as well is settled on the authority: `arc check --help` lists
+`integration-mode` first among its blockers "in precedence order", the
+guide has `integrate` refuse in `check`'s vocabulary, and it says of a
+paired replica without authority that "Plain integrate refuses there with
+exit 17". The ground set the check reports beside it stays C23's.
 
 **Source.** The guide, "Exit codes" (`integrate` refuses in `check`'s
 vocabulary; exit 17 for a replica without authority), "Rules that change
 what you do" (a single `integrate` checks that its merge carries the
 evaluated tree and undoes it otherwise), "Pair replica stores" ("A paired
-replica without authority is refused by `integrate`"), "Run a change" (the
-paragraph beginning "The decision is one function of facts observed":
-"Handing it back with `integrate --expect-basis <file>` never changes the
-decision; it names what moved since … in one line beside a refusal, or as a
-warning when the integration still proceeds"), and "Files" (policy is read
-from the change's target branch); `arc integrate --help`, `--dry-run`,
-`--json`, `--expect-basis`.
+replica without authority is refused by `integrate`"; "Plain integrate
+refuses there with exit 17"), "Run a change" (the paragraph beginning "The
+decision is one function of facts observed": "Handing it back with
+`integrate --expect-basis <file>` never changes the decision; it names what
+moved since … in one line beside a refusal, or as a warning when the
+integration still proceeds"), and "Files" (policy is read from the change's
+target branch); `arc check --help` (the exit status table: "17
+integration-mode"); `arc integrate --help`, `--dry-run`, `--json`,
+`--expect-basis`.
 
-**Realized by.** `execute`, `recordIntegration`.
+**Realized by.** `evaluateDeclared`, `execute`, `recordIntegration`.
 
 ### C21. Debt kinds and the owed review
 
@@ -678,7 +737,7 @@ the general case. (ii) No derived kind; only a declaration answers. The
 model reads (i). `nothing-read` is not a reading: the documentation defines
 it as no verdict on any patchset.
 
-**Source.** The guide, "When no independent reviewer is reachable" (the
+**Source.** The guide, "Review coverage and debt" (the
 table of kinds; "Only the caller can say a resolution was what went unread,
 because the ledger sees a repair and a merge resolution the same way";
 `review_options`); `arc debt --help`, `--kind`.
@@ -719,7 +778,7 @@ and what the reader concluded stays in its verdict and findings.
 - *A repair after a fulfilling audit.* (i) It starts a fresh obligation.
   (ii) The fulfilled read survives. The model reads (i).
 
-**Source.** The guide, "When no independent reviewer is reachable" (an
+**Source.** The guide, "Review coverage and debt" (an
 audit "never rewrites what shipped with what review"; "anyone may audit
 into `changes-requested`"; discharge; "discharging the debt does not mean
 approval") and "The history model" ("a discharge is fulfilment, never
@@ -743,13 +802,127 @@ through the vocabulary mapping.
 
 **Status.** Settled; a decision the contract makes. The documentation gives
 each blocker its own exit code and reports every blocker, and derives no
-precedence among them: `arc check --help` has the exit code name "the first
-blocker", which fixes a display order and states no reason for it. An order
-stated without a reason would be a second semantics that nothing
-constrains. Refusals at execution (C20) are a separate question and remain
-unsettled there.
+precedence among them: `arc check --help` lists the blockers "in precedence
+order" and has the exit code name "the first blocker", which fixes a
+display order and states no reason for it. An order stated without a reason
+would be a second semantics that nothing constrains. Refusals at execution
+are one answer, not a set; C20 settles the one the documentation names
+there, the missing authority.
 
 **Source.** A decision the contract makes; the guide, "Exit codes"; `arc
-check --help` (`--json` emits all blockers).
+check --help` (the exit status table; `--json` emits all blockers).
 
 **Realized by.** `evaluate`, `refusals`, `decide`.
+
+### C24. Review eligibility across replicas
+
+**Rule.** Every event keeps the origin that recorded it. An event another
+replica recorded reaches this store only through an import the operator
+admitted, and it may do here only what its publisher was granted for its
+origin: facts, review input, review authority, debt input, waiver,
+authority, rewrite, integration, provisional integration, or external
+decision. A foreign verdict gates only where its origin was admitted with
+review authority and is a current member of `trusted_review_replicas` in
+the operator's policy, which starts empty, so by default no foreign verdict
+satisfies review. A foreign verdict that gates still answers to C4: a
+contributor's or an assumed identity's approval is rejected as a local one
+is. Verdict selection is local first: a foreign verdict never replaces a
+local refusal or settles a contested local chain (C5), and one that does not
+gate stays an attributed input, shown with its origin. A review-input audit
+discharges no debt and corroborates no provisional approval (C22); a debt
+imported as debt input waives nothing (C6) and stays an obligation. Project
+policy grants none of this, and an integration already recorded stays a
+fact whatever trust later becomes.
+
+**Status.** Settled. The guide's "current" membership and its "Historical
+closures remain facts" together decide a trust revoked after an
+integration: later decisions stop counting the verdict, and the recorded
+basis is not rewritten.
+
+**Source.** The guide, "Pair replica stores" ("Pairing grants project
+membership, never publishing capabilities"; "No foreign replica supplies
+review authority by default. A foreign verdict needs both admitted
+review-authority and current trusted_review_replicas membership to gate.
+Contributor and assumed-identity checks still apply"; "foreign edges cannot
+replace a local refusal or settle a contested local graph. Review-input
+audits cannot discharge debt or corroborate provisional approval;
+debt-input cannot waive approval"; "Enrollment and review trust are
+operator-only; project policy cannot grant them"; "Historical closures
+remain facts") and "Run a change" (finding release in "the receiver's
+eligible disposition graph"); `arc review --help`, `--provisional`
+("Obligation selection follows approval's local-first verdict history");
+the operator's ruling in arc's journal on replica authorization ("No foreign
+replica satisfies review on the authority. `trusted_review_replicas` in
+operator policy exists and starts empty. Imported verdicts stay attributed
+inputs, shown with their origin, and cannot overcome a local refusal").
+
+**Realized by.** Nothing yet: the model's events carry no origin, so every
+event it holds is local.
+
+### C25. Provisional integration
+
+**Rule.** A paired replica without integration authority prepares an
+integration only when asked explicitly, with `integrate --provisional`, and
+only where `[replica] provisional_enabled` is not declared false. The
+preparation is decided under the canonical target's review, actor, and
+gate rules, together with any gate the staging destination adds; a staging
+policy cannot weaken them. It writes an unsigned merge to a staging branch
+in the replica's own namespace, never to the canonical target, and leaves
+an obligation: publication and closure stay owed to the recipient, the
+known authority holder unless the caller routes it elsewhere. Preparation
+is not integration. The change stays open, and a provisional prerequisite
+satisfies only another local preparation, never a canonical dependency
+(C10). A rejection by the authority stays attached to the obligation,
+across authority transfers, until a superseding judgment on the delivered
+patchset disposes of it or an accepting integration settles the delivery.
+Without the flag, the store's integration is refused as C20 says.
+
+**Status.** Settled.
+
+**Source.** The guide, "Pair replica stores" (the `integrate --provisional`
+paragraphs: "Explicit provisional preparation is available on paired
+replicas without authority. Plain integrate refuses there with exit 17";
+"canonical review, actor and gate rules and additional staging/head gates
+still govern preparation. A staging policy cannot weaken them"; "A verified
+refusal remains attached across authority transfer until an explicit
+superseding judgment disposes of it or an accepting integration settles the
+delivery"; "Imported preparation never satisfies a canonical dependency");
+`arc integrate --help`, `--provisional`, `--for-replica`, `--for-forge`;
+`arc check --help`, `--provisional`; the operator's ruling in arc's
+journal on replica authorization ("Without it, plain `integrate` on a
+replica without authority keeps refusing with exit 17. When the authority
+rejects a change, the rejection is attached to its obligation, which stays
+listed until it is explicitly disposed of or the change is integrated").
+
+**Realized by.** Nothing yet: the model has no staging destination and no
+provisional obligation.
+
+### C26. Accepting a delivered change
+
+**Rule.** The authority accepts a change another replica delivered by
+preparing it, as lead: it admits the delivery (C24), binds a checkout,
+signs the change's commits, snapshots, runs the required gates at the
+signed head and the brief's acceptance probes, and records that evidence
+and no judgment. Imported passing evidence never stands in for the local
+gate run. A signature-only rewrite carries an eligible approval across it
+(C5); eligible verdicts that fork refuse readiness until a local reviewer
+supersedes them. Where the authoritative target moved beyond the delivered
+base, acceptance stops and names the rebase, snapshot, and fresh review it
+owes; it never replays the content onto moved history. The prepared change
+is then decided under C1 to C23 like any other, and commonly still owes the
+local review.
+
+**Status.** Settled.
+
+**Source.** The guide, "Prepare a delivered change" ("Preparation records
+evidence and returns readiness; it records no judgment"; "Imported passing
+evidence never suppresses the local head-gate run"; "If the authoritative
+target moved beyond that base, acceptance stops with explicit rebase,
+snapshot, and fresh review guidance"; "Genuine eligible verdict forks
+retain all tip IDs and origins and refuse readiness"); `arc accept --help`;
+the operator's ruling in arc's journal on replica authorization ("The
+accept verb never replays content onto moved authoritative history. It
+stops and prints the exact rebase, snapshot and review remedy").
+
+**Realized by.** Nothing yet: acceptance is preparation, and the decision
+it leads to is the one C1 to C23 describe.
