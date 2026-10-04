@@ -106,7 +106,13 @@ properties =
   , ("proposition: the decision is the first standing ground",             genAnyScenario,  prop_decide_is_first_ground)
   , ("proposition: every ground is a fact of the history",                 genAnyScenario,  prop_grounds_are_facts)
   , ("proposition: a check-time fact against the change never permits",    genAnyScenario,  prop_check_time_refuses)
+  , ("proposition: every ground of a named history is a fact",             genNamed,        prop_grounds_are_facts)
   ]
+
+-- | The named histories, which reach the policies the generators never
+-- draw, the @ff-only@ shape among them.
+genNamed :: Gen Scenario
+genNamed = elements (map snd (namedScenarios <> namedExecutionScenarios <> namedCoverageScenarios))
 
 prop_integratable_permitted :: Scenario -> Property
 prop_integratable_permitted scenario =
@@ -322,6 +328,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedBranchMissing           -> observation.head == Omitted
       RefusedHeadMoved seen recorded -> Observed seen == observation.head && Just recorded == ((.revision) <$> latest) && seen /= recorded
       RefusedNeedsRebase             -> observation.targetRelation == HeadConflictsWithTarget
+                                     || (observation.targetRelation == HeadBehindTarget && observation.policy.shape == ShapeFastForwardOnly)
       RefusedMergedTreeUnevaluated tree
         -> observation.targetRelation == HeadBehindTarget
         && tree == observation.evaluatedTree
@@ -347,7 +354,7 @@ prop_grounds_are_facts scenario = conjoin
         && (verdictContested state || not (any (\v -> v.kind == Approved && Just v.patchset == latestId) (activeVerdicts state)))
       RefusedGates refused           -> not (null refused) && all ((`elem` map fst observation.requiredGates) . gateOf) refused
       RefusedHoldActive hold         -> hold `Set.member` state.holds
-      RefusedAuthorityWithheld       -> False
+      RefusedAuthorityWithheld       -> observation.authority == AuthorityWithheld
       RefusedUndeclaredActor         -> False
       RefusedBasisMoved _            -> False
     brief = do
