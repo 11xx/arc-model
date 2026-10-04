@@ -134,7 +134,12 @@ owes a head behind its target. (i) Everything that stands under `no-ff`:
 the guide's rule that a change behind its target is refused with
 `merged-tree-unevaluated` until the merge is evaluated names no shape, and
 the shape adds a refusal to it. (ii) The rebase alone: under `ff-only` no
-merge ships, so no merge's tree is owed evidence. The model reads (i).
+merge ships, so no merge's tree is owed evidence, and the guide's exit 14
+applies "when the tree a merge would ship has no gate evidence". The model
+reads (i). Only the blocker set `check --json` reports tells the readings
+apart; the exit code (11) and the next step (a rebase) are the same, and a
+rebase clears both grounds at once. The documentation states no blocker
+set for this case, so the clause stays open until it does.
 Which history an integration then writes — a fast-forward, a merge commit,
 or nothing because the target already contains the head — is a Git effect,
 outside the contract.
