@@ -74,10 +74,10 @@ counterexample can be generated for them.
 
 ### Unit fixtures
 
-`test/Fixtures.hs` pins the exact answer for each required case: 165 checks
-at seed `20260907`, alongside 52 comparator and 10 sandbox checks. The
+`test/Fixtures.hs` pins the exact answer for each required case: 178 checks
+at seed `20260907`, alongside 54 comparator and 10 sandbox checks. The
 13 properties, 18 killed mutants, and coverage sampler bring the spec
-suite to 259/259 passing checks.
+suite to 274/274 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -98,7 +98,7 @@ suite to 259/259 passing checks.
 | `debt-unused` | a debt recorded beside an approval that stood anyway authorized nothing |
 | `stale` / `target-moved` / `policy-moved` | a moved head refuses; a target or policy that moves between decision and execution stands the action down, and a moved target names the new merge as a moved tree and the readiness it refuses |
 | `rebuilt` | a finding, a hold, a refusing verdict, a failing run, or a newer pass recorded after the decision stands the execution down; an unchanged history plans and records nothing |
-| `authority` | a check does not consult replica authority: the decision permits and the execution stands down |
+| `authority` | a decision taken with authority permits and its execution stands down once the authority is withheld; a check without authority reports it, alone or beside a refusal, and an execution there answers with the authority whatever was decided |
 | `prerequisites` | a permission and the integration it records name each prerequisite's closure; an open prerequisite refuses |
 | `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
@@ -107,6 +107,8 @@ suite to 259/259 passing checks.
 | `provisional` | a provisional approval gates like any other |
 | `dirty` | a run on a dirty worktree is not coverage and its result stands beside it; a waiver at its revision counts it, one at another revision does not; a run recording nothing about its worktree is refused; attested evidence carries no worktree |
 | `merged-tree` / `needs-rebase` | a merge nobody ran a gate on is refused beside the gate; an evaluated merge permits on the merge's tree; a head that does not merge owes a rebase and nothing else |
+| `ff-only` | under the `ff-only` shape a head behind its target owes a rebase, alone where the merge was evaluated and beside the merge's grounds where it was not; a conflicting head owes the rebase alone; a head containing its target permits |
+| `closed` | a closed change is judged at its latest patchset's head: a later commit, a deleted branch, and a moved or conflicting target raise no ground, and evidence at a merge does not answer that head's tree |
 | `probes` | a discharged probe permits; no base, an equal base and head, a newer failing final run, and final evidence from another brief or revision each leave it undischarged |
 | `branch-missing` | a missing branch refuses without a moved head beside it, and refuses execution |
 | `conflicting-gates` | declarations two layers disagree on are the only ground, over a finding and a failing gate |
@@ -121,8 +123,8 @@ suite to 259/259 passing checks.
 
 `test/Comparator.hs` pins every adjudication rule of the differential
 (policy motion, external beside local, and the undeclared reviewer on the
-coverage channel; policy motion and authority at execution on the
-execution channel; and the reading a history is compared again
+coverage channel; policy motion on the execution channel; and the reading
+a history is compared again
 under, a declaration or policy move committed on the target) to its exact
 answer, and changes each other field of
 that answer in turn — whether it integrated, the basis slots, the audit
@@ -132,9 +134,10 @@ a disagreement. A plan agrees with a dry run that would integrate only where
 the check beside it is ready and names no blocker. A newer run that hides
 an older pass at the evaluated tree is pinned as a disagreement, since C14
 settles that it hides nothing. Iterating checks agree exactly with C11
-and refuse any extra approval blocker; authority refusal stays its own
-adjudication. 52 checks; a rule that accepted an unrelated
-field would fail here without a run against arc.
+and refuse any extra approval blocker. An exit 17 agrees only beside a
+check naming `integration-mode` and exactly the model's other grounds. 54
+checks; a rule that accepted an unrelated field would fail here without a
+run against arc.
 
 ### Properties
 
@@ -274,10 +277,11 @@ appear in arc's answer as follows; the claim is what the run tests.
 | model ground | arc blockers |
 | --- | --- |
 | `closed`, `iterating`, `blocked-by`, `hold-active` | the same, by name |
+| `authority-withheld` | `integration-mode` |
 | `conflicting-declarations` | none: arc refuses to check at all (`error: conflicting gate declarations`), and the differential records that refusal as `check-refused:conflicting-gate-declarations` |
 | `branch-missing` | `branch-missing`, `no-valid-approval`, and `gates-not-green`: with no head, approval validity and gate lookup have nothing to bind to |
 | `head-moved` | `no-valid-approval` and `gates-not-green`: arc binds approval validity and gate lookup to the head |
-| `needs-rebase`, `merged-tree-unevaluated` | the same, by name |
+| `needs-rebase`, `merged-tree-unevaluated` | the same, by name; `needs-rebase` is also the `ff-only` shape's refusal of a head behind its target |
 | `blocking-findings` | `blocking-findings` |
 | `verdict-stands`, `external-verdict-stands`, `stale-approval`, `self-approval`, `no-approval`, `contested-verdict` | `no-valid-approval` |
 | `gates` | `gates-not-green`, including evidence on a dirty worktree |
@@ -289,7 +293,9 @@ The head, gate, and every other ground remain.
 
 ### The encoding
 
-Each scenario field is a command: a patchset is a commit and `arc snapshot`
+Each change is opened with `arc begin --worktree=<path>`, so it has a
+worktree of its own and the main checkout stays on the target. Each
+scenario field is a command: a patchset is a commit and `arc snapshot`
 (with `--contributors` for the extra contributor); a verdict is `arc review`
 by `reviewer`, by `author`, or by nobody so that arc assumes the harness
 identity; a finding is a blocking finding on a comment-only review by
@@ -307,8 +313,9 @@ after the last snapshot. The model records gate runs in the order the plan
 makes them, patchset by patchset, so the newest run is the same run on both
 sides. The decision is asked with the probe printing the local identity,
 or nothing when the scenario fails it. Policy is written to
-`.arc/policy.toml` and the change edits the declared dangerous path exactly
-when the policy's danger scope puts it inside the gate; outside the gate,
+`.arc/policy.toml`, with the policy's integration shape as the project's
+`[defaults.integration] shape`, and the change edits the declared dangerous
+path exactly when the policy's danger scope puts it inside the gate; outside the gate,
 the declared path is one the change never edits, and a repository that
 declares no danger path writes no `[danger]` table.
 
@@ -344,6 +351,13 @@ first three, and the coverage channel all four.
 
 A rejection of the head is recorded by arc's command together with the
 closure it causes; the scenario builder records both events, as arc does.
+
+The generators draw only the policies named in `scenarios/Scenario.hs`,
+all of them `no-ff`, so the seeded rows replay the shape arc integrated with
+before it resolved one and stay comparable across pins. The `ff-only`
+shape, arc's built-in, is reached by four named histories: a head that
+contains its target, one behind it, one behind it with the merge
+evaluated, and one that conflicts with it.
 
 ### The sandbox
 
@@ -419,15 +433,15 @@ fault permits and arc refuses.
 ### The execution channel
 
 `--channel execution` compares `execute` with `arc integrate --dry-run`.
-arc keeps no decision to re-check at integration: it refuses a store that
-does not hold integration authority with exit 17, then evaluates readiness
-again, and a dry run reports what that evaluation answers without writing.
-So the model's execution maps onto a dry run as follows:
+arc keeps no decision to re-check at integration: it evaluates readiness
+again, refusing a store that does not hold integration authority first, with
+exit 17, and a dry run reports what that evaluation answers without
+writing. So the model's execution maps onto a dry run as follows:
 
 | `execute` | a dry run |
 | --- | --- |
 | a plan | exit 0, would integrate, with `arc check` in the same world ready and naming no blocker |
-| `authority-withheld` | exit 17 |
+| `authority-withheld` | exit 17, with `arc check` in the same world reporting `integration-mode` beside the blockers the model's other grounds name |
 | any other refusal: the decision's own, `basis-moved`, `branch-missing`, `conflicting-declarations` | a non-zero exit other than 17, with `arc check` in the same world reporting the blockers the model's grounds name under the execution-time observations |
 
 A basis that moved is where the two answer differently in kind. The model
@@ -452,16 +466,12 @@ scenario field moves them), and the facts the model names beside a refusal;
 the comparison is over exit codes and blockers. What it answers that the
 model does not state: the target checkout's own dirt, and contribution mode.
 
-Three disagreement classes are on record. The first two are `unsettled`,
-the points of the same name under "Unsettled design"; the third is
-`encoding`:
+Two disagreement classes are on record. The first names a model defect;
+the second is `encoding`. A third, authority at execution, classified a
+refused decision in a store without authority as `unsettled` until C20
+settled that the authority answers, and the model followed (see
+"Adjudicated"):
 
-- **Authority at execution.** A refused decision in a store without
-  authority: arc answers exit 17, since it refuses the store before reading
-  readiness; the model's `execute` answers a refused decision with its
-  refusal. Both refuse; which refusal answers first is the contract. The
-  rule applies only where the check beside the dry run refuses on exactly
-  the blockers the model's grounds name.
 - **Policy motion.** A policy moved between the decision and the
   integration, where the model's own grounds under the new policy are none:
   arc decides again under that policy and would integrate; the model acts
@@ -816,6 +826,66 @@ model of the earlier rule and agree with the model of the contract. Arc
 approval, recording both, which no history reached before. On every
 revision arc still lists that debt under `arc query --debt`.
 
+### Results at arc `3c0c537`
+
+Installed `arc 2026.9.29`, master
+`3c0c53769114de1fac2a7179fdd0dcbf906d5142`, built clean, seed `20260907`,
+`--cases 200 --check-time-cases 200` on each of decision, execution, and
+coverage, and `--cases 240` on the candidate channel. Every channel used
+one captured copy of the installed binary, SHA-256
+`4be7d0faa790f72a1f38bc9d0932c7dc9600c5f4bf0b81cab6ac953c411b5f3f`,
+selected with `--arc`, and the compiled-in heap cap. Replay roots were
+under an ignored `target/` directory and sealed by `Differential.Sandbox`.
+
+| channel | installed arc `01c618a` | installed arc `3c0c537` |
+| --- | --- | --- |
+| decision | 454 cases: 394 agreed, 20 adjudicated, 40 skipped, 0 disagreed | 458 cases: 400 agreed, 18 adjudicated, 40 skipped, 0 disagreed |
+| execution | 460 cases: 305 agreed, 115 adjudicated, 40 skipped, 0 disagreed | 464 cases: 367 agreed, 57 adjudicated, 40 skipped, 0 disagreed |
+| coverage | 467 cases: 422 agreed, 5 adjudicated, 40 skipped, 0 disagreed | 471 cases: 426 agreed, 5 adjudicated, 40 skipped, 0 disagreed |
+| candidate | 253 cases: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed | 253 cases: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed |
+
+No replay failed. The four new rows are the named `ff-only` histories, and
+each agrees on every channel.
+
+| rows | decision | execution | coverage |
+| --- | --- | --- | --- |
+| named | 58: 57 agreed, 1 target | 64: 61 agreed, 3 target | 71: 69 agreed, 1 external, 1 undeclared reviewer |
+| generated | 200: 171 agreed, 10 target, 19 skipped | 200: 149 agreed, 32 target, 19 skipped | 200: 179 agreed, 2 external, 19 skipped |
+| check-time | 200: 172 agreed, 7 target, 21 skipped | 200: 157 agreed, 22 target, 21 skipped | 200: 178 agreed, 1 external, 21 skipped |
+
+| mismatch | diagnosis | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| declaration/policy committed on the target moves that target too, while the original scenario omits the move | model defect in replay representation (comparator: encoding; C12, C3) | 18 | 57 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: whether both authorizations are consumed) | 0 | 0 | 4 |
+| undeclared reviewer under required declared identity: replay cannot record the verdict held by the model's unconstrained ledger | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 |
+
+The authority class is gone: the 45 execution rows it classified at
+`01c618a` agree, since C20 now settles that the authority answers and the
+model follows. Fifteen rows leave the target class, two on the decision
+channel and thirteen on execution: each is a closed change, which arc no
+longer judges against its target, so the move the class rereads no longer
+reaches its answer. The
+candidate channel answers as it did, its three adjudications its two
+unsettled readings and its 85 skips the same 29 unobserved targets, 18
+evaluations at another tree, 16 `only-supplied`, 14 `only-inferred`, and 8
+unknown outcomes. No Rust defect was observed on any channel, so nothing
+was filed in arc's journal.
+
+#### The rules arc `3c0c537` changed
+
+Three rules moved under the model, each found by a channel and settled in
+the contract before the model followed it:
+
+| rule | rows that reach it | model before, arc `3c0c537` | model after |
+| --- | --- | --- | --- |
+| `ff-only` is the built-in shape (C3) | `target-behind`, `target-behind-evaluated`, `gate-declaration-changed`, and the three execution rows that move the target, replayed under arc's default | disagreed: arc adds `needs-rebase` (exit 11), and refuses `target-behind-evaluated` where the model was ready | the seeded and named rows declare `no-ff` and agree; the four `ff-only-*` rows agree, the merge's grounds standing beside the rebase |
+| a check reports a store without authority (C20) | `execute-authority-over-refusal`, and the 44 seeded execution rows of the former authority class | disagreed: arc's check adds `integration-mode` beside exit 17, outside the old adjudication | agreed |
+| a closed change is judged where it closed (C2) | 14 seeded decision rows, each closed by an external rejection beside a moved head, a missing branch, or a moved target | disagreed: the model raised `head-moved`, `branch-missing`, `needs-rebase`, or the merge's grounds, and read gates at the merge | agreed |
+
+Before the encoding asked for a worktree, every replay failed at its first
+command, since `begin` opens a change in place by default; the candidate
+channel failed the same way at its second `begin`.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -840,16 +910,60 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names arc `01c618a92f08739edd4d4c5cb2573e637105571b`,
-the master revision the installed `arc 2026.9.29` was built from. The
-sources are the guide the installed binary prints with no arguments,
-command `--help`, the public README, and the operator's ruling
-`authorization-rules-follow-the-guide` in arc's journal, with its
-amendment, where it reads the guide; no Rust source informs the model.
+`comparisonRevision` names arc `3c0c53769114de1fac2a7179fdd0dcbf906d5142`,
+the master revision the installed `arc 2026.9.29` was built from; its
+`arc env` reports the build clean. The sources are the guide the installed
+binary prints with no arguments, command `--help`, the public README, and
+two operator decisions in arc's journal where they read the guide: the
+ruling `authorization-rules-follow-the-guide`, with its amendment, and the
+replica authorization decision on foreign review, provisional integration,
+and acceptance. No Rust source informs the model.
 
-Every clause citing the guide or `--help` was re-sourced against the
-installed binary's text, compared with the text arc `e10d981` prints. Each
-quotation the contract makes still stands. The guide's authorization text
+Every clause was re-sourced against the installed binary's text, compared
+with the text a build of arc `01c618a` prints; every quotation the contract
+makes was checked against the new text. The section the review clauses
+cite is now "Review coverage and debt".
+
+| clause | re-sourced | change |
+| --- | --- | --- |
+| C5, C7, C8, C9, C10, C11, C12, C13, C15, C16, C17, C21, C22 | the same passages, under the renamed review section | none; C5's patchset at an unchanged head, C7's several debts, C9's four readings, C12's declaration fields, C16's waivers, C21's earlier non-approvals, and C22's three readings stay open |
+| C1 | `arc snapshot --help`, `--contributors` | recording a patchset over another actor's live claim needs declared contributors or `--solo`: a condition on recording, not on authorizing |
+| C2 | "Run a change" (closed changes) | a closed change is judged at the head its closure recorded, or its latest patchset's, with neither its branch nor its target read |
+| C3 | "Run a change" (`--shape`), "Files" (style precedence), "Exit codes" (11) | the resolved shape is part of the rule: `ff-only`, the built-in, refuses a head behind its target as needing a rebase. Whether the merge's own grounds stand beside it is unsettled; the model reads that they do |
+| C4 | "Review coverage and debt" | `review_options` re-quoted; the section's new opening names policy as what requires independence without saying which, so when independence is owed stays open |
+| C6 | the same section ("A refused `arc integrate --debt` keeps the debt it declared") | none to the waiver; an imported debt waives only as C24 allows |
+| C14 | `arc verify --help`, `--skip-green` | reuse takes only the newest evidence readiness counts; no rule change |
+| C18 | "Say who you are" (the commands that record nothing name `check`), "Run a change" (destination declarations pinned to the transition's revision) | none; the destination's actor requirement is read where the integration observes it |
+| C19 | "Run a change" (the recorded shape) | the basis names the resolved shape, through the policy; the history written (`fast-forward`, `merge`, `already-contained`) is a Git effect |
+| C20 | `arc check --help` (the exit status table), "Pair replica stores" ("Plain integrate refuses there with exit 17") | settled: a check reports `integration-mode` beside the other grounds, and an integration in a store without authority answers for the authority first |
+| C23 | `arc check --help` ("in precedence order") | still presentation; the one answer an execution gives is C20's |
+| C24, C25, C26 | "Pair replica stores", "Prepare a delivered change", the replica authorization decision | added: foreign review eligibility, provisional integration, and acceptance. No model function realizes them; see "Deferred out of this package" |
+
+The first-parent history since `01c618a` was read for its effect on the
+modelled decision from its messages and public documentation, not from its
+diffs:
+
+| commits | subject | effect on the model |
+| --- | --- | --- |
+| `3caa966`, `9789d5b`, `efd5347`, `09048ef`, `553c801` | integration defaults to a guarded fast-forward; layered shape defaults and constraints | modelled: `IntegrationShape` in `Policy`, and `ff-only` owes a rebase where the head is behind. Fixture `ff-only`; the encoding declares the policy's shape, and four named histories reach `ff-only` |
+| `d59749e`, `e1806b1`, `1236c74` | destination authorization at the transition revision, throughout, and for ready-to-send | C12 and C18 re-sourced; the destination is the target the model observes, so no model change |
+| `5f21ac7`, `88b278b`, `fc5d303` | queue preflight of actors and destination authorization | queues are unsupported |
+| `220664b`, `764fb40`, `25c27db`, `3b457f9` | contribution assertions; implementation attributed to declared patchset subjects; attribution on review snapshots, squash, and rebase over a claim | C1 re-sourced; trailers are advisory and never block, so no model change |
+| `e6f4215`, `0e17cb0`, `aa6c188`, `fe06d15`, `e111496` | replica import authorization of publishing origins; receiver-scoped review eligibility | C24, deferred |
+| `3349607` .. `6fff48a`, `c2c4bdc` | delivered-change acceptance; checkouts bound to their recording replica | C26, deferred |
+| `64c318b` .. `3c0c537` | provisional integration by a replica without authority | C25, deferred; C20's `integration-mode` blocker, modelled as a decision ground. Fixture `authority` |
+| `c8c231e`, `0e80581`, `f359685` | a closed change reads its head from its closure; closed change reporting | modelled: `evaluateDeclared` judges a closed change at its latest patchset's head. Fixture `closed` |
+| `fae026f` | an external refusal voids a waiver | C9's reading (i), already the model's; `external-over-waiver` agrees |
+| `4d665d5`, `7a70766` | `--skip-green` keyed by tree, newest evidence only | C14 re-quoted; no change |
+| `0d0f0ea`, `03c3852`, `cba3a6a` | resolving a finding on an integrated change | a later disposition is no verdict and discharges nothing; unsupported, see "Known unsupported semantics" |
+| `d2de361`, `8e828fe` | `begin` resolves checkout defaults, in place by default | encoding: every replay asks for its worktree |
+| `319e23a`, `fa759b3` | baseline probes in a scratch checkout; brief probe edits and preserved bases | C17 unchanged; brief versions stay unsupported |
+| `e4e0a1d`, `a3fe9f1`, `f179037`, `7624cb2`, `e5cbd15` | findings batch fields, the review lock and write order, check exit 6 | no effect on the decision; the encoding's findings already conform |
+| the rest | cleanup, changelog, journal, workspace, watch, build revision, tests | no effect on the decision |
+
+For the pin before, `01c618a`, every clause citing the guide or `--help`
+was re-sourced against the installed binary's text, compared with the text
+arc `e10d981` prints. Each quotation the contract made still stood. The guide's authorization text
 is unchanged; what moved is the operator's reading of two of its passages,
 which arc `01c618a` implements, and the integration plan paragraph.
 
@@ -965,11 +1079,12 @@ still choose differently. Each is a deliberate choice, not an oversight.
   all, so no blocker is reported beside the conflict; the model returns that
   one ground, not every ground, because there is no declaration set to read
   the rest against.
-- **Authority at execution.** Production refuses a store without integration
-  authority when `integrate` starts, before readiness; `check` never asks.
-  The model refuses it in `execute`, before comparing the basis, and never in
-  `decide`; a decision that was refused is answered with its own refusal
-  whatever the store's authority, where production answers exit 17.
+- **What stands beside an `ff-only` rebase (C3).** Under `ff-only`, a head
+  behind a moved target owes a rebase. The model keeps every ground the
+  merge would raise beside it, `merged-tree-unevaluated` and the gate at the
+  merge's tree, since the guide states that rule without naming a shape;
+  the other reading owes the rebase alone, since no merge ships. Production
+  answers as the model does on every `ff-only` history replayed.
 - **Debt kind derivation.** `nothing-read`, `contributor-only`,
   `repair-unread`, and `independent-review` are derived;
   `merge-resolution-unread` is accepted only when declared, because the
@@ -986,6 +1101,10 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
+- **Replica rules unrealized (C24 to C26).** The contract states foreign
+  review eligibility, provisional integration, and acceptance; the model
+  realizes none of them, so it answers every history as one store's, with
+  every event local. See "Deferred out of this package".
 - **Contested verdicts.** The model treats more than one active tip as
   contested and refuses. It does not model the repair of a contested chain
   beyond the arrival of a single superseding verdict.
@@ -1028,6 +1147,25 @@ names the reading the model takes, and nothing is listed here.
 Disagreements between the model and the contract, each with its class and
 the change that settled it. A model defect carries a fixture that fails on
 the model before the fix.
+
+- **The integration shape (C3): model defect.** The model owed a rebase
+  only where the head conflicts with its target. C3, re-sourced against arc
+  `3c0c537`, has `ff-only`, the built-in shape, owe one wherever the head is
+  behind. `Policy` carries the resolved `IntegrationShape`, and
+  `evaluateDeclared` owes the rebase under `ff-only` beside the merge's
+  grounds, C3's reading (i). Fixture `ff-only`; commit `5b41595`.
+- **Authority at readiness and execution (C20): model defect.** The model's
+  check never read the store's authority, and its `execute` answered a
+  refused decision with that refusal. C20 now settles that a check reports
+  `integration-mode` beside every other ground and that an integration in a
+  store without authority answers for it first. `evaluateDeclared` reports
+  `RefusedAuthorityWithheld`, and `execute` refuses for it before anything
+  else. Fixture `authority`; commit `5b41595`.
+- **A closed change (C2): model defect.** The model judged a closed change
+  against the observed head and target, so a commit after the closure, a
+  deleted branch, or a moved target raised grounds. C2 judges it where it
+  closed, reading neither. `evaluateDeclared` evaluates a closed change at
+  its latest patchset's head and tree. Fixture `closed`; commit `ad5c3dc`.
 
 - **External approvals and debts beside them (C9, C6): model defect.**
   The model let an external approval authorize alone wherever no
@@ -1122,6 +1260,16 @@ about them:
   [The proposed candidate protocol](#the-proposed-candidate-protocol). The
   existing-authorization model carries none of its rules and cannot import
   it.
+- **Replica authorization (C24 to C26).** Which imported events count, by
+  the capability their origin was admitted with; when a foreign verdict
+  gates; what a replica without authority prepares under
+  `integrate --provisional` and the obligation it leaves; and how the
+  authority prepares a delivered change. The model's events carry no
+  origin, it has no staging destination or provisional obligation, and
+  acceptance records no decision of its own, so realizing them is an
+  extension of the ledger, not a correction of the decision. The
+  differential replays one store, plus the paired store that takes its
+  authority, and imports nothing, so no history reaches them either.
 - **A multi-obligation debt representation.** The single-slot waiver query
   is the production reducer's semantics; a representation carrying several
   obligations would be a different model, not a refinement of this one.
@@ -1176,6 +1324,18 @@ about them:
   is modelled for the invoker only.
 - **Forks, worktrees, retention, bundles, journal, changelog projection,
   replica exchange.** None are modelled; authority is an observation.
+- **Queues.** `integrate` over several changes or a tag, its preflight, and
+  its projected destinations are not modelled; the model decides one change.
+- **The history an integration writes.** Whether it fast-forwards, writes a
+  merge commit, or finds the head already contained is a Git effect; the
+  model names the resolved shape and the refusal `ff-only` owes.
+- **A closure's own head.** The model's closures record no head, so a
+  closed change is judged at its latest patchset's head; a closure recording
+  another one, such as an asserted integration, is not represented.
+- **Dispositions after integration.** `arc resolve` on an integrated change
+  records how a finding stood after it shipped. It is no verdict and
+  discharges nothing, and the model records no disposition after an
+  integration.
 - **Review-map advisories.** `reviewer-behind-final-patchset`,
   `no-independent-reviewer`, and the other advisories are not modelled; they
   never block, and the model's job is the blocking decision.
