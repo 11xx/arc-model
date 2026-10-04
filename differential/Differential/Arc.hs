@@ -19,7 +19,7 @@ module Differential.Arc
     , checkRefusedConflictingGates
     ) where
 
-import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), Policy, VerdictKind(..) )
+import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), IntegrationShape(..), Policy, VerdictKind(..) )
 import Arc.Model.Policy qualified as Policy
 import Differential.Plan
 import Differential.Sandbox qualified as Sandbox
@@ -178,13 +178,17 @@ operatorGatesToml = unlines
   , "command = \"true\""
   ]
 
--- | The policy file, declaring these paths dangerous. With no path, the
--- file declares no danger table at all.
+-- | The policy file, declaring these paths dangerous and the policy's
+-- integration shape as the project's default. With no path, the file
+-- declares no danger table at all.
 policyToml :: Policy -> [FilePath] -> String
 policyToml policy dangerous = unlines $
   [ "[policy]"
   , "forbid_self_approval = " <> bool policy.forbidSelfApproval
   , "require_declared_actor = " <> bool policy.requireDeclaredActor
+  , ""
+  , "[defaults.integration]"
+  , "shape = " <> show (shapeFlag policy.shape)
   ]
   <> concat
   [ [ "", "[danger]", "paths = [" <> commaList [ show path | path <- dangerous ] <> "]" ]
@@ -312,7 +316,7 @@ mkSandbox options root policy = do
   git sandbox repo ["config", "commit.gpgsign", "false"]
   git sandbox repo ["add", "."]
   git sandbox repo ["commit", "-q", "-m", "init"]
-  _ <- arc options sandbox repo (Declared "author") [] ["begin", changeSlug] ""
+  _ <- arc options sandbox repo (Declared "author") [] ["begin", changeSlug, "--worktree=" <> sandbox.worktree] ""
   pure sandbox
 
 runSteps :: Options -> Sandbox -> [Step] -> IO ()
@@ -478,6 +482,11 @@ causeFlag :: VerdictKind -> [String]
 causeFlag = \case
   ChangesRequested -> ["--cause", "executor"]
   _uncaused        -> []
+
+shapeFlag :: IntegrationShape -> String
+shapeFlag = \case
+  ShapeFastForwardOnly -> "ff-only"
+  ShapeMergeCommit     -> "no-ff"
 
 externalFlag :: ExternalKind -> String
 externalFlag = \case
