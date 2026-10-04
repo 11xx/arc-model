@@ -236,8 +236,10 @@ replayIn options root encoding = do
   git sandbox repo ["add", "."]
   git sandbox repo ["commit", "-q", "-m", "init"]
   baseRevision <- revParse sandbox "HEAD"
-  expect =<< run repo lead [] ["begin", destinationSlug] ""
-  expect =<< run repo lead [] ["begin", otherSlug] ""
+  -- each change in a worktree of its own, so the main checkout stays on
+  -- the target both changes open from
+  expect =<< run repo lead [] ["begin", destinationSlug, "--worktree=" <> sandbox.worktree] ""
+  expect =<< run repo lead [] ["begin", otherSlug, "--worktree"] ""
   expect =<< run repo lead [] (["brief", destinationSlug, "--body-file", "-", "--base", baseRevision] <> concat [ ["--must-read", requirementLocator baseRevision extent] | extent <- encoding.mustRead ]) "the contract\n"
   expect =<< run repo lead [] ["brief", otherSlug, "--body-file", "-", "--base", baseRevision] "another contract\n"
   destinationId <- changeId options sandbox destinationSlug
