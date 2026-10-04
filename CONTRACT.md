@@ -83,13 +83,28 @@ invalidates what was decided about the old head. A change whose branch is
 gone has no head, and is refused on that ground rather than compared with
 anything.
 
+A closed change is judged where it closed: at the head its closure
+recorded, or at its latest patchset's head where the closure recorded none.
+Its branch and its target are not read, so neither a missing branch, a
+commit after the closure, nor a target that moved raises a ground, and its
+gate evidence answers at that head's own tree (C3). It is still refused as
+closed (C10).
+
 **Status.** Settled. arc reports a moved head as no valid approval and gates
 not green, since both bind to the head; the model names the moved head as
-its own ground. That is vocabulary, and C23 makes it presentation.
+its own ground. That is vocabulary, and C23 makes it presentation. The
+model's closures record no head, so it judges every closed change at its
+latest patchset's head; a closure recording another head is a fact it
+cannot state.
 
 **Source.** `README.md`, "One change, end to end" (a new commit makes the
 approval stale); the guide, "Rules that change what you do" (any new commit
-makes the approval stale) and "Exit codes" (6, a missing branch).
+makes the approval stale), "Run a change" ("A closed change is judged at
+the head its closure recorded, or at its newest patchset's when the closure
+recorded none"; "`status`, `show`, and `check` read neither its branch nor
+its target, so deleting the branch or moving the target after closure
+leaves the head its verdict and gate evidence are read against where it
+was"), and "Exit codes" (6, a missing branch).
 
 **Realized by.** `evaluateDeclared`, `execute`.
 
