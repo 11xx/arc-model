@@ -75,9 +75,9 @@ counterexample can be generated for them.
 ### Unit fixtures
 
 `test/Fixtures.hs` pins the exact answer for each required case: 178 checks
-at seed `20260907`, alongside 54 comparator and 10 sandbox checks. The
-14 properties, 18 killed mutants, and coverage sampler bring the spec
-suite to 275/275 passing checks.
+at seed `20260907`, alongside 54 comparator, 10 sandbox, and 19 historical
+provenance checks. The 14 properties, 18 killed mutants, and coverage sampler
+bring the spec suite to 294/294 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -376,7 +376,7 @@ to lie inside the root. Each command's final environment is checked again
 before it starts. A refusal stops the run with exit 70, so no replay reads
 or writes the operator's configuration.
 
-### Results at arc `a5f9e03`
+### Results at arc `26f6bdc`
 
 Seed `20260907`, `--cases 200 --check-time-cases 200`: 442 cases, 398
 agreed, 44 skipped, 0 adjudicated, 0 disagreed, 0 failed to replay.
@@ -495,7 +495,7 @@ settled that the authority answers, and the model followed (see
 `execute-authority-withheld`, and `execute-target-and-authority`; each run
 exits non-zero.
 
-At arc `a5f9e03`, seed `20260907`, `--channel execution --cases 200
+At arc `26f6bdc`, seed `20260907`, `--channel execution --cases 200
 --check-time-cases 200`: 448 cases, 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed, 0
 failed to replay.
 
@@ -570,7 +570,7 @@ audit verdict where arc has none.
 `--mutant fulfilled-implies-approved` cannot object, since it faults only
 the `approved` flag arc does not record.
 
-At arc `a5f9e03`, seed `20260907`, `--channel coverage --cases 200
+At arc `26f6bdc`, seed `20260907`, `--channel coverage --cases 200
 --check-time-cases 200`: 453 cases, 396 agreed, 10 adjudicated, 47 skipped, 0 disagreed, 0
 failed to replay.
 
@@ -591,7 +591,7 @@ fulfilled-implies-approved` agrees everywhere and exits zero.
 The adjudications in this section describe the contract used for that run.
 
 The same seed and case counts, replayed against the arc installed when the
-run was made, `arc 2026.9.9`, whose binary postdates arc `c9f3ca1`. The
+run was made, `arc 2026.9.9`, whose binary postdates arc `1170fb4`. The
 model still characterizes `comparisonRevision`. The histories include the
 widened generator's and the five named after the contract's questions.
 
@@ -651,14 +651,14 @@ falls in one class:
 - The authority, external-beside-local, and undeclared-reviewer classes
   are the ones on record at the comparison revision.
 
-### Results at arc `5858200`
+### Results at arc `b320731`
 
-The same seed and case counts, against arc `5858200`, the comparison
+The same seed and case counts, against arc `b320731`, the comparison
 revision of that run, built from source, with the plan committing its declaration and
 policy moves on the target. Every channel ran under the compiled-in heap
 cap.
 
-| channel | arc `a5f9e03` | installed arc, `c9f3ca1` and later | arc `5858200` |
+| channel | arc `26f6bdc` | installed arc, `1170fb4` and later | arc `b320731` |
 | --- | --- | --- | --- |
 | decision | 442 cases: 398 agreed, 0 adjudicated, 44 skipped, 0 disagreed | 447 cases: 368 agreed, 39 adjudicated, 40 skipped, 0 disagreed | 447 cases: 362 agreed, 45 adjudicated, 40 skipped, 0 disagreed |
 | execution | 448 cases: 339 agreed, 62 adjudicated, 47 skipped, 0 disagreed | 453 cases: 315 agreed, 93 adjudicated, 45 skipped, 0 disagreed | 453 cases: 288 agreed, 125 adjudicated, 40 skipped, 0 disagreed |
@@ -707,17 +707,17 @@ target's checkout.
 - The iterating, authority, external-beside-local, and undeclared-reviewer
   classes are the ones on record before.
 
-### Results at arc `9464071`
+### Results at arc `e10d981`
 
 Installed `arc 2026.9.29`, master
-`94640716c12a30791fe8af3278732d3d01833bfa`, seed `20260907`,
+`e10d981b01c1613fec0b5f0925492ed83df501f6`, seed `20260907`,
 `--cases 200 --check-time-cases 200` on each of decision, execution, and
 coverage. Every channel used one captured installed binary, SHA-256
 `a23ef76b230a8e8a2501813dec724e985909ed97dd6f743b3c48d80848992a02`,
 selected with `--arc`, and the compiled-in heap cap. Replay roots were
 under an ignored `target/` directory and sealed by `Differential.Sandbox`.
 
-| channel | arc `5858200` | installed arc `9464071` |
+| channel | arc `b320731` | installed arc `e10d981` |
 | --- | --- | --- |
 | decision | 447 cases: 362 agreed, 45 adjudicated, 40 skipped, 0 disagreed | 449 cases: 389 agreed, 20 adjudicated, 40 skipped, 0 disagreed |
 | execution | 453 cases: 288 agreed, 125 adjudicated, 40 skipped, 0 disagreed | 455 cases: 300 agreed, 115 adjudicated, 40 skipped, 0 disagreed |
@@ -758,10 +758,10 @@ agreements. The coverage channel inspects authorization and audit slots,
 not the full basis encoding or advisory falsification. C13's advisory
 scope and C19's captured declaration values have independent fixtures.
 
-### Results at arc `0e178db`
+### Results at arc `01c618a`
 
 Installed `arc 2026.9.29`, master
-`0e178db63f76e676774fc9356fd5761cba136ef7`, seed `20260907`, `--cases 200
+`01c618a92f08739edd4d4c5cb2573e637105571b`, seed `20260907`, `--cases 200
 --check-time-cases 200` on each of decision, execution, and coverage, and
 `--cases 240` on the candidate channel. Every channel used one captured
 copy of the installed binary, SHA-256
@@ -769,16 +769,16 @@ copy of the installed binary, SHA-256
 selected with `--arc`, and the compiled-in heap cap. Replay roots were
 under an ignored `target/` directory and sealed by `Differential.Sandbox`.
 
-| channel | installed arc `9464071` | installed arc `0e178db` |
+| channel | installed arc `e10d981` | installed arc `01c618a` |
 | --- | --- | --- |
 | decision | 449 cases: 389 agreed, 20 adjudicated, 40 skipped, 0 disagreed | 454 cases: 394 agreed, 20 adjudicated, 40 skipped, 0 disagreed |
 | execution | 455 cases: 300 agreed, 115 adjudicated, 40 skipped, 0 disagreed | 460 cases: 305 agreed, 115 adjudicated, 40 skipped, 0 disagreed |
 | coverage | 460 cases: 415 agreed, 5 adjudicated, 40 skipped, 0 disagreed | 467 cases: 422 agreed, 5 adjudicated, 40 skipped, 0 disagreed |
-| candidate | 253 cases at `75d5610`: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed | 253 cases: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed |
+| candidate | 253 cases at `37b0e72`: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed | 253 cases: 165 agreed, 3 adjudicated, 85 skipped, 0 disagreed |
 
 No replay failed. Every generated and check-time row answers as it did at
-`9464071`; the new rows are the named histories that reach the two
-authorization rules arc `0e178db` changed, and each of them agrees.
+`e10d981`; the new rows are the named histories that reach the two
+authorization rules arc `01c618a` changed, and each of them agrees.
 
 | rows | decision | execution | coverage |
 | --- | --- | --- | --- |
@@ -805,16 +805,16 @@ The policy-motion class is adjudicated a model defect since C20 settles
 the re-decision, and no row of this run falls in it: every policy the plan
 moves is committed on the target, which moves the target too.
 
-#### The authorization rules arc `0e178db` changed
+#### The authorization rules arc `01c618a` changed
 
 The operator ruled that an external approval never counts alone inside
 the danger gate, and that a debt beside an approval that stands without it
 is left out of the basis and still owed (C9, C6). The named histories that
 reach each case, replayed before and after the model followed the
-contract, against the binary at each revision (arc `9464071` built from
+contract, against the binary at each revision (arc `e10d981` built from
 source for the comparison):
 
-| history | channel | model before, arc `9464071` | model before, arc `0e178db` | model after, arc `9464071` | model after, arc `0e178db` |
+| history | channel | model before, arc `e10d981` | model before, arc `01c618a` | model after, arc `e10d981` | model after, arc `01c618a` |
 | --- | --- | --- | --- | --- | --- |
 | `external-approved-danger-self-permitted`: an external approval alone on a declared danger path, self-approval permitted | decision, coverage | agreed (ready; basis `external`) | disagreed: arc refuses `no-valid-approval` | disagreed: arc is ready | agreed (refused) |
 | `external-beside-local-danger-self-permitted`: the same beside an independent local approval | decision, coverage | agreed (decision); external beside local (coverage) | agreed (basis `verdict`) | agreed (decision); external beside local (coverage) | agreed (basis `verdict`) |
@@ -822,16 +822,16 @@ source for the comparison):
 | `external-approved-danger-undeclared-self-forbidden`: the same with self-approval forbidden | decision, coverage | agreed (refused) | agreed | agreed | agreed |
 | `external-approved-beside-debt`, `cover-debt-beside-external`: a debt beside a standing external approval, outside the gate | coverage | disagreed: arc's basis names `debt external`, the model's `debt` | disagreed: arc's basis names `external` | disagreed: arc's basis names `debt external` | agreed (basis `external`; review owed) |
 
-The two histories whose answer arc `0e178db` changed disagree with the
+The two histories whose answer arc `01c618a` changed disagree with the
 model of the earlier rule and agree with the model of the contract. Arc
-`9464071` already disagreed with the model on the debt beside an external
+`e10d981` already disagreed with the model on the debt beside an external
 approval, recording both, which no history reached before. On every
 revision arc still lists that debt under `arc query --debt`.
 
-### Results at arc `6de12b7`
+### Results at arc `3c0c537`
 
 Installed `arc 2026.9.29`, master
-`6de12b7c75e9fc199eced539ce00c8e54fef41d6`, built clean, seed `20260907`,
+`3c0c53769114de1fac2a7179fdd0dcbf906d5142`, built clean, seed `20260907`,
 `--cases 200 --check-time-cases 200` on each of decision, execution, and
 coverage, and `--cases 240` on the candidate channel. Every channel used
 one captured copy of the installed binary, SHA-256
@@ -839,7 +839,7 @@ one captured copy of the installed binary, SHA-256
 selected with `--arc`, and the compiled-in heap cap. Replay roots were
 under an ignored `target/` directory and sealed by `Differential.Sandbox`.
 
-| channel | installed arc `0e178db` | installed arc `6de12b7` |
+| channel | installed arc `01c618a` | installed arc `3c0c537` |
 | --- | --- | --- |
 | decision | 454 cases: 394 agreed, 20 adjudicated, 40 skipped, 0 disagreed | 458 cases: 400 agreed, 18 adjudicated, 40 skipped, 0 disagreed |
 | execution | 460 cases: 305 agreed, 115 adjudicated, 40 skipped, 0 disagreed | 464 cases: 367 agreed, 57 adjudicated, 40 skipped, 0 disagreed |
@@ -862,7 +862,7 @@ each agrees on every channel.
 | undeclared reviewer under required declared identity: replay cannot record the verdict held by the model's unconstrained ledger | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 |
 
 The authority class is gone: the 45 execution rows it classified at
-`0e178db` agree, since C20 now settles that the authority answers and the
+`01c618a` agree, since C20 now settles that the authority answers and the
 model follows. Fifteen rows leave the target class, two on the decision
 channel and thirteen on execution: each is a closed change, which arc no
 longer judges against its target, so the move the class rereads no longer
@@ -873,12 +873,12 @@ evaluations at another tree, 16 `only-supplied`, 14 `only-inferred`, and 8
 unknown outcomes. No Rust defect was observed on any channel, so nothing
 was filed in arc's journal.
 
-#### The rules arc `6de12b7` changed
+#### The rules arc `3c0c537` changed
 
 Three rules moved under the model, each found by a channel and settled in
 the contract before the model followed it:
 
-| rule | rows that reach it | model before, arc `6de12b7` | model after |
+| rule | rows that reach it | model before, arc `3c0c537` | model after |
 | --- | --- | --- | --- |
 | `ff-only` is the built-in shape (C3) | `target-behind`, `target-behind-evaluated`, `gate-declaration-changed`, and the three execution rows that move the target, replayed under arc's default | disagreed: arc adds `needs-rebase` (exit 11), and refuses `target-behind-evaluated` where the model was ready | the seeded and named rows declare `no-ff` and agree; the four `ff-only-*` rows agree, the merge's grounds standing beside the rebase |
 | a check reports a store without authority (C20) | `execute-authority-over-refusal`, and the 44 seeded execution rows of the former authority class | disagreed: arc's check adds `integration-mode` beside exit 17, outside the old adjudication | agreed |
@@ -912,17 +912,49 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names arc `6de12b7c75e9fc199eced539ce00c8e54fef41d6`,
-the master revision the installed `arc 2026.9.29` was built from; its
-`arc env` reports the build clean. The sources are the guide the installed
+`comparisonRevision` names the rewritten source revision
+`6de12b7c75e9fc199eced539ce00c8e54fef41d6`. The captured `arc 2026.9.29`
+executable has build revision `3c0c53769114de1fac2a7179fdd0dcbf906d5142`;
+its `arc env` reported the build clean. The sources are the guide the captured
 binary prints with no arguments, command `--help`, the public README, and
 two operator decisions in arc's journal where they read the guide: the
 ruling `authorization-rules-follow-the-guide`, with its amendment, and the
 replica authorization decision on foreign review, provisional integration,
 and acceptance. No Rust source informs the model.
 
+### Historical executable provenance
+
+Run headings, build revisions, digests, and comparison-table labels identify
+actual historical evidence. Rewritten source revisions locate corresponding
+source trees; they do not identify the executables used in those runs. Arc
+embeds the build commit in its executable, so source-tree equality alone
+cannot establish binary identity. Replacing a run's build attribution requires
+a rebuilt executable and a fresh run with its own evidence.
+
+| historical revision | rewritten source revision |
+| --- | --- |
+| `26f6bdc` | `a5f9e03` |
+| `1170fb4` | `c9f3ca1` |
+| `b320731` | `5858200` |
+| `e10d981` | `9464071` |
+| `01c618a` | `0e178db` |
+| `3c0c537` | `6de12b7` |
+| `37b0e72` | `75d5610` |
+
+The historical-revision column preserves the recorded coordinates, including
+`1170fb4` as a lower bound for an installed binary, rather than an exact build.
+The four captured SHA-256 values in the results identify the original
+executables; no rebuilt executable or rerun is claimed for this mapping.
+
+**Evidence defect:** attributing a captured executable to a rewritten source
+commit conflates build identity with source correspondence. The provenance
+checks reject substituted run identities, mismatched digest/build pairs, and
+missing source mappings across all seven historical coordinates and all four
+captured executables. The comparison pin identifies source correspondence;
+the captured binary retains its original build revision.
+
 Every clause was re-sourced against the installed binary's text, compared
-with the text a build of arc `0e178db` prints; every quotation the contract
+with the text a build of arc `01c618a` prints; every quotation the contract
 makes was checked against the new text. The section the review clauses
 cite is now "Review coverage and debt".
 
@@ -941,7 +973,7 @@ cite is now "Review coverage and debt".
 | C23 | `arc check --help` ("in precedence order") | still presentation; the one answer an execution gives is C20's |
 | C24, C25, C26 | "Pair replica stores", "Prepare a delivered change", the replica authorization decision | added: foreign review eligibility, provisional integration, and acceptance. No model function realizes them; see "Deferred out of this package" |
 
-The first-parent history since `0e178db` was read for its effect on the
+The first-parent history since `01c618a` was read for its effect on the
 modelled decision from its messages and public documentation, not from its
 diffs:
 
@@ -963,11 +995,11 @@ diffs:
 | `bca007a`, `0c75dfc`, `2499317`, `bee45d0`, `e1e9e7c` | findings batch fields, the review lock and write order, check exit 6 | no effect on the decision; the encoding's findings already conform |
 | the rest | cleanup, changelog, journal, workspace, watch, build revision, tests | no effect on the decision |
 
-For the pin before, `0e178db`, every clause citing the guide or `--help`
+For the pin before, `01c618a`, every clause citing the guide or `--help`
 was re-sourced against the installed binary's text, compared with the text
-arc `9464071` prints. Each quotation the contract made still stood. The guide's authorization text
+arc `e10d981` prints. Each quotation the contract made still stood. The guide's authorization text
 is unchanged; what moved is the operator's reading of two of its passages,
-which arc `0e178db` implements, and the integration plan paragraph.
+which arc `01c618a` implements, and the integration plan paragraph.
 
 | clause | re-sourced | change |
 | --- | --- | --- |
@@ -988,7 +1020,7 @@ as any other, which the scope now says; context relations authorize
 nothing; and the network guarantee bears on the sandbox, which already
 gives arc nothing to reach.
 
-Every merge since `9464071` was read for its effect on the modelled
+Every merge since `e10d981` was read for its effect on the modelled
 decision from its message and public documentation, not from its diff:
 
 | merges | subject | effect on the model |
@@ -1000,7 +1032,7 @@ decision from its message and public documentation, not from its diff:
 | `c5e9abb` (`2f98d87`, `75d5610`) | candidate selection and promotion | the candidate channel, already exercising them; the scope reads a promoted patchset as any other |
 | `4acc3ea` (`8f90816`, `cdcbee8`, `70e3f34`, `605775e`) | context relations | outside the contract; the candidate channel's read requirements |
 
-For the pin before `9464071`, `5858200`, every merge since `a5f9e03` was read for
+For the pin before `e10d981`, `b320731`, every merge since `26f6bdc` was read for
 its effect on the modelled decision from its message and public documentation,
 not from its diff:
 
@@ -1013,7 +1045,7 @@ not from its diff:
 | `dc14af8` | the blocker derivation extracted into a pure module | behaviour-preserving, no effect |
 | `8e371c3`, `c9f3ca1`, `5426ee4`, `1ec88e2`, `3352b05`, `4a3cd13`, `d17ec60`, `1f15978`, `9cbd2e0` | the model's own repository, session links, release, toolchain, changelog, workspace reports | no effect on the decision |
 
-Between `df47db0` and `a5f9e03`, the model changes were written from the
+Between `df47db0` and `26f6bdc`, the model changes were written from the
 behaviour each commit's tests and docs state:
 
 | commits | subject | effect on the model |
@@ -1152,7 +1184,7 @@ the model before the fix.
 
 - **The integration shape (C3): model defect.** The model owed a rebase
   only where the head conflicts with its target. C3, re-sourced against arc
-  `6de12b7`, has `ff-only`, the built-in shape, owe one wherever the head is
+  `3c0c537`, has `ff-only`, the built-in shape, owe one wherever the head is
   behind. `Policy` carries the resolved `IntegrationShape`, and
   `evaluateDeclared` owes the rebase under `ff-only` beside the merge's
   grounds, C3's reading (i). Fixture `ff-only`; commit `ccc89cd`.
@@ -1780,10 +1812,10 @@ checks the ref holds the promoted commit. A name under
 `refs/arc/candidate/<id>` itself (`'refs/arc/candidate/c1' exists; cannot
 create 'refs/arc/candidate/c1/promotion-s1'`).
 
-#### Results at arc `75d5610`
+#### Results at arc `37b0e72`
 
 `arc 2026.9.29` built from arc's `agent/work-history/candidate-selection`,
-whose head was `75d561037205db74feea3f14d3d9713c3bde111d` at the run,
+whose head was `37b0e7274f772b03e8dbe9a9be4725536bffacfe` at the run,
 binary SHA-256
 `0887bd220854e3e9c75fc73ab463ee336171387f8f1091b61d60ddc62c9eeeea`,
 selected with `--arc`, seed `20260907`, the compiled-in heap cap.
@@ -1813,7 +1845,7 @@ or `unrecorded`.
 
 No Rust defect was observed, so none was filed in arc's journal. The
 decision, execution, and coverage channels, run at their defaults against
-the same binary, summarize as at `9464071`: decision 169 cases, 148
+the same binary, summarize as at `e10d981`: decision 169 cases, 148
 agreed, 7 adjudicated, 14 skipped; execution 175 cases, 130 agreed, 31
 adjudicated, 14 skipped; coverage 180 cases, 161 agreed, 5 adjudicated, 14
 skipped; none disagreed or failed to replay, and every adjudication is one

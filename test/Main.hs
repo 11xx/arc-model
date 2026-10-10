@@ -8,6 +8,7 @@ import Fixtures ( fixtureChecks )
 import Generators
 import Mutants
 import Render
+import ProvenanceChecks ( provenanceChecks )
 import SandboxChecks ( sandboxChecks )
 
 import Data.List ( intercalate )
@@ -40,7 +41,8 @@ main = do
   mutantResults   <- mutantChecks
   coverage        <- coverageCheck seed tests
   sandbox         <- sandboxChecks
-  let checks   = fixtureChecks <> comparatorChecks <> sandbox <> propertyResults <> mutantResults <> [coverage]
+  provenance      <- provenanceChecks
+  let checks   = fixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""

@@ -41,10 +41,11 @@ import Arc.Model.Probe
 import Arc.Model.State
 
 
-{- | The arc revision whose authorization semantics this model
+{- | The arc source revision whose authorization semantics this model
 characterizes. The model describes behaviour, not a commit graph: a
 revision is pinned so a reader can compare against a fixed implementation
-rather than a moving branch.
+rather than a moving branch. Historical executable build revisions and
+digests are recorded separately in @REPORT.md@.
 -}
 comparisonRevision :: String
 comparisonRevision = "6de12b7c75e9fc199eced539ce00c8e54fef41d6"

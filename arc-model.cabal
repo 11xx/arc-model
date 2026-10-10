@@ -13,6 +13,7 @@ license-file:       UNLICENSE
 author:             arc contributors
 build-type:         Simple
 category:           Development
+extra-source-files: REPORT.md
 homepage:           https://github.com/11xx/arc-model
 bug-reports:        https://github.com/11xx/arc-model/issues
 
@@ -137,6 +138,7 @@ test-suite spec
     , Differential.Sandbox
     , Fixtures
     , Render
+    , ProvenanceChecks
     , SandboxChecks
   build-depends:
       arc-model
