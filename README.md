@@ -19,8 +19,10 @@ each one through the arc binary, and compares the answers.
 No disagreement is repaired before it is classified: as a defect in arc, a
 defect in the model, a question the contract leaves open, a difference in
 encoding, or arc having changed since the revision the contract pins.
-[`REPORT.md`](REPORT.md) records each one. The model has found a defect in arc
-this way, since fixed: a newer gate run recorded under a different environment
+[`REPORT.md`](REPORT.md) records each one. Historical results cite each original
+revision beside its rewritten id; a rewritten id names the same tree in a signed commit.
+The model has found a defect in arc this way, since fixed: a newer gate run
+recorded under a different environment
 hid an older pass at the same tree, so arc refused a change the contract
 accepts.
 

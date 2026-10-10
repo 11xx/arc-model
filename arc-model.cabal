@@ -13,7 +13,7 @@ license-file:       UNLICENSE
 author:             arc contributors
 build-type:         Simple
 category:           Development
-extra-source-files: REPORT.md
+extra-source-files: REPORT.md, README.md
 homepage:           https://github.com/11xx/arc-model
 bug-reports:        https://github.com/11xx/arc-model/issues
 
