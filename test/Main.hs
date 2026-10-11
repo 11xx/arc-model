@@ -357,6 +357,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedGates refused           -> not (null refused) && all ((`elem` map fst observation.requiredGates) . gateOf) refused
       RefusedHoldActive hold         -> hold `Set.member` state.holds
       RefusedAuthorityWithheld       -> observation.authority == AuthorityWithheld
+      RefusedActorUnestablished      -> False
       RefusedUndeclaredActor         -> False
       RefusedBasisMoved _            -> False
     brief = do

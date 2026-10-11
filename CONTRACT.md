@@ -59,6 +59,12 @@ nothing to authorize and is refused.
 the contract makes: approvals bind to patchsets, so without one nothing can
 be approved. The guide lets a patchset's contributors be amended until the
 first verdict on it; after that they are fixed, which is all C4 reads.
+A snapshot after a rewrite that invalidates approval records a fresh
+patchset even when the mapped head already equals the branch; it grants no
+approval. An implicit verdict refuses while the approved and mapped heads
+differ; an explicit historical patchset verdict can be recorded and stays
+stale. The model has no rewrite map, so its fresh patchset identity states
+the authorization boundary without the mapped-head recording protocol.
 Recording a patchset while another actor holds a live claim on the change
 requires declared contributors or `--solo`; that is a condition on
 recording a patchset, not on authorizing one, and the model's ledger holds
@@ -129,17 +135,11 @@ project's defaults, the user's configuration, and the built-in `ff-only`,
 in that order; the model takes the resolved shape as part of the policy it
 observes.
 
-**Status.** Settled, except what else stands beside the rebase `ff-only`
-owes a head behind its target. (i) Everything that stands under `no-ff`:
-the guide's rule that a change behind its target is refused with
-`merged-tree-unevaluated` until the merge is evaluated names no shape, and
-the shape adds a refusal to it. (ii) The rebase alone: under `ff-only` no
-merge ships, so no merge's tree is owed evidence, and the guide's exit 14
-applies "when the tree a merge would ship has no gate evidence". The model
-reads (i). Only the blocker set `check --json` reports tells the readings
-apart; the exit code (11) and the next step (a rebase) are the same, and a
-rebase clears both grounds at once. The documentation states no blocker
-set for this case, so the clause stays open until it does.
+**Status.** Settled. Under `ff-only`, the check retains
+`merged-tree-unevaluated` beside `needs-rebase` when the merge lacks evidence;
+exit 11 for the rebase precedes exit 14. The merge's gate grounds remain
+independent (C23).
+
 Which history an integration then writes — a fast-forward, a merge commit,
 or nothing because the target already contains the head — is a Git effect,
 outside the contract.
@@ -153,8 +153,9 @@ under ff-only"; "`--shape no-ff` creates a merge commit with the observed
 target and approved head as its parents"), "Files" (the style precedence;
 `[defaults.integration] shape`; `[integration] shapes`), and "Exit codes"
 (11, "when the target conflicts or ff-only ancestry requires rebasing";
-14); `arc integrate --help` and `arc check --help`, `--shape`; `arc verify
---help`, `--against`.
+14; the explicit `ff-only` blocker set in "Rules that change what you do");
+`arc integrate --help` and `arc check --help`, `--shape`; `arc verify --help`,
+`--against`.
 
 **Realized by.** `evaluateDeclared`, `gateEvidence`.
 
@@ -243,7 +244,9 @@ guide and `--help` neither describe nor rule out.
   (the guide, "Rules that change what you do": "A verdict binds to the
   exact approved patchset head. Any new commit makes the approval stale").
 
-The model reads (i). An approval after a recorded history rewrite follows
+The model reads (i). After a rewrite that invalidates approval, a fresh snapshot and a verdict
+on that patchset are required; a snapshot alone approves nothing.
+An approval after a recorded history rewrite follows
 the rewrite only when the successor differs from the approved head in nothing
 but its signature, as judged when the mapping was recorded or imported, and
 any other successor leaves it stale. What happens to the approval of a
@@ -280,6 +283,11 @@ is a decision the contract makes: nothing is left to authorize. What the
 recorded basis names is C19's. A debt `arc integrate --debt` declared
 stays declared when that integration is refused, and waives like any other
 on the patchset it names; an imported debt waives only as C24 allows.
+A waiver follows only a signature-only rewrite. A message or content
+rewrite leaves it stale even when the mapped head equals the branch:
+a fresh snapshot and debt declaration are required. Equivalent declarations
+reuse the obligation and confirm its backing publication; that changes no
+waiver scope. Rewrites and publication durability are outside the model.
 
 **Source.** The guide, "Review coverage and debt" (the
 debt "can stand in for an absent verdict or rescue a self-approval rejected
@@ -402,13 +410,27 @@ the others:
 - a closed change;
 - a change that declares it is iterating (C11).
 
-Claims are advisory liveness and refuse nothing.
+Claims are advisory liveness and refuse nothing. Integration warns about
+an active foreign claim unless actor, harness, and session all match its
+owner. A missing or empty coordinate cannot match. This warning never
+changes the authorization. The guide names integration as lead-owned. Claim
+renewal and release ownership are outside this integration decision.
 
-**Status.** Settled.
+**Status.** Settled on the blockers and claim warning. Unsettled on
+"Integration remains lead-owned": (i) the lead owns the workflow, without a
+role-based refusal; (ii) only an invoker with the lead role may integrate.
+Neither the guide nor `integrate --help` states a role refusal. The model
+reads (i) and carries no role observation.
+
+Contribution-trailer and changelog advice never adds a blocker, whether a
+trailer is missing or contains an invalid coordinate. Forge readiness is
+independent of local integration's gates and judgments.
 
 **Source.** `README.md`, "One change, end to end" (no open blocking
 finding, no active hold, every prerequisite integrated); the guide, "Rules
-that change what you do" (claims are advisory, never locks) and "Exit
+that change what you do" (claims are advisory, never locks; complete foreign-claim matches),
+"Contribution trailers" (advice never blocks), "Forge" (local authorization
+is independent), and "Exit
 codes" (2, 4, 6, 7, 13); `arc release-hold --help` (one hold at a time);
 `arc audit --help` and the guide's `arc findings --audit` (audit findings).
 
@@ -629,28 +651,47 @@ that brief's base and final success at the patchset's head; the guide,
 
 **Realized by.** `briefOf`, `newestProbeRun`, `probeRefusals`.
 
-### C18. Declared actors
+### C18. Established and declared actors
 
-**Rule.** Under `require_declared_actor`, an event whose effective author
-nobody claimed is refused. `integrate` checks this before it merges, against
-the destination's declaration at the revision the integration observes.
-Reading is unaffected, so a readiness check does not refuse an undeclared
-invoker. A declared `--on-behalf-of` subject satisfies the policy.
+**Rule.** Every write needs an established actor. An explicit actor is
+established and declared; absent one, arc assumes `<harness>:<session>`
+when both are known, otherwise Git's configured user name. When neither
+fallback exists, a write refuses regardless of `require_declared_actor`.
+An assumed actor is established but is not declared and cannot supply an
+independent approval (C4). Reading is unaffected, so a readiness check
+refuses neither a missing nor an undeclared invoker.
 
-**Status.** Settled. The guide makes an undeclared identity "a refusal
-instead of a record", so a command that records nothing refuses nothing,
-and `integrate`, which records, refuses. The guide lists `check` among the
-commands that record nothing and never parse that policy. That a declared
-subject satisfies the policy follows C4's reading of the effective author.
+A command that can record checks `require_declared_actor` when opening its
+append handle, from the invoking checkout. Integration additionally checks
+the destination's requirement at the observed transition revision. Either
+requirement refuses an undeclared effective author; a declared
+`--on-behalf-of` subject satisfies that requirement. It does not establish
+the actor who invoked the write. An unparseable append policy refuses before
+recording; the model receives resolved requirements and cannot represent
+that parse failure.
 
-**Source.** The guide, "Say who you are" (the `require_declared_actor`
-paragraph: "These commands record nothing, in any form or flag", a list
-that names `check`), "Run a change" ("Destination declarations are pinned
-to the transition's observed revision; their actor requirement and
-agreement with the authorization readings are required for integration"),
-and "Files" (`[policy] require_declared_actor`).
+**Status.** Settled on the requirements. Unsettled on the single refusal
+returned when a missing actor and withheld authority both stand: (i) the
+identity guard refuses before an integration is evaluated; (ii) the
+integration's unconditional exit 17 for withheld authority answers first.
+The model reads (ii). Both readings refuse and record nothing.
 
-**Realized by.** `evaluateDeclared`.
+Placeholder identities and malformed supplied agent coordinates are
+refused by the write's identity validation. The model's actor observation
+represents a validated identity or absence; the spelling validation and
+harness/session/model lookup are outside it.
+
+**Source.** The guide, "Say who you are" ("When neither exists no actor is
+established: a write refuses"; the append guard reads the invoking
+checkout; "Integration also checks the change target's policy before
+merging"; placeholder validation; the commands that record nothing include
+`check`), and "Run a change" (destination declarations pinned to the
+transition's observed revision); `arc integrate --help`, `--actor` and
+`--on-behalf-of`; "Pair replica stores" (plain integration without authority
+refuses with exit 17).
+
+**Realized by.** `execute`, with `Observations.invoker`,
+`invokerDeclared`, and `appendRequiresDeclaredActor`.
 
 ### C19. The decision basis
 
@@ -914,7 +955,11 @@ across authority transfers, until a superseding judgment on the delivered
 patchset disposes of it or an accepting integration settles the delivery.
 Without the flag, the store's integration is refused as C20 says.
 
-**Status.** Settled.
+**Status.** Settled. Debt publication accompanying a refused preparation
+is reported separately, including durable, visible-unconfirmed, absent,
+and unknown publication states. Recovery and syncing that publication are
+outside this model and change neither the patchset waiver scope nor the
+preparation's authorization requirements.
 
 **Source.** The guide, "Pair replica stores" (the `integrate --provisional`
 paragraphs: "Explicit provisional preparation is available on paired
@@ -949,9 +994,17 @@ owes; it never replays the content onto moved history. The prepared change
 is then decided under C1 to C23 like any other, and commonly still owes the
 local review.
 
+Acceptance requires the delivered branch head to equal the latest
+patchset's head or its recorded signature-only successor. A worker that
+rebases records a patchset before export, declaring the implementing
+contributors; rebasing alone supplies no implementation credit. This is
+preparation's head binding, not an approval.
+
 **Status.** Settled.
 
-**Source.** The guide, "Prepare a delivered change" ("Preparation records
+**Source.** The guide, "Pair replica stores" (a worker's rebase requires a
+patchset before export; acceptance's delivered-head equality),
+"Prepare a delivered change" ("Preparation records
 evidence and returns readiness; it records no judgment"; "Imported passing
 evidence never suppresses the local head-gate run"; "If the authoritative
 target moved beyond that base, acceptance stops with explicit rebase,

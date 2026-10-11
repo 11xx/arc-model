@@ -74,10 +74,10 @@ counterexample can be generated for them.
 
 ### Unit fixtures
 
-`test/Fixtures.hs` pins the exact answer for each required case: 178 checks
-at seed `20260907`, alongside 54 comparator, 10 sandbox, and 20 historical
-provenance checks. The 14 properties, 18 killed mutants, and coverage sampler
-bring the spec suite to 295/295 passing checks.
+`test/Fixtures.hs` pins the exact answer for each required case: 186 checks
+at seed `20260907`, alongside 54 comparator, 10 sandbox, and historical
+provenance checks (21 checks). The 14 properties, 18 killed mutants, and coverage sampler
+bring the spec suite to 304/304 passing checks.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -100,7 +100,7 @@ bring the spec suite to 295/295 passing checks.
 | `rebuilt` | a finding, a hold, a refusing verdict, a failing run, or a newer pass recorded after the decision stands the execution down; an unchanged history plans and records nothing |
 | `authority` | a decision taken with authority permits and its execution stands down once the authority is withheld; a check without authority reports it, alone or beside a refusal, and an execution there answers with the authority whatever was decided |
 | `prerequisites` | a permission and the integration it records name each prerequisite's closure; an open prerequisite refuses |
-| `undeclared-actor` | under `require_declared_actor` a check does not refuse an undeclared invoker; execution refuses it, and a declared one executes |
+| `undeclared-actor`, `missing-actor`, `append-actor` | readiness reads without an actor; execution requires an established actor and honors both invoking-checkout and destination declaration requirements; a declared subject satisfies the requirement but supplies no invoking actor |
 | `every-ground` | a history refused on an open finding and a failing gate reports both grounds, in the model's presentation order; the decision is the first |
 | `permission-not-effect` | permission alone records no integration; recording lands the basis |
 | `audit` | an open change refuses an audit; an approving audit needs a declared independent identity; a negative audit is open to anyone; a contributor's approving audit is not recorded where self-approval is forbidden, and is recorded elsewhere |
@@ -891,6 +891,31 @@ Before the encoding asked for a worktree, every replay failed at its first
 command, since `begin` opens a change in place by default; the candidate
 channel failed the same way at its second `begin`.
 
+### Actor admission at arc `73bff20`
+
+`evidence/repin/actor-replay.sh`, run through `arc-model-sandbox` against
+each captured binary, opens and approves a change with declared actors,
+then removes the sandbox repository's user name and the test harness/session
+fallbacks. `require_declared_actor` is false. Its final commands run without
+an established actor; no user configuration is read or changed.
+
+| source/build revision | readiness check | integration dry run |
+| --- | --- | --- |
+| `6de12b7` | ready, exit 0 | would integrate, exit 0 |
+| `73bff20` | ready, exit 0 | exit 1: no actor established, naming `--actor` and `ARC_ACTOR` |
+
+This is arc having changed since the former pin, documented in C18. The
+model before the actor guard permitted the write as the old binary did;
+`missing-actor` refused that permission as a model defect under C18 before
+implementation. `append-actor` also exposed the omitted invoking-checkout
+requirement, already stated by the former guide. The source pin regression
+failed until it named `73bff2027fc211568811e16f4cc5de0546278b17`. Fixtures
+retain assumed established actors, target requirements, read access, and a
+declared subject distinct from the invoking actor. The dry-run observation
+is separate evidence from the generated differential: its actor case is
+outside that channel's `StoodDown` mapping, as the unsupported semantics
+record.
+
 ### What a quiet run means
 
 Every replayed history agreed, or disagreed in a class somebody read and
@@ -915,15 +940,211 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names the rewritten source revision
-`6de12b7c75e9fc199eced539ce00c8e54fef41d6`. The captured `arc 2026.9.29`
-executable has build revision `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199eced539ce00c8e54fef41d6`);
-its `arc env` reported the build clean. The sources are the guide the captured
-binary prints with no arguments, command `--help`, the public README, and
-two operator decisions in arc's journal where they read the guide: the
-ruling `authorization-rules-follow-the-guide`, with its amendment, and the
-replica authorization decision on foreign review, provisional integration,
-and acceptance. No Rust source informs the model.
+`comparisonRevision` names source revision
+`73bff2027fc211568811e16f4cc5de0546278b17`. The captured `arc 2026.9.29`
+executable has build revision `73bff2027fc211568811e16f4cc5de0546278b17`;
+its `arc env` reported the build clean. Its SHA-256 is
+`1aeb78658082eab0481d654954085c598dc29da0b8c42e099d06f03c4837cc1c`.
+The comparison capture at source revision
+`6de12b7c75e9fc199eced539ce00c8e54fef41d6` has build revision
+`6de12b7c75e9fc199eced539ce00c8e54fef41d6`, reported clean, and SHA-256
+`59e4f02471a5a3b635022bcf964daa379723d7efc5cbb84421069025067b33fc`.
+These are rebuilt executables, not the historical executable whose build
+was `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199eced539ce00c8e54fef41d6`).
+
+The sources are the captured guides, command `--help`, the public README,
+and the two retained operator rulings where they read the guide. No Rust
+source informs the model. Both builds used isolated source exports with
+Git metadata anchored to their source revisions, outside the arc checkout,
+with `CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=4`. Initial builds that picked up
+the containing repository's build identity were discarded and rebuilt;
+only binaries reporting the comparison source's clean identity were used.
+
+### Captured documentation at `73bff20`
+
+[evidence/repin](evidence/repin) holds each guide, README, build identity,
+executable digest, command inventory, and the complete recursive help
+capture: 190 command surfaces at `6de12b7`, 191 at `73bff20`, including
+all integration and replay commands. `capture.py` runs through
+`arc-model-sandbox`; it replaces only the random sandbox path in the
+`ARC_SANDBOX` help environment annotation with `<sandbox>`. The guide and
+README are unchanged by capture. The `.diff` files compare these texts;
+`README.md.diff` is empty because the README is byte-identical. Help
+markers name each command, including parent-command summaries and the
+common inherited flags.
+
+Every changed guide hunk is indexed below by its starting line in the new
+capture. Multiple rows at one line distinguish passages in the same hunk.
+“Outside” means outside integration authorization, not agreement evidence.
+Rules about rewrites and replicas retain the contract's declared scope:
+the ledger has no rewrite mapping, foreign event origin, staging branch,
+or delivery preparation. Their admission protocols are stated in the
+contract, and remain unsupported rather than approximated by local events.
+
+| guide line | passage | classification |
+| --- | --- | --- |
+| 20 | `--version` build line and `-V` | outside: executable provenance |
+| 20 | placeholder actors, subjects, harnesses, sessions and supplied model segments | C18 settled: validated identity or absence is observed; spelling validation is outside the model |
+| 20 | raw and rendered producer models | outside: provenance display, not reviewer eligibility |
+| 20 | issuance lock, durable ULID floor and independent scratch IDs | outside: durability and issuance, not authorization |
+| 20 | provisional reservations, abandonment recovery and ID cursors | C25's retained intent protocol; outside the pure decision |
+| 20 | imported origin IDs and historical projections | outside: arrival/replay ordering; C24's eligibility is unchanged |
+| 20 | event/message cursors and export prefixes | outside: transport and event streaming |
+| 20 | no established actor refuses a write; omitted journal provenance | C18 settled; `execute` refuses an omitted invoking actor; omitted journal keys are outside |
+| 111 | reads leave ledger files byte-identical | C18 unchanged; readiness remains a read |
+| 134 | detection ambiguity, session-store failures and model fallback | C18 observes the established identity; lookup and diagnostic production are outside |
+| 246 | successor publication and evidence activity in inventory | outside: journal availability and staleness |
+| 268 | worktree-space inspection fallback | outside: workspace diagnostics |
+| 288 | absent fork base | outside: fork display |
+| 288 | pending successors outside actionable counts | outside: journal promotion availability |
+| 314 | malformed planner corrections grant no credit | outside: contribution credit, never approval |
+| 335 | hot/cold journal lookup and exact topics | outside: journal navigation |
+| 357 | artifact claim TTL renewal | outside: advisory claim lifecycle, not integration eligibility |
+| 367 | evidence append, target preflight and cold-storage refusal | outside: journal mutation protocol |
+| 445 | `unreplayable-change` doctor diagnostic | outside: diagnostics; unresolved prerequisites already refuse under C10 |
+| 503 | discussion hot/cold lookup | outside: journal navigation |
+| 513 | correction targets, JSON evidence and quotation rules | outside: journal representation and diagnostics |
+| 547 | identity repair validation | outside: historical provenance repair |
+| 547 | durable complete successor preparation and retry | outside: journal transition durability |
+| 691 | implicit planning/orchestration assertions | outside: assertions grant no approval |
+| 711 | implicit brief planner assertion | outside: contribution credit |
+| 720 | takeover evidence spelling | outside: advisory liveness; any reason remains accepted |
+| 730 | fresh patchset after a non-signature rewrite | C1/C5 settled; fresh patchsets never grant approval; rewrite mapping remains unsupported |
+| 764 | original failure revision in falsification | C13 advisory evidence; rewritten references are outside the model |
+| 778 | implicit review refusal and explicit historical verdicts after rewrite | C1/C5 settled; historical verdicts remain stale; rewrite admission is unsupported |
+| 813 | canonical history checksums | outside: export encoding |
+| 825 | retained objects and rewrite-authority proof for falsification/claim replay | C24 admission remains settled; transport, retention and rewritten evidence are unsupported |
+| 863 | partial journal import | outside: journal exchange |
+| 1201 | no-changelog declaration and masked text provenance | outside: changelog advice never blocks integration |
+| 1308 | worker rebase snapshot, contributors and delivered-head equality | C26 settled; acceptance remains deferred; C1/C5's local fresh-patchset boundary is unchanged |
+| 1418 | provisional debt publication states and failed reread | C6/C25 settled: a refused attempt retains any declared debt; publication observation is unsupported |
+| 1487 | per-artifact journal admission and checksums | outside: journal exchange |
+| 1508 | partial-import receipts and global recovery command | outside: journal exchange recovery |
+| 1583 | global promotion recovery and metadata cleanup | outside: journal durability |
+| 1615 | evidence appended to an existing item | outside: journal filing |
+| 1646 | forge observed/resolved heads and hosted readiness | outside: provider diagnostics; local integration uses its gates and judgments independently |
+| 1784 | equivalent debt reuse confirms its backing publication | C6 unchanged waiver scope; syncing is outside the model |
+| 1784 | debt head motion and signature-only rewrite eligibility | C6 settled; message/content rewrites require a fresh snapshot/declaration; mapping is unsupported |
+| 1937 | implicit roles, declared contribution attribution and malformed-trailer advice | C10 settled: neither missing nor placeholder trailers block; contribution projection is outside |
+| 2023 | rewrite range, shared-ref permission, validation and edits | outside: Git/rewrite execution; no approval is granted |
+| 2107 | withdrawal keeps retained refs and removes falsification proof | outside: rewrite/retention protocol; C13 remains advisory |
+| 2129 | exact trailer edits format and validation | outside: Git message editing |
+| 2180 | retention, rewrite preflight, rollback and uncertain publication | outside: Git effects, durability and recovery |
+| 2244 | fresh snapshot/verdict after a message/content rewrite | C1/C5 settled; a rewrite grants no approval; mapping remains unsupported |
+| 2465 | complete foreign-claim match and lead-owned integration | C10: the warning is settled advisory; whether lead ownership is an enforced role boundary is unsettled |
+| 2465 | owned journal claim/lane writes require complete identities | outside: journal lifecycle; no integration lock |
+| 2489 | takeover evidence spelling | outside: advisory liveness |
+| 2525 | bounded rescue lookup reason | outside: diagnostics |
+| 2538 | watch Git-probe timeout and pipe cleanup | outside: process supervision |
+| 2557 | `ff-only` retains merged-tree ground beside rebase | C3 settled on the model's existing reading; `ff-only` fixtures already pin both grounds |
+| 2589 | journal enumeration failure diagnostic | outside: journal reference lookup |
+| 2623 | hostname fallback on evaluations | outside: execution provenance, not environment-probe identity |
+| 2635 | active rewrite proof and verification replay preflight | C13 advisory falsification; malformed event admission and mapping are unsupported |
+| 2663 | journal append-order replay | outside: journal ordering |
+| 2711 | exit 11 shadows 14 | C3 settled; exit precedence remains presentation under C23 |
+| 2792 | only a missing config selects defaults; access/parse errors persist | resolved-input precondition under C3/C12/C18; configuration reading is outside the pure model |
+| 2803 | unreadable auto-log configuration disables logging with warning | outside: journal logging, not authorization |
+| 2922 | resolved patchset pins and retained original commits | outside: Git retention; pins grant no approval |
+| 2943 | schema/input versioning and provisional publication schema | outside: serialization; C25's authorization requirements are unchanged |
+| 2980 | fork schema | outside: display |
+| 2991 | question/discussion schemas | outside: journal display |
+| 3004 | optional journal identity, owned lifecycle and unsupported imports | outside: journal exchange and lifecycle |
+| 3004 | complete private successor recovery evidence | outside: journal durability |
+| 3063 | unsupported journal artifacts and incomplete promotion source | outside: journal/change opening; existing change integration rules are unchanged |
+
+### Changed command-help passages
+
+The inherited `--actor` passage is C18's established-identity rule on every
+surface; read commands still proceed without one. The inherited `--harness`,
+`--session`, `--model`, and `--on-behalf-of` passages validate supplied
+coordinates (C18). `--contributors` and `--solo` validate recorded actors
+(C1), without changing effective-author or independence rules (C4).
+These repeated passages are classified once here; their occurrences remain
+visible in `help.txt.diff`. Line wrapping, synopsis alignment, and parent
+summaries repeat the same contracts and add no authorization rule.
+
+| command-specific passage | classification |
+| --- | --- |
+| `accept --branch` | C26: latest delivered patchset head or signature-only successor; worker rebase needs a snapshot |
+| `begin` detection; `--planned-by`, `--orchestrated-by`, `--from-journal` | outside: provenance, credit and opening-source availability |
+| `brief --planned-by`, `--must-read` | outside: contribution credit and journal lookup diagnostics |
+| `candidate verify` hostname | outside: execution provenance |
+| `catchup` | outside: producer-model and recent-session display |
+| `changelog` declaration, provenance, `--write` | outside: advice/projection; no authorization blocker |
+| `check` trailers and changelog advice | C10: advice changes neither readiness nor exit code |
+| `claim --ttl`, `--because` | outside: advisory renewal and takeover evidence |
+| `config` missing versus unreadable file | outside: configuration inspection; resolved inputs remain a precondition |
+| `debt` rewrite eligibility; `--reason` reuse | C6: waiver review head and unchanged obligation; mapping/publication are unsupported |
+| `doctor` retained objects, unreplayable changes and rewrite proof | outside: diagnostics |
+| `env` detection, lookup and supplied models | C18's observed identity boundary; lookup diagnostics are outside |
+| `events` and `--since` | outside: ID issuance, imports, cursors and streaming |
+| `explain` producer-model display | outside: presentation |
+| `export` retained objects, checksums and `--since` | outside: transport and ID reservation boundary |
+| `forge`, `forge checks`, `forge link`, `forge pr-state` | outside: hosted/provider readiness is separate from local integration |
+| `fork`, `fork list` | outside: absent-base display and schema |
+| `fr --planned-by` | outside: journal planner credit |
+| `history`, `history rewrite`, `history withdraw` | outside: rewrite proof, retention and recovery; C5/C6 mapping remains unsupported |
+| `import` rewrite authority, retention and origin IDs | C24 admission remains settled; exchange and rewritten evidence are unsupported |
+| `inbox` | outside: producer-model display and schema |
+| `instructions git --check` | outside: contribution-coordinate validation |
+| `integrate` provisional reservation recovery | C25's unsupported recovery protocol; no fresh preparation authority granted |
+| `integrate` foreign claim and trailer warnings | C10: advisory, never a refusal |
+| `integrate --json` debt publication | C6/C25: retained declared debt is distinct from transition publication |
+| `integrate --debt` rewrite and backing publication | C6: same waiver scope; mapping and durability remain unsupported |
+| `review` implicit historical-head refusal; `--snapshot` | C1/C5: fresh patchset after invalidating rewrite; historical judgments stay stale |
+| `snapshot` | C1/C5: snapshot is evidence, not approval |
+| `rewrite sign` ranges, shared refs, dry-run preflight, retention and rollback | outside: Git/rewrite protocol |
+| `rewrite trailers` exact edits and coordinate validation | outside: Git/message editing; C5's stale approval rule applies |
+| `roles` | outside: implicit role assertions grant no approval |
+| `show`, `status` | outside: forge diagnostics and raw/rendered producer-model display |
+| `trailers` | outside: attribution and coordinate suggestions; advice never blocks |
+| `verify` failure revision and hostname | C13 advisory falsification; hostname is provenance |
+| `watch --timeout` | outside: process and pipe cleanup |
+| `messages --since` | outside: origin timestamps and read filtering |
+| `replica`, `replica import` | outside: origin IDs and local issuance order; authority admission is unchanged |
+| `rescue`, `resume` | outside: bounded diagnostics and producer-model display |
+| `workspace`, `workspace inbox`, `workspace report` | outside: space/debt/provenance display |
+| `workspace backlog` | outside: producer models, pending successor display and evidence activity |
+| `journal answer` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal catchup` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal checkpoint` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal conclusion` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal correct` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal decision` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal dir` | outside: journal lookup, pending availability or presentation; no integration authorization |
+| `journal discussion` | outside: journal lookup, pending availability or presentation; no integration authorization |
+| `journal doctor` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal events` | outside: journal append-order replay; no integration authorization |
+| `journal evidence` | outside: journal evidence append and activity; no integration authorization |
+| `journal export` | outside: journal exchange/publication and recovery; no integration authorization |
+| `journal feature request` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal filed` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal handoff` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal import` | outside: journal exchange/publication and recovery; no integration authorization |
+| `journal incident` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal inventory` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal lane close` | outside: journal occupancy ownership and renewal; no integration lock |
+| `journal lane` | outside: journal occupancy ownership and renewal; no integration lock |
+| `journal lane open` | outside: journal occupancy ownership and renewal; no integration lock |
+| `journal lane renew` | outside: journal occupancy ownership and renewal; no integration lock |
+| `journal later` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal list` | outside: journal lookup, pending availability or presentation; no integration authorization |
+| `journal memory` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal note` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal open` | outside: journal lookup, pending availability or presentation; no integration authorization |
+| `journal plan` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal position` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal promote` | outside: journal exchange/publication and recovery; no integration authorization |
+| `journal question` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal questions` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal reattribute` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal retract` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal review` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal show` | outside: journal lookup, pending availability or presentation; no integration authorization |
+| `journal spool` | outside: journal append-order replay; no integration authorization |
+| `journal suggest` | outside: journal target preflight, amendment or quotation rules; no integration authorization |
+| `journal todo` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal transition` | outside: journal exchange/publication and recovery; no integration authorization |
 
 ### Historical executable provenance
 
@@ -956,7 +1177,7 @@ unpaired historical citations, and missing source mappings across all seven
 historical coordinates and all four captured executables. The comparison pin identifies source correspondence;
 the captured binary retains its original build revision.
 
-Every clause was re-sourced against the installed binary's text, compared
+At the `6de12b7` source comparison, every clause was re-sourced against the installed binary's text, compared
 with the text a build of arc `01c618a` (rewritten as `0e178db`) prints; every quotation the contract
 makes was checked against the new text. The section the review clauses
 cite is now "Review coverage and debt".
@@ -1116,12 +1337,15 @@ still choose differently. Each is a deliberate choice, not an oversight.
   all, so no blocker is reported beside the conflict; the model returns that
   one ground, not every ground, because there is no declaration set to read
   the rest against.
-- **What stands beside an `ff-only` rebase (C3).** Under `ff-only`, a head
-  behind a moved target owes a rebase. The model keeps every ground the
-  merge would raise beside it, `merged-tree-unevaluated` and the gate at the
-  merge's tree, since the guide states that rule without naming a shape;
-  the other reading owes the rebase alone, since no merge ships. Production
-  answers as the model does on every `ff-only` history replayed.
+- **Lead-owned integration (C10).** The guide names the lead as owner but
+  states no role refusal. It can mean workflow ownership, or an enforced
+  lead-only execution boundary. The model takes workflow ownership and has
+  no role observation; claims remain advisory under either reading.
+- **Missing actor beside withheld authority (C18).** The identity guard may
+  refuse before integration is evaluated, or C20's unconditional exit 17 may
+  answer first. The model takes the authority first; the differential's
+  ordinary invoker is established, so the seeded histories do not decide
+  this precedence.
 - **Debt kind derivation.** `nothing-read`, `contributor-only`,
   `repair-unread`, and `independent-review` are derived;
   `merge-resolution-unread` is accepted only when declared, because the
@@ -1184,6 +1408,19 @@ names the reading the model takes, and nothing is listed here.
 Disagreements between the model and the contract, each with its class and
 the change that settled it. A model defect carries a fixture that fails on
 the model before the fix.
+
+- **Established actors and invoking-checkout policy (C18): model defect.**
+  A missing actor could execute under an open policy, and the invoking
+  checkout's declared-actor requirement was not an observation. Fixtures
+  `missing-actor` and `append-actor` fail on those permissions before the
+  guards are added. `execute` reads an observed actor and both declared-actor
+  requirements, while readiness reads neither. Assumed established actors
+  still execute under open policy, and a declared subject supplies no
+  invoking actor. Identity spelling validation stays outside the model.
+- **The `ff-only` merged-tree blocker (C3): contract settled.** The guide
+  explicitly names `merged-tree-unevaluated` beside `needs-rebase`. The model
+  and the `ff-only` fixtures already implement this reading; no side was
+  changed to match a differential answer.
 
 - **The integration shape (C3): model defect.** The model owed a rebase
   only where the head conflicts with its target. C3, re-sourced against arc
@@ -1357,8 +1594,18 @@ about them:
   runs, and a brief superseding another are not modelled: a patchset names
   the brief in force when it was recorded, and a probe is read against that
   brief's base and the patchset's head.
+- **Actor admission on the execution channel.** The scenario generator
+  always invokes integration as a declared actor. The execution comparator's
+  generic `StoodDown` requires the check beside a refused dry run to be
+  unready. An actor-admission refusal can leave that check ready (C18), so
+  this mapping cannot compare such a scenario: a model defect in differential
+  representation, outside the generated rows. The separate sandbox replay
+  below exercises missing identity without extending that mapping.
 - **Provenance categories.** `actor_source` values (`flag`, `env`, `derived`,
-  `git-fallback`) collapse to a declared/assumed boolean. `require_declared_actor`
+  `git-fallback`) collapse to an observed actor and a declared/assumed boolean.
+  Identity spellings, harness/session/model validation, and configuration
+  parse failures are outside the model; observations carry validated actors
+  and resolved append and destination requirements. `require_declared_actor`
   is modelled for the invoker only.
 - **Forks, worktrees, retention, bundles, journal, changelog projection,
   replica exchange.** None are modelled; authority is an observation.

@@ -612,12 +612,24 @@ undeclaredInvoker =
   [ expectEq "fixture/undeclared-actor: the check does not refuse the invoker" [] (refusals undeclared built.state)
   , expectTrue "fixture/undeclared-actor: the decision permits" "a readiness check reads without refusing" (isPermitted decision)
   , expectEq "fixture/undeclared-actor: execution refuses" (Left RefusedUndeclaredActor) (execute undeclared built.state decision)
+  , expectEq "fixture/missing-actor: reading does not require an actor" [] (refusals missing open.state)
+  , expectEq "fixture/missing-actor: writing refuses without declared-actor policy" (Left RefusedActorUnestablished) (execute missing open.state open.decision)
+  , expectEq "fixture/missing-actor: writing refuses beside an earlier refusal" (Left RefusedActorUnestablished) (execute missing open.state (Refused RefusedNoApproval))
+  , expectTrue "fixture/assumed-actor: an established actor writes under open policy" "assumed is established" (either (const False) (const True) (execute assumed open.state open.decision))
+  , expectEq "fixture/append-actor: invoking checkout requires declaration" (Left RefusedUndeclaredActor) (execute appendGuard open.state open.decision)
+  , expectEq "fixture/missing-actor: a declared subject supplies no invoking actor" (Left RefusedActorUnestablished) (execute missing { Observations.invokerDeclared = True } open.state open.decision)
+  , expectTrue "fixture/append-actor: a declared subject satisfies the requirement" "effective authors are declared independently of invoking actors" (either (const False) (const True) (execute appendGuard { Observations.invokerDeclared = True } open.state open.decision))
+  , expectEq "fixture/append-actor: reading ignores invoking checkout policy" [] (refusals appendGuard open.state)
   , expectTrue "fixture/undeclared-actor: a declared invoker executes" "a declared invoker satisfies the policy" (either (const False) (const True) (execute built.observation built.state built.decision))
   ]
   where
-    built      = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
-    undeclared = built.observation { Observations.invokerDeclared = False }
-    decision   = decide undeclared built.state
+    built       = build defaultScenario { Scenario.policy = requireDeclaredPolicy }
+    open        = build defaultScenario { Scenario.policy = openPolicy }
+    missing     = open.observation { Observations.invoker = Omitted, Observations.invokerDeclared = False }
+    assumed     = open.observation { Observations.invokerDeclared = False }
+    appendGuard = assumed { Observations.appendRequiresDeclaredActor = True }
+    undeclared  = built.observation { Observations.invokerDeclared = False }
+    decision    = decide undeclared built.state
 
 -- | C19 records consumed values, so later declarations cannot rewrite them.
 basisDeclarations :: [Check]

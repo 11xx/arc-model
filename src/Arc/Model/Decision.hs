@@ -235,11 +235,12 @@ gateEvidence observations state =
       _refused -> Nothing
 
 -- C2, C12, C18, C20
-{- | Re-check a basis at execution time. A store that does not hold
-integration authority cannot act at all, whatever was decided. A refused
-decision is answered with its refusal; otherwise an invoker nobody declared
-is refused where policy requires a declared actor, and declarations two
-policy layers disagree on and a missing branch leave nothing to act on.
+{- | Re-check a basis at execution time. A store without integration
+authority cannot act. An invoker nobody established is refused, and an
+undeclared effective author is refused where either the invoking checkout
+or the destination requires a declaration. A refused decision then answers
+with its refusal. Conflicting declarations and a missing branch leave
+nothing to act on.
 Otherwise readiness is computed again from the history and the
 observations, and the basis rebuilt; where it refuses, or the rebuilt basis
 differs from the recorded one, the action stands down on what moved. The
@@ -249,16 +250,18 @@ execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPl
 execute observations state = \case
   _decided
     | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
+    | observations.invoker == Omitted             -> Left RefusedActorUnestablished
+    | declaredActorRequired && not observations.invokerDeclared
+                                                  -> Left RefusedUndeclaredActor
   Refused refusal -> Left refusal
   Permitted basis
-    | observations.policy.requireDeclaredActor && not observations.invokerDeclared
-                                                  -> Left RefusedUndeclaredActor
     | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
     | observations.head == Omitted                -> Left RefusedBranchMissing
     | otherwise -> case moved basis of
         []    -> Right ExecutionPlan { integration = integration basis }
         facts -> Left (RefusedBasisMoved facts)
   where
+    declaredActorRequired = observations.appendRequiresDeclaredActor || observations.policy.requireDeclaredActor
     moved basis = case evaluate observations state of
       Right rebuilt -> differences basis rebuilt
       Left grounds  -> observedMoves basis <> [MovedReadiness (NE.toList grounds)]

@@ -65,7 +65,7 @@ data MovedFact = MovedHead Revision Revision
                | MovedReadiness [Refusal]  -- ^ Readiness computed again refuses, on these grounds, so no basis can be rebuilt.
   deriving stock (Eq, Ord, Show)
 
-{- | Why an integration is refused. An undeclared invoker and a moved basis
+{- | Why an integration is refused. A missing actor, an undeclared effective author, and a moved basis
 arise only when a decision is executed. Every other is a ground a decision
 can stand on; a missing branch is also refused at execution, and a store
 without integration authority is refused there before anything else.
@@ -90,6 +90,7 @@ data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedAcceptanceProbes [ProbeRefusal]
              | RefusedHoldActive HoldId
              | RefusedAuthorityWithheld
+             | RefusedActorUnestablished
              | RefusedUndeclaredActor
              | RefusedBasisMoved [MovedFact]
   deriving stock (Eq, Ord, Show)
@@ -117,6 +118,7 @@ refusalTag = \case
   RefusedGates _                   -> "gates"
   RefusedAcceptanceProbes _        -> "acceptance-probes"
   RefusedHoldActive _              -> "hold-active"
+  RefusedActorUnestablished        -> "actor-unestablished"
   RefusedUndeclaredActor           -> "undeclared-actor"
   RefusedAuthorityWithheld         -> "authority-withheld"
   RefusedBasisMoved _              -> "basis-moved"
@@ -138,6 +140,7 @@ refusalText = \case
   RefusedAcceptanceProbes refusals
     -> unwords (map probeRefusalText refusals)
   RefusedHoldActive hold    -> "hold " <> show hold <> " is active"
+  RefusedActorUnestablished -> "no acting identity was established"
   RefusedUndeclaredActor    -> "the acting identity is not declared and policy requires one"
   RefusedAuthorityWithheld  -> "this replica does not hold integration authority"
   RefusedBasisMoved moved   -> "the basis moved: " <> unwords (map movedText moved)

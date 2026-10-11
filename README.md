@@ -26,6 +26,12 @@ recorded under a different environment
 hid an older pass at the same tree, so arc refused a change the contract
 accepts.
 
+The comparison's captured guide, command help, executable identities, and
+text differences are retained under [`evidence/repin`](evidence/repin).
+Write execution requires an established actor and honors declared-actor
+requirements from both the invoking checkout and the integration target;
+readiness checks remain readable without an actor.
+
 The package also models the candidate protocol — alternative answers to one
 brief, registered, evaluated, selected, and promoted — and the differential's
 candidate channel compares it with `arc candidate`.

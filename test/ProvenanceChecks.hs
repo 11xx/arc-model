@@ -34,11 +34,14 @@ provenanceChecks = do
         (("| `" <> original <> "` | `" <> rewritten <> "` |") `isInfixOf` comparison)
     | (original, rewritten) <- revisionPairs
     ] <>
-    [ expectTrue "provenance: comparison source and binary identities"
+    [ expectTrue "provenance: comparison revision pins the captured source"
+        "comparison revision must name the captured master source"
+        (comparisonRevision == "73bff2027fc211568811e16f4cc5de0546278b17")
+    , expectTrue "provenance: comparison source and binary identities"
         "comparison source pin must distinguish the captured binary's build"
         (all (`isInfixOf` comparison)
           [ comparisonRevision
-          , "executable has build revision `3c0c53769114de1fac2a7179fdd0dcbf906d5142`"
+          , "executable has build revision `73bff2027fc211568811e16f4cc5de0546278b17`"
           , "source revision"
           , "build revision"
           ])

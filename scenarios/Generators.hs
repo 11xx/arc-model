@@ -385,22 +385,24 @@ different merge; a change without a branch has no head to merge at all.
 -}
 observationsForOf :: NonEmpty Patchset -> Scenario -> Observations
 observationsForOf patchsets scenario = Observations
-  { change           = scenarioChange
-  , head             = observedHead
-  , targetBranch     = TargetBranch "main"
-  , target           = Revision "target-1"
-  , targetRelation   = relation
-  , evaluatedTree    = case relation of
+  { change                      = scenarioChange
+  , head                        = observedHead
+  , targetBranch                = TargetBranch "main"
+  , target                      = Revision "target-1"
+  , targetRelation              = relation
+  , evaluatedTree               = case relation of
       HeadBehindTarget -> TreeId (if scenario.headMoved then "merged-moved" else "merged")
       _headTree        -> latest.tree
-  , declarations     = [buildDeclaration]
-  , conflictingGates = [ buildGate | scenario.conflictingGates ]
-  , requiredGates    = [(buildGate, buildDeclaration.declarationId)]
-  , environments     = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
-  , policy           = scenario.policy
-  , prerequisites    = []
-  , invokerDeclared  = True
-  , authority        = AuthorityHeld
+  , declarations                = [buildDeclaration]
+  , conflictingGates            = [ buildGate | scenario.conflictingGates ]
+  , requiredGates               = [(buildGate, buildDeclaration.declarationId)]
+  , environments                = [(probe, if scenario.gateMode == EvidenceProbeFailed then Omitted else Observed hereEnvironment)]
+  , policy                      = scenario.policy
+  , prerequisites               = []
+  , invoker                     = Observed authorActor
+  , invokerDeclared             = True
+  , appendRequiresDeclaredActor = False
+  , authority                   = AuthorityHeld
   }
   where
     latest = NE.last patchsets

@@ -35,19 +35,21 @@ data TargetRelation = HeadContainsTarget       -- ^ The head's own tree is what 
   deriving stock (Eq, Ord, Show)
 
 data Observations = Observations
-  { change           :: !ChangeId
-  , head             :: !(Observed Revision)                        -- ^ Omitted where the change's branch is gone.
-  , targetBranch     :: !TargetBranch
-  , target           :: !Revision
-  , targetRelation   :: !TargetRelation
-  , evaluatedTree    :: !TreeId
-  , declarations     :: ![Declaration]
-  , conflictingGates :: ![GateName]                                 -- ^ Gates two policy layers declare differently.
-  , requiredGates    :: ![(GateName, DeclarationId)]
-  , environments     :: ![(ProbeCommand, Observed EnvironmentId)]  -- ^ What each declared probe yields where the decision is made.
-  , policy           :: !Policy
-  , prerequisites    :: ![(ChangeId, Maybe EventId)]                -- ^ Each change this one depends on, and the closure that integrated it, where one did.
-  , invokerDeclared  :: !Bool
-  , authority        :: !IntegrationAuthority
+  { change                      :: !ChangeId
+  , head                        :: !(Observed Revision)                        -- ^ Omitted where the change's branch is gone.
+  , targetBranch                :: !TargetBranch
+  , target                      :: !Revision
+  , targetRelation              :: !TargetRelation
+  , evaluatedTree               :: !TreeId
+  , declarations                :: ![Declaration]
+  , conflictingGates            :: ![GateName]                                 -- ^ Gates two policy layers declare differently.
+  , requiredGates               :: ![(GateName, DeclarationId)]
+  , environments                :: ![(ProbeCommand, Observed EnvironmentId)]  -- ^ What each declared probe yields where the decision is made.
+  , policy                      :: !Policy
+  , prerequisites               :: ![(ChangeId, Maybe EventId)]                -- ^ Each change this one depends on, and the closure that integrated it, where one did.
+  , invoker                     :: !(Observed ActorId)                         -- ^ Validated invoking actor; omitted when no identity was established.
+  , invokerDeclared             :: !Bool                                      -- ^ The effective author is declared, including a represented subject.
+  , appendRequiresDeclaredActor :: !Bool                                      -- ^ Requirement from the invoking checkout.
+  , authority                   :: !IntegrationAuthority
   }
   deriving stock (Eq, Ord, Show)

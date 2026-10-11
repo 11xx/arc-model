@@ -75,6 +75,7 @@ expected grounds = suppressApproval (Set.fromList (concatMap blockersOf grounds)
       RefusedHoldActive _              -> ["hold-active"]
       RefusedAuthorityWithheld         -> ["integration-mode"]
       -- refused only at execution, which a check never reaches
+      RefusedActorUnestablished        -> []
       RefusedUndeclaredActor           -> []
       RefusedBasisMoved _              -> []
 
