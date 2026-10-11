@@ -75,8 +75,8 @@ counterexample can be generated for them.
 ### Unit fixtures
 
 `test/Fixtures.hs` pins the exact answer for each required case: 186 checks
-at seed `20260907`, alongside 54 comparator, 10 sandbox, and historical
-provenance checks (21 checks). The 14 properties, 18 killed mutants, and coverage sampler
+at seed `20260907`, alongside 54 comparator, 10 sandbox, and 21 historical
+provenance checks. The 14 properties, 18 killed mutants, and coverage sampler
 bring the spec suite to 304/304 passing checks.
 
 | fixture | what it anchors |
@@ -891,6 +891,48 @@ Before the encoding asked for a worktree, every replay failed at its first
 command, since `begin` opens a change in place by default; the candidate
 channel failed the same way at its second `begin`.
 
+### Results at arc `73bff20`
+
+Captured `arc 2026.9.29`, clean build and source revision
+`73bff2027fc211568811e16f4cc5de0546278b17`, executable SHA-256
+`1aeb78658082eab0481d654954085c598dc29da0b8c42e099d06f03c4837cc1c`.
+Seed `20260907`, `--cases 200 --check-time-cases 200` on decision,
+execution, and coverage; `--cases 240` on candidate. Each channel selected
+that executable with `--arc`, ran under its compiled-in heap cap, and
+replayed through `Differential.Sandbox` with roots under an ignored build
+directory. All four commands exited 0.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed to replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 458 | 400 | 18 | 40 | 0 | 0 |
+| execution | 464 | 367 | 57 | 40 | 0 | 0 |
+| coverage | 471 | 426 | 5 | 40 | 0 | 0 |
+| candidate | 253 | 165 | 3 | 85 | 0 | 0 |
+
+Every adjudicated row and its exact compared answers and diagnosis is
+retained in [classified-rows.txt](evidence/repin/classified-rows.txt).
+The diagnoses remain distinct from agreement; neither model nor arc was
+edited in response to these mismatches.
+
+| mismatch | diagnosis | decision | execution | coverage | candidate |
+| --- | --- | --- | --- | --- | --- |
+| declaration/policy committed on target moves the target too, absent from original scenario | model defect in replay representation (comparator: encoding; C12/C3) | 18 | 57 | 0 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: authorization consumption) | 0 | 0 | 4 | 0 |
+| undeclared reviewer cannot record the model ledger's verdict | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 | 0 |
+| candidate evaluation at an unprobed gate without recorded environment | unsettled candidate requirements | 0 | 0 | 0 | 1 |
+| a selection's root does not retain the registration supplying reused evaluation | unsettled candidate reachability | 0 | 0 | 0 | 2 |
+
+The 40 skips on each integration channel are 20 unreadable evidence,
+8 other-tree evidence with one patchset, 10 findings without a verdict,
+and 2 dirty runs against a merge evaluated in a clean checkout. The
+candidate channel's 85 skips retain the previous split: 29 unobserved
+targets, 18 evaluations at another tree, 16 only-supplied, 14 only-inferred,
+and 8 unknown outcomes. No additional mismatch class appeared. The
+comparison excludes the previously declared unsupported protocols; a quiet
+run grants no claim about them. Both arc source/build directories were
+removed after the runs. The captured texts, identities and classifications
+remain in the repository.
+
 ### Actor admission at arc `73bff20`
 
 `evidence/repin/actor-replay.sh`, run through `arc-model-sandbox` against
@@ -1117,7 +1159,7 @@ summaries repeat the same contracts and add no authorization rule.
 | `journal events` | outside: journal append-order replay; no integration authorization |
 | `journal evidence` | outside: journal evidence append and activity; no integration authorization |
 | `journal export` | outside: journal exchange/publication and recovery; no integration authorization |
-| `journal feature request` | outside: journal metadata, planner validation and display; no integration authorization |
+| `journal feature-request` | outside: journal metadata, planner validation and display; no integration authorization |
 | `journal filed` | outside: journal metadata, planner validation and display; no integration authorization |
 | `journal handoff` | outside: journal metadata, planner validation and display; no integration authorization |
 | `journal import` | outside: journal exchange/publication and recovery; no integration authorization |
