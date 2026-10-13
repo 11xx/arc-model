@@ -72,6 +72,20 @@ that failed to replay. The seed defaults to 20260907, so every run draws the
 same histories; `--seed N` draws different ones, and `--arc PATH` replays them
 against another binary.
 
+To compare two builds case by case, add a baseline:
+
+```sh
+cabal v2-run arc-model-differential -- --arc "$ARC_BUILD" --baseline-arc "$BASELINE_BUILD" --channel execution
+```
+
+Both builds receive the same named and seeded cases in isolated sibling
+sandboxes under one run directory. Replay-created identifiers are compared
+through their symbolic coordinates. Each row reports whether the builds
+agree and each build's separate classification against the model. In baseline
+mode, equal observed answers pass even when both disagree with the model;
+a difference between builds or a replay failure exits non-zero. Baselines
+work on all four channels. `--help` and `-h` print the command guide.
+
 The differential never touches your Git configuration or arc store. Every
 process it starts gets an environment built from nothing, with its home,
 configuration and temporary directories inside one scratch root.

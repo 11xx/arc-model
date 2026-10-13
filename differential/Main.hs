@@ -44,10 +44,10 @@ import Control.Exception ( handle )
 import Control.Monad ( unless, when )
 import Data.List ( intercalate )
 import Data.Set qualified as Set
-import System.Directory ( getTemporaryDirectory, removePathForcibly )
+import System.Directory ( getTemporaryDirectory, removePathForcibly, makeAbsolute )
 import System.Environment ( getArgs )
 import System.Exit ( ExitCode(..), exitFailure, exitSuccess, exitWith )
-import System.FilePath ( (</>) )
+import System.FilePath ( (</>), pathSeparators )
 import System.IO ( hFlush, stdout )
 import System.Posix.Temp ( mkdtemp )
 import Test.QuickCheck.Gen ( unGen )
@@ -74,6 +74,7 @@ data Settings = Settings
   , checkTimeCases :: !Int
   , compared       :: !Compared
   , binary         :: !FilePath
+  , baseline       :: !(Maybe FilePath)
   , mutant         :: !(Maybe String)
   , keep           :: !Bool
   , verbose        :: !Bool
@@ -86,6 +87,7 @@ defaults = Settings
   , checkTimeCases = 60
   , compared       = ComparedDecision
   , binary         = "arc"
+  , baseline       = Nothing
   , mutant         = Nothing
   , keep           = False
   , verbose        = False
@@ -94,7 +96,7 @@ defaults = Settings
 usage :: String
 usage = unlines
   [ "arc-model-differential [--channel decision|execution|coverage|candidate] [--seed N] [--cases N] [--check-time-cases N]"
-  , "                       [--arc PATH] [--mutant NAME] [--keep] [--verbose]"
+  , "                       [--arc PATH] [--baseline-arc PATH] [--mutant NAME] [--keep] [--verbose]"
   , ""
   , "  --channel C   decision: refusals against arc check (default);"
   , "                execution: execute against arc integrate --dry-run;"
@@ -105,9 +107,12 @@ usage = unlines
   , "  --check-time-cases N"
   , "                generated histories that also draw check-time facts (default 60); the candidate channel draws none"
   , "  --arc PATH    the arc binary to replay against (default: arc on PATH)"
+  , "  --baseline-arc PATH"
+  , "                compare both builds on each case, independently of agreement with the model; disagreements or replay failures exit non-zero"
   , "  --mutant NAME expect a permission wherever this deliberate fault of the channel permits, to show the comparison objects"
   , "  --keep        leave every sandbox on disk and print where"
   , "  --verbose     print each arc command as it runs"
+  , "  --help, -h    print this guide and exit"
   ]
 
 parseSettings :: [String] -> Either String Settings
@@ -123,6 +128,7 @@ parseSettings = go defaults
       "--cases" : value : rest            -> go settings { cases = read value } rest
       "--check-time-cases" : value : rest -> go settings { checkTimeCases = read value } rest
       "--arc" : value : rest              -> go settings { binary = value } rest
+      "--baseline-arc" : value : rest     -> go settings { baseline = Just value } rest
       "--mutant" : value : rest           -> go settings { mutant = Just value } rest
       "--keep" : rest                     -> go settings { keep = True } rest
       "--verbose" : rest                  -> go settings { verbose = True } rest
@@ -146,6 +152,8 @@ data Row = Row
   }
 
 data RowOutcome = RowAgreed
+                | RowBuildsAgreed String String
+                | RowBuildsDisagreed String String
                 | RowSkipped String
                 | RowAdjudicated Adjudication String String
                 | RowDisagreed String String
@@ -153,8 +161,17 @@ data RowOutcome = RowAgreed
 
 main :: IO ()
 main = do
-  settings <- either (\failure -> putStrLn failure >> putStr usage >> exitFailure) pure . parseSettings =<< getArgs
+  arguments <- getArgs
+  when (any (`elem` ["--help", "-h"]) arguments) (putStr usage >> exitSuccess)
+  given <- either (\failure -> putStrLn failure >> putStr usage >> exitFailure) pure (parseSettings arguments)
+  primary <- binaryPath given.binary
+  baseline <- traverse binaryPath given.baseline
+  let settings = given { binary = primary, baseline = baseline }
   if settings.compared == ComparedCandidate then candidateMain settings else scenarioMain settings
+  where
+    binaryPath path
+      | any (`elem` pathSeparators) path = makeAbsolute path
+      | otherwise = pure path
 
 scenarioMain :: Settings -> IO ()
 scenarioMain settings = do
@@ -164,6 +181,7 @@ scenarioMain settings = do
   putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
   putStrLn ("channel " <> comparedText settings.compared <> ", seed " <> show settings.seed <> ", " <> show (length namedScenarios + length (channelScenarios settings.compared)) <> " named + " <> show settings.cases <> " generated + " <> show settings.checkTimeCases <> " check-time cases, arc = " <> settings.binary)
   maybe (pure ()) (\name -> putStrLn ("expecting the answers of mutant " <> name)) settings.mutant
+  baselineHeader settings
   putStrLn ""
   let draw generator index = unGen generator (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)
       generated = [ ("generated-" <> show index, draw genDecisionScenario index) | index <- [0 .. settings.cases - 1] ]
@@ -189,6 +207,7 @@ candidateMain settings = do
   root    <- mkdtemp (scratch </> "arc-model-differential-")
   putStrLn ("arc-model differential: comparison revision " <> comparisonRevision)
   putStrLn ("channel " <> comparedText settings.compared <> ", seed " <> show settings.seed <> ", " <> show (length Candidate.namedCases) <> " named + " <> show settings.cases <> " generated cases, arc = " <> settings.binary)
+  baselineHeader settings
   putStrLn ""
   let draw index = unGen Candidate.genPlan (mkQCGen (settings.seed + index)) (index `mod` 40 + 1)
       generated = [ Candidate.Case { label = "candidate-generated-" <> show index, plan = draw index, probeDeclared = True } | index <- [0 .. settings.cases - 1] ]
@@ -211,20 +230,60 @@ runCandidateCase settings root (index, given) = do
     Left unexpressed -> pure (RowSkipped (Candidate.unexpressedText unexpressed), [])
     Right encoding   -> do
       when settings.verbose (putStrLn "" >> print projected)
-      replayed <- Candidate.replay options (root </> ("case-" <> show index)) encoding
-      pure $ case replayed of
-        ReplayFailed failure         -> (RowFailed failure, [])
-        Answered (coordinates, found) ->
-          let wanted = Candidate.expectedFound projected built encoding coordinates
-          in case Candidate.compareFound production encoding coordinates wanted found of
-               Agreed                   -> (RowAgreed, Candidate.exercised found)
-               Adjudicated adjudication -> (RowAdjudicated adjudication (Candidate.foundText wanted) (Candidate.foundText found), Candidate.exercised found)
-               Disagreed                -> (RowDisagreed (Candidate.foundText wanted) (Candidate.foundText found), [])
+      let classify (coordinates, found) =
+            let wanted = Candidate.expectedFound projected built encoding coordinates
+            in case Candidate.compareFound production encoding coordinates wanted found of
+                 Agreed                   -> RowAgreed
+                 Adjudicated adjudication -> RowAdjudicated adjudication (Candidate.foundText wanted) (Candidate.foundText found)
+                 Disagreed                -> RowDisagreed (Candidate.foundText wanted) (Candidate.foundText found)
+      (result, primary) <- compareBuilds settings (root </> ("case-" <> show index))
+        (\options dir -> Candidate.replay options dir encoding)
+        (uncurry Candidate.normalizeFound) classify
+      pure (result, maybe [] (Candidate.exercised . snd) primary)
   putStrLn (describe outcome)
   unless (agreeable outcome) (print projected)
   pure Row { label = given.label, outcome = outcome, setAside = map Candidate.setAsideText asides, classes = classes }
+
+baselineHeader :: Settings -> IO ()
+baselineHeader settings = case settings.baseline of
+  Nothing -> pure ()
+  Just binary -> putStrLn ("baseline arc = " <> binary <> "; model classifications are reported separately")
+
+-- | Replay identical inputs in isolated sibling sandboxes. Equal observed
+-- answers count independently of each answer's model classification.
+compareBuilds
+  :: (Eq normalized, Show normalized)
+  => Settings
+  -> FilePath
+  -> (Arc.Options -> FilePath -> IO (Outcome answer))
+  -> (answer -> normalized)
+  -> (answer -> RowOutcome)
+  -> IO (RowOutcome, Maybe answer)
+compareBuilds settings dir replayCase normalize classify = case settings.baseline of
+  Nothing -> replayCase (options settings.binary) dir >>= \case
+    ReplayFailed failure -> pure (RowFailed failure, Nothing)
+    Answered answer -> pure (classify answer, Just answer)
+  Just baseline -> do
+    primary <- replayCase (options settings.binary) (dir </> "primary")
+    previous <- replayCase (options baseline) (dir </> "baseline")
+    pure $ case (primary, previous) of
+      (Answered answer, Answered before)
+        | normalize answer == normalize before ->
+            (RowBuildsAgreed (modelClassification (classify answer)) (modelClassification (classify before)), Just answer)
+        | otherwise ->
+            (RowBuildsDisagreed (show (normalize answer) <> "; model: " <> modelClassification (classify answer))
+                               (show (normalize before) <> "; model: " <> modelClassification (classify before)), Just answer)
+      (ReplayFailed failure, _) -> (RowFailed ("arc: " <> failure), Nothing)
+      (_, ReplayFailed failure) -> (RowFailed ("baseline: " <> failure), Nothing)
   where
-    options = Arc.Options { arcBinary = settings.binary, verbose = settings.verbose }
+    options binary = Arc.Options { arcBinary = binary, verbose = settings.verbose }
+
+modelClassification :: RowOutcome -> String
+modelClassification = \case
+  RowAgreed -> "agreed"
+  RowDisagreed {} -> "disagreed"
+  RowAdjudicated adjudication _ _ -> "adjudicated " <> kindText adjudication.kind
+  other -> describe other
 
 -- | Stop the run on a sandbox whose self-check refused, keeping the scratch
 -- root for inspection.
@@ -301,33 +360,24 @@ runCase settings oracle root (index, (label, scenario)) = do
     (Right steps, ComparedDecision) -> do
       when settings.verbose (putStrLn "" >> print scenario)
       let wanted = expected (oracle.grounds built)
-      outcome <- Arc.runPlan options dir steps
-      pure $ case outcome of
-        ReplayFailed failure -> RowFailed failure
-        Answered answer      -> case compareAnswer scenario wanted answer of
+      fst <$> compareBuilds settings dir (\options here -> Arc.runPlan options here steps) id (\answer -> case compareAnswer scenario wanted answer of
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (setText wanted) (answerText answer)
-          Disagreed                -> RowDisagreed (setText wanted <> " from " <> show (map refusalTag (oracle.grounds built))) (answerText answer)
+          Disagreed                -> RowDisagreed (setText wanted <> " from " <> show (map refusalTag (oracle.grounds built))) (answerText answer))
     (Right steps, ComparedExecution) -> do
       when settings.verbose (putStrLn "" >> print scenario)
       let wanted = expectedExecution built (oracle.execution built)
-      outcome <- Arc.runExecution options dir steps
-      pure $ case outcome of
-        ReplayFailed failure -> RowFailed failure
-        Answered dry         -> case compareExecution scenario wanted dry of
+      fst <$> compareBuilds settings dir (\options here -> Arc.runExecution options here steps) id (\dry -> case compareExecution scenario wanted dry of
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (executionText wanted) (dryRunText dry)
-          Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry)
+          Disagreed                -> RowDisagreed (executionText wanted) (dryRunText dry))
     (Right steps, ComparedCoverage) -> do
       when settings.verbose (putStrLn "" >> print scenario)
       let wanted = expectedCoverage (oracle.historical built) (oracle.coverage built)
-      outcome <- Arc.runCoverage options dir steps
-      pure $ case outcome of
-        ReplayFailed failure -> RowFailed failure
-        Answered found       -> case compareCoverage scenario built wanted found of
+      fst <$> compareBuilds settings dir (\options here -> Arc.runCoverage options here steps) id (\found -> case compareCoverage scenario built wanted found of
           Agreed                   -> RowAgreed
           Adjudicated adjudication -> RowAdjudicated adjudication (recordedText wanted) (recordedText found)
-          Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found)
+          Disagreed                -> RowDisagreed (recordedText wanted) (recordedText found))
     (Right _, ComparedCandidate) -> pure (RowFailed "the candidate channel replays candidate plans, not scenarios")
   putStrLn (describe row.outcome)
   unless (agreeable row.outcome) (print scenario)
@@ -335,11 +385,12 @@ runCase settings oracle root (index, (label, scenario)) = do
   where
     built   = build scenario
     dir     = root </> ("case-" <> show index)
-    options = Arc.Options { arcBinary = settings.binary, verbose = settings.verbose }
 
 describe :: RowOutcome -> String
 describe = \case
   RowAgreed                              -> "agreed"
+  RowBuildsAgreed primary baseline        -> "builds agreed; arc vs model: " <> primary <> "; baseline vs model: " <> baseline
+  RowBuildsDisagreed primary baseline     -> "BUILDS DISAGREED: arc " <> primary <> "; baseline " <> baseline
   RowSkipped skip                        -> "skipped: " <> skip
   RowAdjudicated adjudication wanted got -> "adjudicated " <> kindText adjudication.kind <> ": expected " <> wanted <> ", arc " <> got <> " — " <> adjudication.reason
   RowDisagreed wanted got                -> "DISAGREED: expected " <> wanted <> ", arc " <> got
@@ -363,6 +414,7 @@ dryRunText dry = case dry.exit of
 agreeable :: RowOutcome -> Bool
 agreeable = \case
   RowAgreed         -> True
+  RowBuildsAgreed {} -> True
   RowSkipped _      -> True
   RowAdjudicated {} -> True
   _objectionable    -> False
@@ -373,10 +425,10 @@ objectionable row = not (agreeable row.outcome)
 summarize :: Compared -> [Row] -> IO ()
 summarize channel rows = do
   let count predicate = length (filter (predicate . (.outcome)) rows)
-      agreed      = count (\case RowAgreed -> True; _other -> False)
+      agreed      = count (\case RowAgreed -> True; RowBuildsAgreed {} -> True; _other -> False)
       skipped     = count (\case RowSkipped _ -> True; _other -> False)
       adjudicated = count (\case RowAdjudicated {} -> True; _other -> False)
-      disagreed   = count (\case RowDisagreed {} -> True; _other -> False)
+      disagreed   = count (\case RowDisagreed {} -> True; RowBuildsDisagreed {} -> True; _other -> False)
       failed      = count (\case RowFailed _ -> True; _other -> False)
   putStrLn ("channel " <> comparedText channel <> ": " <> show (length rows) <> " cases: " <> show agreed <> " agreed, " <> show adjudicated <> " adjudicated, " <> show skipped <> " skipped, " <> show disagreed <> " disagreed, " <> show failed <> " failed to replay")
   mapM_ (\row -> putStrLn ("  " <> row.label <> ": " <> describe row.outcome)) (filter objectionable rows)

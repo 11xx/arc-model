@@ -20,6 +20,7 @@ module Differential.Candidate.Compare
     , foundText
     , exercised
     , compareFound
+    , normalizeFound
     ) where
 
 import Arc.Candidate
@@ -42,6 +43,31 @@ import Text.Printf ( printf )
 -- replay's coordinates.
 expectedFound :: Plan -> Built -> Encoding -> Coordinates -> Found
 expectedFound = expectedUnder ModelReach
+
+-- | Name replay-created identifiers through the coordinates that produced
+-- them. An identifier outside that map keeps its observed value.
+normalizeFound :: Coordinates -> Found -> Found
+normalizeFound coordinates found = Found
+  { probe      = found.probe
+  , selection  = case found.selection of
+      SelectRefused codes -> SelectRefused codes
+      SelectRecorded basis -> SelectRecorded Basis
+        { destination  = name [(coordinates.destination, "destination")] basis.destination
+        , target       = name [(coordinates.targetNow, "target"), (coordinates.proposed, "proposed-target")] basis.target
+        , tree         = name [ (actual, "tree:" <> unTree tree) | (tree, actual) <- Map.toAscList coordinates.trees ] basis.tree
+        , evaluations  = Set.map (\(gate, event, candidate) ->
+            (gate, name [ (actual, "evaluation:" <> unEvaluation evaluation) | (evaluation, actual) <- Map.toAscList coordinates.evaluations ] event, candidate)) basis.evaluations
+        , reads        = Set.map (\(file, extent, toolRecord) ->
+            (name [(contractFile <> "@" <> coordinates.base, contractFile <> "@base")] file, extent, toolRecord)) basis.reads
+        , reuse        = basis.reuse
+        , contributors = basis.contributors
+        , selector     = basis.selector
+        }
+  , promotion  = found.promotion
+  , collection = found.collection
+  }
+  where
+    name pairs actual = maybe actual snd (listToMaybe (filter ((== actual) . fst) pairs))
 
 -- | Which objects a root reaches: the model's 'Retention.reachable', or
 -- that reach without the registrations a selection's evaluations name.
