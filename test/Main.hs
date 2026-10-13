@@ -13,6 +13,7 @@ import ProvenanceChecks ( provenanceChecks )
 import SandboxChecks ( sandboxChecks )
 
 import Data.List ( intercalate )
+import Data.List.NonEmpty qualified as NE
 import Data.Maybe ( listToMaybe )
 import Data.Set qualified as Set
 import System.Environment ( getArgs )
@@ -100,7 +101,7 @@ properties =
   , ("proposition: one invalid transition flips the decision",             genIntegratable, prop_mutation_flips)
   , ("proposition: every basis fact is grounded in the ledger",            genAnyScenario,  prop_basis_grounded)
   , ("proposition: an unknown observation never permits",                  genAnyScenario,  prop_unknown_never_permits)
-  , ("proposition: a moved basis stands down",                             genAnyScenario,  prop_basis_moved_stands_down)
+  , ("proposition: execution re-decides a moved basis",                     genAnyScenario,  prop_basis_moved_redecides)
   , ("proposition: a waiver binds to exactly its patchset",                genAnyScenario,  prop_waiver_exact)
   , ("proposition: a refusing verdict is not waivable",                    genAnyScenario,  prop_refusal_stands)
   , ("proposition: a fulfilled read needs an independent reader",          genAnyScenario,  prop_read_requires_independence)
@@ -110,10 +111,14 @@ properties =
   , ("proposition: every ground is a fact of the history",                 genAnyScenario,  prop_grounds_are_facts)
   , ("proposition: a check-time fact against the change never permits",    genAnyScenario,  prop_check_time_refuses)
   , ("proposition: every ground of a named history is a fact",             genNamed,        prop_grounds_are_facts)
+  , ("proposition: a clean rerun answers dirty evidence",                  pure answeredDirt, prop_check_time_refuses)
   ]
+  where
+    answeredDirt = defaultScenario
+      { worktree = WorktreeDirty, gateRuns = [(1, GatePass)], policy = openPolicy, debts = [(1, Nothing)] }
 
--- | The named histories, which reach the policies the generators never
--- draw, the @ff-only@ shape among them.
+-- | Named histories include the @ff-only@ shape and policies outside the
+-- generated policy set.
 genNamed :: Gen Scenario
 genNamed = elements (map snd (namedScenarios <> namedExecutionScenarios <> namedCoverageScenarios))
 
@@ -194,21 +199,23 @@ prop_unknown_never_permits scenario
       = counterexample (show scenario) (not (isPermitted (build scenario).decision))
   | otherwise = property True
 
--- | A permitted decision whose target or policy moved before execution
--- stands down on the moved basis, unless the store cannot act at all, which
--- is refused before the basis is even compared.
-prop_basis_moved_stands_down :: Scenario -> Property
-prop_basis_moved_stands_down scenario
-  | scenario.targetAfter || scenario.policyAfter = case built.decision of
-      Permitted _ -> counterexample (show scenario) (stoodDown built.execution)
-      Refused _   -> property True
+-- | Execution reads current readiness and binds the current target, tree,
+-- policy and gate evidence, regardless of an earlier decision.
+prop_basis_moved_redecides :: Scenario -> Property
+prop_basis_moved_redecides scenario
+  | scenario.authorityWithheld = property (built.execution == Left RefusedAuthorityWithheld)
+  | scenario.targetAfter || scenario.policyAfter = counterexample (show scenario) $ case evaluate observed built.state of
+      Left grounds -> built.execution == Left (NE.head grounds)
+      Right basis  -> case built.execution of
+        Right plan -> plan.integration.targetBefore == basis.target
+                   && plan.integration.tree == basis.tree
+                   && plan.integration.policy == basis.policy
+                   && plan.integration.gates == basis.gates
+        Left _     -> False
   | otherwise = property True
   where
     built = build scenario
-    stoodDown = \case
-      Left (RefusedBasisMoved _)    -> not scenario.authorityWithheld
-      Left RefusedAuthorityWithheld -> scenario.authorityWithheld
-      _acted                        -> False
+    observed = built.executionObservation
 
 prop_waiver_exact :: Scenario -> Property
 prop_waiver_exact scenario = case built.decision of
@@ -302,12 +309,26 @@ prop_check_time_refuses scenario
   | otherwise = property True
   where
     against = or
-      [ scenario.worktree `elem` [WorktreeDirty, WorktreeDirtyWaivedElsewhere]
+      [ unansweredDirt
       , scenario.targetMode `elem` [TargetBehind, TargetConflicting]
       , scenario.probe `notElem` [ProbeNone, ProbeDischarged]
       , scenario.branchMissing
       , scenario.conflictingGates
       ]
+    runs = (build scenario).state.verifications
+    tree = (build scenario).observation.evaluatedTree
+    unansweredDirt
+      = scenario.worktree `elem` [WorktreeDirty, WorktreeDirtyWaivedElsewhere]
+      && any (\dirty -> dirty.tree == tree
+        && dirty.worktree == Observed DirtyWorktree
+        && not (any (answers dirty) runs)) runs
+    answers dirty later
+      = later.event > dirty.event
+      && later.gate == dirty.gate
+      && later.tree == dirty.tree
+      && later.declaration == dirty.declaration
+      && later.shape == dirty.shape
+      && later.environment == dirty.environment
 
 -- | Every ground names a fact the history and observations hold, so a
 -- reader can check each one against the ledger rather than trust the list.

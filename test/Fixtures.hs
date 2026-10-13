@@ -314,6 +314,8 @@ dirtyTree =
   , expectRefusedWith "fixture/dirty: refused" "gates" (worktreeDecision WorktreeDirty)
   , expectPermittedWith "fixture/dirty: a waiver at its revision counts it" (AuthorizedByVerdict (EventId 2)) (worktreeDecision WorktreeDirtyWaived)
   , expectRefusedWith "fixture/dirty: a waiver at another revision does not" "gates" (worktreeDecision WorktreeDirtyWaivedElsewhere)
+  , expectPermittedWith "fixture/dirty: a newer clean pass answers dirt" (AuthorizedByVerdict (EventId 2))
+      (build defaultScenario { Scenario.worktree = WorktreeDirty, Scenario.gateRuns = [(1, GatePass)] }).decision
   , expectEq "fixture/dirty: nothing recorded about the worktree" (Left (GateWorktreeUnrecorded gateName)) (gateGreen gateName (Just declaration) (TreeId "tree1") here Nothing [unrecorded])
   , expectTrue "fixture/dirty: attested evidence carries no worktree" "an attested pass must be covered whatever its worktree" (either (const False) (const True) (gateGreen gateName (Just declaration) (TreeId "tree1") here Nothing [attested]))
   ]
@@ -542,9 +544,8 @@ debtAuthorizedNothing =
       Permitted basis -> basis.authorization
       Refused _       -> AuthorizedByVerdict (EventId 0)
 
-{- | A stale patchset is refused; a target or policy that moves between the
-decision and the execution stands the action down rather than reusing the
-basis. A moved target moves the tree that would ship with it: the head is
+{- | A stale patchset is refused; execution re-decides a target or policy that moves between the
+decision and the execution. A moved target moves the tree that would ship with it: the head is
 behind the new target, and readiness computed again finds the new merge
 unevaluated.
 -}
@@ -552,28 +553,26 @@ staleAndMovedBases :: [Check]
 staleAndMovedBases =
   [ expectRefusedWith "fixture/stale: head moved" "head-moved" (build defaultScenario { Scenario.headMoved = True }).decision
   , expectTrue "fixture/target-moved: decision permits" "the decision is made against target-1" (isPermitted targetBuilt.decision)
-  , expectEq "fixture/target-moved: execution stands down" (Left (RefusedBasisMoved [MovedTarget (Revision "target-1") (Revision "target-2"), MovedTree (TreeId "tree1") (TreeId "merged-after"), MovedReadiness [RefusedMergedTreeUnevaluated (TreeId "merged-after"), RefusedGates [GateEvaluatedOtherTree gateName (TreeId "tree1")]]])) targetBuilt.execution
+  , expectEq "fixture/target-moved: the unevaluated merge refuses" (Left (RefusedMergedTreeUnevaluated (TreeId "merged-after"))) targetBuilt.execution
   , expectTrue "fixture/policy-moved: decision permits" "the decision is made under the danger policy" (isPermitted policyBuilt.decision)
-  , expectEq "fixture/policy-moved: execution stands down" (Left (RefusedBasisMoved [MovedPolicy dangerPolicy openPolicy])) policyBuilt.execution
+  , expectEq "fixture/policy-moved: execution uses the current policy" (Right openPolicy) ((.integration.policy) <$> policyBuilt.execution)
+  , expectEq "fixture/policy-moved: an earlier refusal does not bind execution" (Right openPolicy) ((.integration.policy) <$> refusedBuilt.execution)
   ]
   where
     targetBuilt = build defaultScenario { Scenario.targetAfter = True }
     policyBuilt = build defaultScenario { Scenario.policyAfter = True }
+    refusedBuilt = build defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.policyAfter = True }
 
-{- | Before acting, readiness is computed again and the basis rebuilt; if
-the two differ nothing is written (C20). A finding opened, a hold set, a
-refusing verdict, or newer gate evidence recorded after the decision each
-stand the action down. The plan still records nothing: only
-'recordIntegration' does.
--}
+-- | Current findings, holds, verdicts and failed gates refuse. A newer
+-- passing run authorizes with its own evidence; the plan records nothing.
 readinessRebuilt :: [Check]
 readinessRebuilt =
   [ expectTrue "fixture/rebuilt: the decision permits" "the history is integratable when decided" (isPermitted built.decision)
-  , expectEq "fixture/rebuilt: a finding opened after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedBlockingFindings [FindingId 7]]])) (executeAfter [finding])
-  , expectEq "fixture/rebuilt: a hold set after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedHoldActive (HoldId 1)]])) (executeAfter [HoldSet (HoldId 1)])
-  , expectEq "fixture/rebuilt: a refusing verdict after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedVerdictStands ChangesRequested (EventId 81)]])) (executeAfter [refusing])
-  , expectEq "fixture/rebuilt: a failing run after the decision" (Left (RefusedBasisMoved [MovedReadiness [RefusedGates [GateFailed gateName (EventId 82)]]])) (executeAfter [rerun GateFail])
-  , expectEq "fixture/rebuilt: a newer pass rebuilds another basis" (Left (RefusedBasisMoved [MovedGates [(gateName, EventId 3, DeclarationId "build")] [(gateName, EventId 82, DeclarationId "build")]])) (executeAfter [rerun GatePass])
+  , expectEq "fixture/rebuilt: a finding opened after the decision" (Left (RefusedBlockingFindings [FindingId 7])) (executeAfter [finding])
+  , expectEq "fixture/rebuilt: a hold set after the decision" (Left (RefusedHoldActive (HoldId 1))) (executeAfter [HoldSet (HoldId 1)])
+  , expectEq "fixture/rebuilt: a refusing verdict after the decision" (Left (RefusedVerdictStands ChangesRequested (EventId 81))) (executeAfter [refusing])
+  , expectEq "fixture/rebuilt: a failing run after the decision" (Left (RefusedGates [GateFailed gateName (EventId 82)])) (executeAfter [rerun GateFail])
+  , expectEq "fixture/rebuilt: a newer pass supplies current evidence" (Right [(gateName, EventId 82, DeclarationId "build")]) ((.integration.gates) <$> executeAfter [rerun GatePass])
   , expectTrue "fixture/rebuilt: an unchanged history executes and records nothing" "the plan is not the effect" (either (const False) (const True) (executeAfter []) && null built.state.integrations)
   ]
   where
@@ -635,7 +634,7 @@ undeclaredInvoker =
 basisDeclarations :: [Check]
 basisDeclarations =
   [ expectEq "fixture/basis: declaration values are captured" (Right [(gateName, declaration)]) ((.integration.declarations) <$> built.execution)
-  , expectEq "fixture/basis: declaration motion with applicable evidence stands down" (Left (RefusedBasisMoved [MovedDeclarations [(gateName, declaration)] [(gateName, unprobed)]])) (execute moved built.state built.decision)
+  , expectEq "fixture/basis: declaration motion consumes current values" (Right [(gateName, unprobed)]) ((.integration.declarations) <$> execute moved built.state built.decision)
   , expectEq "fixture/basis: recorded values survive later observations" (Just [(gateName, declaration)]) ((.declarations) <$> latestIntegration built.finalState)
   ]
   where

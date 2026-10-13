@@ -33,6 +33,7 @@ module Differential.Compare
 
 import Arc.Model
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
+import Differential.IntegrationPlan ( PlanView, expectedPlan )
 import Generators ( Built(..), build )
 import Scenario ( ActorPick(..), GateMode(..), ModelPick(..), Scenario(..), TargetMode(..) )
 
@@ -81,14 +82,14 @@ expected grounds = suppressApproval (Set.fromList (concatMap blockersOf grounds)
       RefusedDebt _                    -> []
 
 -- | What an integration attempted after the moves would do, by the model.
-data Execution = WouldIntegrate
+data Execution = WouldIntegrate PlanView
                | AuthorityRefused (Set String)  -- ^ Refused for the store's missing authority, with the blockers the check beside it is expected to report.
                | StoodDown (Set String)         -- ^ Refused, with the blockers arc's re-evaluation is expected to report.
   deriving stock (Eq, Show)
 
 executionText :: Execution -> String
 executionText = \case
-  WouldIntegrate           -> "{would integrate}"
+  WouldIntegrate plan      -> "{would integrate " <> show plan <> "}"
   AuthorityRefused refused -> "{exit 17, refused " <> unwords (Set.toList refused) <> "}"
   StoodDown refused        -> "{refused " <> unwords (Set.toList refused) <> "}"
 
@@ -99,7 +100,7 @@ re-evaluates.
 -}
 expectedExecution :: Built -> Either Refusal ExecutionPlan -> Execution
 expectedExecution built = \case
-  Right _                       -> WouldIntegrate
+  Right plan                    -> WouldIntegrate (expectedPlan built plan)
   Left RefusedAuthorityWithheld -> AuthorityRefused reported
   Left _                        -> StoodDown reported
   where
@@ -111,36 +112,16 @@ compareExecution = compareExecutionAs MayReread
 compareExecutionAs :: Reread -> Scenario -> Execution -> DryRun -> Comparison
 compareExecutionAs mode scenario wanted dry
   | executionAgrees wanted dry = Agreed
-  | otherwise = orAdjudicated (adjudicateExecution scenario wanted dry) $ rereading mode scenario $ \reread ->
+  | otherwise = rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareExecutionAs Literal reread (expectedExecution rebuilt rebuilt.execution) dry
 
 -- | Whether a dry run is the model's execution. A dry run that would
 -- integrate answers beside a check that is ready and names no blocker.
 executionAgrees :: Execution -> DryRun -> Bool
 executionAgrees wanted dry = case wanted of
-  WouldIntegrate           -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers
-  AuthorityRefused refused -> dry.exit == 17 && not dry.after.ready && dry.after.blockers == refused
-  StoodDown refused        -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused
-
-{- | The execution disagreements that have been read and classified, each
-with the exact shape it applies to.
--}
-adjudicateExecution :: Scenario -> Execution -> DryRun -> Maybe Adjudication
-adjudicateExecution scenario wanted dry
-  -- a policy that moved and now permits: arc decides again under it, and
-  -- the model acts only on the decision made before it moved, whether that
-  -- decision permitted on a basis that no longer holds or refused
-  | StoodDown refused <- wanted
-  , Set.null refused
-  , scenario.policyAfter
-  , dry.exit == 0
-  , dry.after.ready
-  , Set.null dry.after.blockers
-  = Just Adjudication
-      { kind   = ModelDefect
-      , reason = "policy motion: arc decides again under the policy in force at integration, which permits, as C20 settles; the model acts only on the decision made before the policy moved"
-      }
-  | otherwise = Nothing
+  WouldIntegrate plan      -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers && dry.plan == Just plan
+  AuthorityRefused refused -> dry.exit == 17 && not dry.after.ready && dry.after.blockers == refused && dry.plan == Nothing
+  StoodDown refused        -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused && dry.plan == Nothing
 
 {- | The model's post-integration answers, mapped onto what arc records. An
 authorization is the slots of arc's authorization basis it names:
@@ -192,7 +173,7 @@ compareCoverageAs mode scenario built wanted found
 
 -- | The coverage disagreements that have been read and classified.
 adjudicateCoverage :: Scenario -> Built -> PostIntegration -> PostIntegration -> Maybe Adjudication
-adjudicateCoverage scenario built wanted found
+adjudicateCoverage scenario _built wanted found
   -- an external approval beside the verdict arc witnessed: arc records both
   -- in the basis, the model's authorization names the witnessed verdict
   | wanted.basis == Set.fromList ["verdict"]
@@ -233,21 +214,8 @@ adjudicateCoverage scenario built wanted found
       { kind   = Unsettled
       , reason = "implementer's model as a read: the guide says such a read shows a review happened and not that it was independent, and arc counts it as the independent read of a debt where the model leaves the debt owed; the guide does not say whether it discharges"
       }
-  -- a policy that moved and now permits: arc integrates under it, the model
-  -- acts only on the decision made before it moved. What arc records has to
-  -- be, field for field, what the model records when it decides afresh
-  -- under the moved policy
-  | scenario.policyAfter
-  , not wanted.integrated
-  , redecided.integrated
-  , found == redecided
-  = Just Adjudication
-      { kind   = ModelDefect
-      , reason = "policy motion: arc decides again under the policy in force at integration, which permits, as C20 settles; the model acts only on the decision made before the policy moved"
-      }
   | otherwise = Nothing
-  where
-    redecided = expectedCoverage (historicalAuthorization built.redecidedState) (coverageAfterIntegration built.redecidedState)
+
 
 {- | The scenario as the plan replays it. arc reads gate and policy
 declarations from the target's commits (C12), so the plan moves a

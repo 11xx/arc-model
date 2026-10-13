@@ -136,6 +136,7 @@ test-suite spec
       Comparator
     , Differential.Arc
     , Differential.Compare
+    , Differential.IntegrationPlan
     , Differential.Plan
     , Differential.Sandbox
     , DebtFixtures
@@ -166,6 +167,7 @@ executable arc-model-differential
     , Differential.Candidate.Encoding
     , Differential.Candidate.Replay
     , Differential.Compare
+    , Differential.IntegrationPlan
     , Differential.Plan
     , Differential.Sandbox
   build-depends:

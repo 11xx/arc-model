@@ -236,60 +236,19 @@ gateEvidence observations state =
       _refused -> Nothing
 
 -- C2, C12, C18, C20
-{- | Re-check a basis at execution time. A store without integration
-authority cannot act. An invoker nobody established is refused, and an
-undeclared effective author is refused where either the invoking checkout
-or the destination requires a declaration. A refused decision then answers
-with its refusal. Conflicting declarations and a missing branch leave
-nothing to act on.
-Otherwise readiness is computed again from the history and the
-observations, and the basis rebuilt; where it refuses, or the rebuilt basis
-differs from the recorded one, the action stands down on what moved. The
-recorded basis is never reused, and the plan records nothing.
--}
+-- | Execute under current observations and history. Authority and actor
+-- requirements precede readiness; an earlier decision grants no authority.
 execute :: Observations -> ChangeState -> Decision -> Either Refusal ExecutionPlan
-execute observations state = \case
-  _decided
-    | observations.authority == AuthorityWithheld -> Left RefusedAuthorityWithheld
-    | observations.invoker == Omitted             -> Left RefusedActorUnestablished
-    | declaredActorRequired && not observations.invokerDeclared
-                                                  -> Left RefusedUndeclaredActor
-  Refused refusal -> Left refusal
-  Permitted basis
-    | not (null observations.conflictingGates)    -> Left (RefusedConflictingDeclarations observations.conflictingGates)
-    | observations.head == Omitted                -> Left RefusedBranchMissing
-    | otherwise -> case moved basis of
-        []    -> Right ExecutionPlan { integration = integration basis }
-        facts -> Left (RefusedBasisMoved facts)
+execute observations state _earlier
+  | observations.authority == AuthorityWithheld = Left RefusedAuthorityWithheld
+  | observations.invoker == Omitted             = Left RefusedActorUnestablished
+  | declaredActorRequired && not observations.invokerDeclared
+                                                = Left RefusedUndeclaredActor
+  | otherwise = case evaluate observations state of
+      Left grounds -> Left (NE.head grounds)
+      Right basis  -> Right ExecutionPlan { integration = integration basis }
   where
     declaredActorRequired = observations.appendRequiresDeclaredActor || observations.policy.requireDeclaredActor
-    moved basis = case evaluate observations state of
-      Right rebuilt -> differences basis rebuilt
-      Left grounds  -> observedMoves basis <> [MovedReadiness (NE.toList grounds)]
-    differences basis rebuilt = concat
-      [ [ MovedHead basis.head rebuilt.head                            | basis.head          /= rebuilt.head ]
-      , [ MovedTarget basis.target rebuilt.target                      | basis.target        /= rebuilt.target ]
-      , [ MovedTree basis.tree rebuilt.tree                            | basis.tree          /= rebuilt.tree ]
-      , [ MovedPolicy basis.policy rebuilt.policy                      | basis.policy        /= rebuilt.policy ]
-      , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
-      , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
-      , [ MovedDebts basis.debts rebuilt.debts                         | basis.debts         /= rebuilt.debts ]
-      , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
-      , [ MovedDeclarations basis.declarations rebuilt.declarations   | basis.declarations  /= rebuilt.declarations ]
-      , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
-      ]
-    -- with no basis to rebuild, the observed facts the recorded one named
-    -- are still compared, so a refusal says what moved beside why
-    observedMoves basis = concat
-      [ [ MovedHead basis.head seen                         | Observed seen <- [observations.head], basis.head /= seen ]
-      , [ MovedTarget basis.target observations.target      | basis.target /= observations.target ]
-      , [ MovedTree basis.tree observations.evaluatedTree   | basis.tree   /= observations.evaluatedTree ]
-      , [ MovedPolicy basis.policy observations.policy      | basis.policy /= observations.policy ]
-      , [ MovedPatchset basis.patchset patchset.patchsetId
-        | Just patchset <- [latestPatchset state]
-        , patchset.patchsetId /= basis.patchset
-        ]
-      ]
     integration basis = IntegrationRecord
       { event            = EventId 0
       , patchset         = basis.patchset

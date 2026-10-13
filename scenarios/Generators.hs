@@ -318,15 +318,13 @@ build scenario = Built
     -- integration, and never as a contributor's approval where policy
     -- forbids self-approval
     effectEvents = effectsOf decision
-    effectsOf decided = case decided of
-      Permitted _
-        | Right plan <- execute executionObs state decided
-          -> let integration = IntegrationRecorded plan.integration { Integration.event = EventId 900 }
-             in integration : admittedAudits integration
-      _refused -> []
+    effectsOf decided = case execute executionObs state decided of
+      Right plan -> let integration = IntegrationRecorded plan.integration { Integration.event = EventId 900 }
+                    in integration : admittedAudits integration
+      Left _     -> []
     admittedAudits integration = case auditEvents of
       AuditRecorded audit : _
-        | Right () <- admitAudit observations.policy (replay scenarioChange (events <> [integration])) audit
+        | Right () <- admitAudit executionObs.policy (replay scenarioChange (events <> [integration])) audit
           -> auditEvents
       _refusedOrNone -> []
     auditEvents = case scenario.audit of
@@ -597,7 +595,6 @@ mutations scenario = concat
   , [ Mutation "gate-evidence-unreadable" scenario { Scenario.gateMode = EvidenceRecordUnreadable }               | covered ]
   , [ Mutation "head-moved" scenario { Scenario.headMoved = True }                                      | not scenario.headMoved ]
   , [ Mutation "target-moved" scenario { Scenario.targetAfter = True }                                  | not scenario.targetAfter ]
-  , [ Mutation "policy-moved" scenario { Scenario.policyAfter = True }                                  | not scenario.policyAfter ]
   , [ Mutation "authority-withheld" scenario { Scenario.authorityWithheld = True }                      | not scenario.authorityWithheld ]
   , [ Mutation "external-verdict-refused" scenario { Scenario.externalVerdict = Just ExternalChangesRequested }
     | scenario.externalVerdict /= Just ExternalChangesRequested
@@ -687,8 +684,8 @@ featureOf scenario built = \case
   FeatureEnvironmentRefused            -> gateRefusedBy isEnvironmentRefusal
   FeatureVerdictStands                 -> refusedWith "verdict-stands"
   FeatureHeadMoved                     -> refusedWith "head-moved"
-  FeatureTargetMoved                   -> movedFact isMovedTarget
-  FeaturePolicyMoved                   -> movedFact isMovedPolicy
+  FeatureTargetMoved                   -> built.executionObservation.target /= built.observation.target
+  FeaturePolicyMoved                   -> built.executionObservation.policy /= built.observation.policy
   FeatureAuthorityWithheld             -> built.execution == Left RefusedAuthorityWithheld
   FeatureDebtUnused                    -> permittedBy isUnusedDebt
   FeatureUnknownObservation            -> scenario.gateMode `elem` [EvidenceOmitted, EvidenceRecordUnreadable]
@@ -736,9 +733,6 @@ featureOf scenario built = \case
     gateRefusedBy predicate = case built.decision of
       Refused (RefusedGates refused) -> any predicate refused
       _otherwise                     -> False
-    movedFact predicate = case built.execution of
-      Left (RefusedBasisMoved facts) -> any predicate facts
-      _stood                         -> False
     isWaiver = \case
       AuthorizedByWaiver _               -> True
       AuthorizedByVerdictUnderWaiver _ _ -> True
@@ -757,9 +751,3 @@ featureOf scenario built = \case
       GateEnvironmentUnrecorded _      -> True
       GateEnvironmentUnobserved _      -> True
       _other                           -> False
-    isMovedTarget = \case
-      MovedTarget _ _ -> True
-      _other          -> False
-    isMovedPolicy = \case
-      MovedPolicy _ _ -> True
-      _other          -> False

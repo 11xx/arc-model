@@ -357,7 +357,7 @@ answerText answer
 
 dryRunText :: Arc.DryRun -> String
 dryRunText dry = case dry.exit of
-  0    -> "{would integrate}"
+  0    -> "{would integrate " <> show dry.plan <> "}"
   code -> "{exit " <> show code <> ", refused " <> unwords (Set.toList dry.after.blockers) <> "}"
 
 agreeable :: RowOutcome -> Bool

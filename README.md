@@ -31,6 +31,10 @@ text differences are retained under [`evidence/repin`](evidence/repin).
 Write execution requires an established actor and honors declared-actor
 requirements from both the invoking checkout and the integration target;
 readiness checks remain readable without an actor.
+Execution computes readiness from the current history and observations; an
+earlier refusal or permission does not constrain it. The execution channel
+compares the dry run's JSON plan, including replay-relative revisions,
+selected approval and gate evidence, declarations, policy and danger scope.
 A reviewing model counts as a second identity beside the actor: a read under
 the model of an `Implemented-by` line is not independent of the work. A debt
 declared as `ineligible-review` is cleared only by an audit whose routing

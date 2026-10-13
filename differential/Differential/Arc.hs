@@ -23,11 +23,14 @@ import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), IntegrationS
 import Scenario ( AssessmentMode(..), IneligibleMode(..) )
 import Arc.Model.Policy qualified as Policy
 import Differential.Plan
+import Differential.IntegrationPlan ( PlanView, gateCommand, environmentCommand )
+import Differential.IntegrationPlan qualified as IntegrationPlan
 import Differential.Sandbox qualified as Sandbox
 
 import Control.Exception ( IOException, throwIO, try )
 import Control.Monad ( unless, when )
 import Data.Aeson ( FromJSON, Value, eitherDecodeStrict' )
+import Data.Aeson.Types ( parseEither )
 import Data.ByteString.Builder ( stringUtf8, toLazyByteString )
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
@@ -60,12 +63,13 @@ data Outcome a = Answered a
   deriving stock (Eq, Show, Functor)
 
 {- | What @arc integrate --dry-run@ said, and what @arc check@ reports in the
-same world: the dry run's own output is prose, and its refusals are the
-check's blockers with the check's exit code.
+same world: a permission carries the C19 plan fields, and refusals carry
+the check's blockers with the check's exit code.
 -}
 data DryRun = DryRun
   { exit  :: !Int
   , after :: !Answer
+  , plan  :: !(Maybe PlanView)
   }
   deriving stock (Eq, Show)
 
@@ -163,8 +167,9 @@ changeSlug = "work"
 gatesToml :: String
 gatesToml = unlines
   [ "[gates.build]"
-  , "command = \"test -z \\\"$GATE_FAIL\\\"\""
-  , "environment = \"test -n \\\"$PROBE_ENV\\\" && echo $PROBE_ENV\""
+  , "command = " <> show gateCommand
+  , "timeout = \"60s\""
+  , "environment = " <> show environmentCommand
   ]
 
 -- | The acceptance probe a brief declares: it fails on demand.
@@ -233,13 +238,28 @@ runExecution options root planned = do
         case moved of
           Left failure -> pure (ReplayFailed (show failure))
           Right ()     -> do
-            (code, _, _) <- arc options sandbox dir (Declared "author") probeEnv ["integrate", changeSlug, "--dry-run"] ""
-            fmap (DryRun (exitNumber code)) <$> check options sandbox dir planned.probeAtCheck
+            (code, out, err) <- arc options sandbox dir (Declared "author") probeEnv ["integrate", changeSlug, "--dry-run", "--json"] ""
+            projected <- if code == ExitSuccess then readPlan sandbox dir out err else pure (Right Nothing)
+            case projected of
+              Left failure -> pure (ReplayFailed failure)
+              Right found  -> fmap (\answer -> DryRun (exitNumber code) answer found) <$> check options sandbox dir planned.probeAtCheck
   where
     probeEnv = [ ("PROBE_ENV", identity) | Just identity <- [planned.probeAtCheck] ]
     exitNumber = \case
       ExitSuccess      -> 0
       ExitFailure code -> code
+    readPlan sandbox dir out err = do
+      (_, observedHead, _) <- gitOut sandbox dir ["rev-parse", "HEAD"]
+      (_, observedTarget, _) <- gitOut sandbox dir ["rev-parse", "master"]
+      (_, merged, _) <- gitOut sandbox dir ["merge-tree", "--write-tree", "master", "HEAD"]
+      (_, shown, _) <- arc options sandbox dir (Declared "author") [] ["show", changeSlug, "--json"] ""
+      pure $ do
+        state <- either (Left . ("plan state JSON: " <>)) Right (eitherDecodeStrict' (utf8 shown))
+        document <- either (Left . ("plan JSON: " <>)) Right (eitherDecodeStrict' (utf8 out))
+        let coordinates = IntegrationPlan.Coordinates
+              { head = trim observedHead, target = trim observedTarget, tree = maybe "" trim (listToMaybe (lines merged)), state = state }
+        either (\failure -> Left ("plan fields: " <> failure <> "; stderr: " <> trim err)) (Right . Just)
+          (parseEither (IntegrationPlan.projectPlan coordinates) document)
 
 {- | Run one plan in a fresh sandbox, ask arc for its decision, make the
 plan's moves, integrate for real, record the plan's audits, and read back

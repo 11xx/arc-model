@@ -1640,22 +1640,26 @@ names the reading the model takes, and nothing is listed here.
   as a model defect or as a fact the model leaves to its observations, as
   it leaves which layer a declaration comes from. No differential history
   deletes the target, so the run cannot show it.
-- **A decision made earlier never changes the integration's (C20).** The
-  clause has the integration decide afresh from what it observes, under the
-  policy in force, and name what moved since an earlier plan beside its
-  refusal or as a warning when it proceeds. The model's `execute` compares
-  the earlier decision's basis with the one it rebuilds and stands down
-  with `RefusedBasisMoved` wherever they differ, even where readiness
-  holds: a moved policy, target, tree, gate evidence, or authorization
-  stands the action down, where the clause proceeds on the rebuilt basis.
-  `prop_basis_moved_stands_down` and the `policy-moved` fixture pin the
-  model's present answer. Open until it is
-  adjudicated; the differential classifies arc's re-decision as a model
-  defect, and no row of the seeded run reaches it, since every move the plan
-  makes moves the target and the merge nobody evaluated then refuses on
-  both sides.
 
 ## Adjudicated
+
+- **Execution re-decides current readiness (C20): model defect.** An earlier
+  decision cannot constrain a later integration. `execute` computes current
+  readiness and binds the current policy, target, tree, selected approval and
+  gate evidence. A current finding, hold, refusing verdict or failed gate
+  refuses; a newer passing run or a loosened policy can permit. The policy-motion
+  comparator requires agreement rather than accepting a model-defect exception.
+  The execution channel reads `arc-integration-plan/1` and compares C19's plan
+  fields after naming replay-created coordinates by their role. Corruption of
+  any compared field remains a disagreement. The generators draw declared
+  danger without a self-approval ban and undeclared danger after the existing
+  history and check-time draws; earlier draws retain their seeded values.
+- **Answered dirty evidence (C14): property defect.** Dirt is a refusing fact
+  only at the evaluated tree while no newer record under the same gate,
+  declaration, shape and environment key answers it. A clean later run can
+  make the gate green. `prop_check_time_refuses` counts unanswered dirt; a
+  deterministic dirty-then-clean history exercises this boundary.
+
 
 Disagreements between the model and the contract, each with its class and
 the change that settled it. A model defect carries a fixture that fails on

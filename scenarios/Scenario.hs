@@ -381,7 +381,7 @@ genScenarioThen extend = do
     , (1, pure (revisited patchsets))
     ]
   iterating         <- frequency [(9, pure False), (1, pure True)]
-  extend defaultScenario
+  scenario <- extend defaultScenario
     { patchsets         = patchsets
     , verdictOnFirst    = verdictOnFirst
     , reviewer          = reviewer
@@ -405,6 +405,12 @@ genScenarioThen extend = do
     , audit             = audit
     , episodeExpired    = episodeExpired
     }
+  widenedPolicy <- frequency
+    [ (4, pure scenario.policy)
+    , (1, pure dangerPermittingSelfPolicy)
+    , (1, pure undeclaredDangerPolicy)
+    ]
+  pure scenario { policy = widenedPolicy }
 
 -- | The facts arc's check reports beside the decision: the tree evidence
 -- ran on, the target's motion, acceptance probes, the branch, and the gate

@@ -8,12 +8,16 @@ module Comparator ( comparatorChecks ) where
 import Arc.Model
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..) )
 import Differential.Compare
+import Differential.IntegrationPlan ( PlanView(..) )
 import Generators
 import Render
 import Scenario qualified
 
 import Data.Set ( Set )
 import Data.Set qualified as Set
+import Data.Aeson ( Value(..) )
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap qualified as KM
 
 
 comparatorChecks :: [Check]
@@ -67,11 +71,10 @@ adjudicatedAs kind = \case
 -- decides afresh under the loosened policy, audit included.
 coveragePolicyMotion :: [Check]
 coveragePolicyMotion =
-  pinned "comparator/coverage policy motion" scenario ModelDefect
-    (PostIntegration True (Set.singleton "verdict") (Just "changes-requested") 1 False)
-  <> [ expectEq "comparator/coverage policy motion: an unrelated answer is not adjudicated" Disagreed
-         (compareCoverage scenario built wanted (PostIntegration True (Set.singleton "nonsense") (Just "nonsense") 999 True))
-     ]
+  expectEq "comparator/coverage policy motion: current authorization agrees" Agreed (compareCoverage scenario built wanted wanted)
+  : [ expectEq ("comparator/coverage policy motion: refuses changed " <> field) Disagreed (compareCoverage scenario built wanted changed)
+    | (field, changed) <- variants wanted
+    ]
   where
     scenario = defaultScenario { Scenario.reviewer = Just ActorContributor, Scenario.policyAfter = True, Scenario.audit = Just (ChangesRequested, True) }
     built    = build scenario
@@ -96,7 +99,7 @@ coverageUndeclaredReviewer =
 -- is no such history.
 executionPolicyMotion :: [Check]
 executionPolicyMotion =
-  [ expectTrue "comparator/execution policy motion: the exact answer is adjudicated" "" (adjudicatedAs ModelDefect (compared 0 True Set.empty))
+  [ expectEq "comparator/execution policy motion: current readiness agrees" Agreed (compared 0 True Set.empty)
   , expectEq "comparator/execution policy motion: a refusing check is not adjudicated" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a refusal under the unmoved policy is not adjudicated" Disagreed (compared 3 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution policy motion: a ready check naming a blocker is not adjudicated" Disagreed (compared 0 True (Set.singleton "no-valid-approval"))
@@ -126,9 +129,18 @@ executionWouldIntegrate =
   [ expectEq "comparator/execution would integrate: exit 0 beside a ready check agrees" Agreed (compared 0 True Set.empty)
   , expectEq "comparator/execution would integrate: a refusing check is not agreement" Disagreed (compared 0 False (Set.singleton "no-valid-approval"))
   , expectEq "comparator/execution would integrate: a ready check naming a blocker is not agreement" Disagreed (compared 0 True (Set.singleton "gates-not-green"))
+  , expectEq "comparator/execution would integrate: the plan is required" Disagreed
+      (compareExecution defaultScenario wanted (DryRun 0 (Answer True Set.empty) Nothing))
   ]
+  <> [ expectEq ("comparator/execution plan refuses changed " <> Key.toString field) Disagreed
+         (compareExecution defaultScenario wanted (DryRun 0 (Answer True Set.empty) (Just (PlanView (Object (KM.insert field Null fields))))))
+     | WouldIntegrate (PlanView (Object fields)) <- [wanted]
+     , field <- KM.keys fields
+     ]
   where
     compared = executionComparison defaultScenario
+    built = build defaultScenario
+    wanted = expectedExecution built built.execution
 
 -- | An iterating change with no approval: arc's check names iterating and
 -- nothing for the approval; any other difference stays a disagreement.
@@ -192,6 +204,10 @@ hiddenByNewerRun =
 
 executionComparison :: Scenario -> Int -> Bool -> Set String -> Comparison
 executionComparison scenario code isReady blockers =
-  compareExecution scenario (expectedExecution built built.execution) (DryRun code Answer { ready = isReady, blockers = blockers })
+  compareExecution scenario wanted (DryRun code Answer { ready = isReady, blockers = blockers } projected)
   where
     built = build scenario
+    wanted = expectedExecution built built.execution
+    projected = case wanted of
+      WouldIntegrate fields | code == 0 -> Just fields
+      _refused -> Nothing
