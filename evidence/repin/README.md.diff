@@ -1,0 +1,11 @@
+--- 73bff20/README.md
++++ 3e020e5/README.md
+@@ -92,7 +92,7 @@
+ 
+ ```sh
+ arc explain radio-refill-fix           # contract, context, reads, alternatives, evaluation, coverage
+-arc explain radio-refill-fix --json    # the same, as arc-explain/1
++arc explain radio-refill-fix --json    # the same, as arc-explain/2
+ ```
+ 
+ When several attempts answer one brief, `arc candidate register` records each

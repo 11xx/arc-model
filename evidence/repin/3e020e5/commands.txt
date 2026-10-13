@@ -1,0 +1,198 @@
+arc
+begin
+roles
+trailers
+list
+query
+show
+explain
+log
+stats
+diff
+findings
+brief
+changelog
+message
+messages
+inbox
+chain
+take
+metadata
+iterating
+status
+blocker-status
+is-blocked
+events
+watch
+export
+import
+accept
+replica
+check
+claim
+release-claim
+stage
+squash
+snapshot
+keep
+comment
+finding
+reply
+resolve
+review
+external
+verify
+done
+rebase
+env
+completions
+mangen
+resume
+rescue
+prompt
+fork
+hold
+release-hold
+integrate
+debt
+audit
+close
+history
+rewrite
+candidate
+context
+pass
+run
+cost
+policy
+forge
+config
+sandbox
+doctor
+hooks
+instructions
+workspace
+restack
+catchup
+fr
+journal
+replica provisional
+replica id
+replica init
+replica pair
+replica export
+replica import
+replica status
+replica authority
+external verdict
+fork begin
+fork adopt
+fork retire
+fork list
+fork thread
+history withdraw
+history rewrite
+history resolve
+rewrite sign
+rewrite trailers
+candidate register
+candidate show
+candidate list
+candidate judge
+candidate retire
+candidate verify
+candidate select
+candidate promote
+context read
+context declare
+context capture
+pass open
+pass complete
+pass abandon
+pass list
+run dispatch
+run bind
+run end
+run list
+cost show
+cost retain
+cost note
+policy show
+policy path
+policy write
+forge show
+forge observe
+forge declare
+forge link
+forge checks
+forge pr-state
+sandbox clone
+sandbox diff
+sandbox discard
+hooks install
+hooks uninstall
+hooks status
+instructions git
+workspace list
+workspace inbox
+workspace inventory
+workspace backlog
+workspace report
+journal dir
+journal doctor
+journal spool
+journal note
+journal feature-request
+journal todo
+journal handoff
+journal plan
+journal conclusion
+journal decision
+journal incident
+journal memory
+journal later
+journal review
+journal log
+journal source-attach
+journal source
+journal filed
+journal position
+journal evidence
+journal verified
+journal question
+journal checkpoint
+journal scaffolds
+journal questions
+journal answer
+journal suggest
+journal delivered
+journal correct
+journal retract
+journal reattribute
+journal events
+journal catchup
+journal memories
+journal open
+journal list
+journal inventory
+journal show
+journal latest
+journal discussion
+journal rebind
+journal stamp
+journal lane
+journal consume
+journal transition
+journal promote
+journal archive
+journal unarchive
+journal export
+journal import
+replica provisional resolve
+replica authority offer
+replica authority reclaim
+replica authority confirm-return
+journal lane open
+journal lane renew
+journal lane close
+journal lane list
