@@ -1659,6 +1659,18 @@ names the reading the model takes, and nothing is listed here.
   declaration, shape and environment key answers it. A clean later run can
   make the gate green. `prop_check_time_refuses` counts unanswered dirt; a
   deterministic dirty-then-clean history exercises this boundary.
+- **Plan declaration projection (C19): encoding boundary.** The public
+  `arc-integration-plan/1` gate rows contain the command, timeout and declaring
+  sources. They carry no environment-probe command. The plan comparison checks
+  those published fields; the model's gate evidence still requires the
+  declaration's observed environment, but the plan JSON cannot independently
+  compare the probe command.
+- **Plan event coordinates: encoding boundary.** Finding creation emits an
+  Arc comment-only verdict as well as the finding, while the model records
+  the finding directly. Approval coordinates count the verdicts emitted by
+  review steps; finding-only comments do not shift them. The execution plan
+  channel classifies the already-known external-beside-local basis difference
+  as unsettled only when all other plan fields agree.
 
 
 Disagreements between the model and the contract, each with its class and

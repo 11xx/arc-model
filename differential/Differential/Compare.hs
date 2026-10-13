@@ -33,13 +33,16 @@ module Differential.Compare
 
 import Arc.Model
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
-import Differential.IntegrationPlan ( PlanView, expectedPlan )
+import Differential.IntegrationPlan ( PlanView(..), expectedPlan )
 import Generators ( Built(..), build )
 import Scenario ( ActorPick(..), GateMode(..), ModelPick(..), Scenario(..), TargetMode(..) )
 
 import Data.Maybe ( fromMaybe, isJust, isNothing )
 import Data.Set ( Set )
 import Data.Set qualified as Set
+import Data.Aeson ( Value(..), object, (.=) )
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap qualified as KM
 
 
 -- | The blockers arc is expected to report for these grounds.
@@ -112,7 +115,7 @@ compareExecution = compareExecutionAs MayReread
 compareExecutionAs :: Reread -> Scenario -> Execution -> DryRun -> Comparison
 compareExecutionAs mode scenario wanted dry
   | executionAgrees wanted dry = Agreed
-  | otherwise = rereading mode scenario $ \reread ->
+  | otherwise = orAdjudicated (adjudicateExecution scenario wanted dry) $ rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareExecutionAs Literal reread (expectedExecution rebuilt rebuilt.execution) dry
 
 -- | Whether a dry run is the model's execution. A dry run that would
@@ -122,6 +125,26 @@ executionAgrees wanted dry = case wanted of
   WouldIntegrate plan      -> dry.exit == 0 && dry.after.ready && Set.null dry.after.blockers && dry.plan == Just plan
   AuthorityRefused refused -> dry.exit == 17 && not dry.after.ready && dry.after.blockers == refused && dry.plan == Nothing
   StoodDown refused        -> dry.exit `notElem` [0, 17] && not dry.after.ready && dry.after.blockers == refused && dry.plan == Nothing
+
+-- | An external approval beside a witnessed verdict is the same unsettled
+-- basis difference as in the coverage channel. Every other field must agree.
+adjudicateExecution :: Scenario -> Execution -> DryRun -> Maybe Adjudication
+adjudicateExecution scenario wanted dry
+  | scenario.externalVerdict == Just ExternalApproved
+  , WouldIntegrate (PlanView (Object fields)) <- wanted
+  , Just (Object authorization) <- KM.lookup (Key.fromString "authorization") fields
+  , KM.member (Key.fromString "verdict") authorization
+  , let external = object
+          [ Key.fromString "revision" .= ("head" :: String), Key.fromString "verdict" .= ("approved" :: String)
+          , Key.fromString "decided_by" .= ("upstream" :: String), Key.fromString "reference" .= ("upstream/1" :: String) ]
+        both = PlanView (Object (KM.insert (Key.fromString "authorization")
+          (Object (KM.insert (Key.fromString "external") external authorization)) fields))
+  , executionAgrees (WouldIntegrate both) dry
+  = Just Adjudication
+      { kind = Unsettled
+      , reason = "external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone"
+      }
+  | otherwise = Nothing
 
 {- | The model's post-integration answers, mapped onto what arc records. An
 authorization is the slots of arc's authorization basis it names:

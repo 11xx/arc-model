@@ -75,7 +75,7 @@ projectPlan coordinates = withObject "integration plan" $ \plan -> do
     parseMaybeRows value = case fromJSON value of
       Success found -> Just (found :: [Object])
       Error _       -> Nothing
-    ids key = map (fieldValue "event_id") (rows key)
+    ids key = [ field row "event_id" | row <- rows key, key /= "verdicts" || field row "body" == toJSON ("review" :: String) ]
     verificationIds = [ field row "event_id" | row <- rows "verifications", field row "gate" == toJSON ("build" :: String) ]
     named prefix key value = namedValue prefix (ids key) (toJSON value)
     namedDebt value = case coordinates.state of
@@ -94,9 +94,6 @@ projectPlan coordinates = withObject "integration plan" $ \plan -> do
 
 field :: Object -> Key -> Value
 field row key = fromMaybe Null (KM.lookup key row)
-
-fieldValue :: Key -> Object -> Value
-fieldValue key row = field row key
 
 coordinate :: String -> String -> String -> Value
 coordinate label expected actual = toJSON (if actual == expected then label else actual)
@@ -142,10 +139,9 @@ expectedPlan built plan = PlanView $ object
         , "decided_by" .= ("upstream" :: String), "reference" .= ("upstream/1" :: String) ]]
     verdict event = "verdict" .= eventName "verdict" (map (.event) built.state.verdicts) event
     declarationView declaration = object
-      ( [ "command" .= gateCommand
-        , "timeout" .= declaration.timeoutSeconds
-        , "declared_by" .= ([".arc/gates.toml"] :: [String]) ]
-      <> [ "environment" .= environmentCommand | declaration.environment /= Nothing ] )
+      [ "command" .= gateCommand
+      , "timeout" .= declaration.timeoutSeconds
+      , "declared_by" .= ([".arc/gates.toml"] :: [String]) ]
     danger = object $ case record.policy.danger of
       DangerScoped -> ["dangerous" .= True, "rule" .= ("declared-path" :: String), "paths" .= (["danger.txt"] :: [String])]
       DangerOutside -> ["dangerous" .= False, "rule" .= ("untouched" :: String)]

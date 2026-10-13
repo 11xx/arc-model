@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {- | The differential's comparator, pinned. An adjudication names one known
 difference between the model and arc; every other field of the answer has
 to agree for it to apply, so each rule is checked against its exact answer
@@ -15,7 +16,7 @@ import Scenario qualified
 
 import Data.Set ( Set )
 import Data.Set qualified as Set
-import Data.Aeson ( Value(..) )
+import Data.Aeson ( Value(..), object, (.=) )
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KM
 
@@ -28,6 +29,7 @@ comparatorChecks = concat
   , executionPolicyMotion
   , executionAuthority
   , executionWouldIntegrate
+  , executionExternalBesideLocal
   , decisionIterating
   , committedOnTarget
   , hiddenByNewerRun
@@ -141,6 +143,29 @@ executionWouldIntegrate =
     compared = executionComparison defaultScenario
     built = build defaultScenario
     wanted = expectedExecution built built.execution
+
+executionExternalBesideLocal :: [Check]
+executionExternalBesideLocal =
+  [ expectTrue "comparator/execution external beside local: the exact answer is adjudicated" ""
+      (adjudicatedAs Unsettled (compareFoundPlan fields))
+  ]
+  <> [ expectEq ("comparator/execution external beside local: refuses changed " <> Key.toString field) Disagreed
+         (compareFoundPlan (KM.insert field Null fields))
+     | field <- KM.keys fields
+     ]
+  where
+    scenario = defaultScenario { Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
+    built = build scenario
+    wanted = expectedExecution built built.execution
+    fields = case wanted of
+      WouldIntegrate (PlanView (Object original)) -> case KM.lookup "authorization" original of
+        Just (Object authorization) -> KM.insert "authorization" (Object (KM.insert "external" external authorization)) original
+        _other -> original
+      _refused -> KM.empty
+    external = object
+      [ "revision" .= ("head" :: String), "verdict" .= ("approved" :: String)
+      , "decided_by" .= ("upstream" :: String), "reference" .= ("upstream/1" :: String) ]
+    compareFoundPlan found = compareExecution scenario wanted (DryRun 0 (Answer True Set.empty) (Just (PlanView (Object found))))
 
 -- | An iterating change with no approval: arc's check names iterating and
 -- nothing for the approval; any other difference stays a disagreement.
