@@ -38,6 +38,13 @@ here reads it as a patchset like any other. Git effects, durability,
 locking, forks, queues, and the other items `REPORT.md` lists under "Known
 unsupported semantics" are outside the contract too.
 
+History rewrites and what protects shared history belong to Git effects and
+are outside the contract, with their documentation's refusals ("Refusals
+happen before any ref move"; `--include-shared` "grants permission without
+changing the default range"; a `refs/arc/keep` pin "follows the successor").
+What a rewrite means for an approval, a waiver and a patchset is not outside:
+C1, C5 and C6 state it.
+
 Replicas bring three rules of their own: which imported reviews count
 (C24), what a replica without authority may prepare (C25), and how the
 authority accepts a delivered change (C26). The contract states them; the
@@ -155,7 +162,10 @@ target and approved head as its parents"), "Files" (the style precedence;
 (11, "when the target conflicts or ff-only ancestry requires rebasing";
 14; the explicit `ff-only` blocker set in "Rules that change what you do");
 `arc integrate --help` and `arc check --help`, `--shape`; `arc verify --help`,
-`--against`.
+`--against`. The same passage ends: "The rule names no integration shape:
+under `ff-only`, where no merge ships, a change behind its target still lists
+`merged-tree-unevaluated` beside `needs-rebase` in `check --json`, and
+`check` exits 11 for the rebase before it would exit 14."
 
 **Realized by.** `evaluateDeclared`, `gateEvidence`.
 
@@ -174,14 +184,19 @@ applies to every change, and for independence (below) every change is
 inside it.
 
 Where independent review is required, an approval is rejected when its
-effective author is a contributor to the patchset it approves, or when arc
-assumed the reviewing identity rather than anyone declaring it.
-Independence is judged against the patchset the verdict binds to, never
-against a later one. A rejected self-approval is no approval (C5), and a
+effective author is a contributor to the patchset it approves, when arc
+assumed the reviewing identity rather than anyone declaring it, or when the
+model its verdict recorded, effort dropped, equals the model of an
+`Implemented-by` line in the range the patchset carries. A model compares as
+a string: arc holds no alias table, so a model the trailers spell another way
+is not matched. A verdict that recorded no model, or a range that cannot be
+read, names nobody for this comparison. Independence is judged against the
+patchset the verdict binds to, never against a later one. A rejected self-approval is no approval (C5), and a
 waiver bound to the same patchset can rescue it (C6).
 
-**Status.** Settled on the effective author, the contributor fallback, and
-the danger scopes. Unsettled on when independent review is required.
+**Status.** Settled on the effective author, the contributor fallback, the
+danger scopes, and the reviewing model as a second identity. Unsettled on
+when independent review is required.
 
 - *When independent review is required.*
   - (i) A change that touches a declared danger path, or was raised with
@@ -203,7 +218,27 @@ the danger scopes. Unsettled on when independent review is required.
   where policy requires one, or when someone asks for one", names policy
   as what requires one without saying which policy, so it decides neither.
 
-**Source.** The guide, "Review coverage and debt":
+The reviewing model is a second identity. Where self-approval is forbidden
+the gate rejects such an approval "as it rejects a contributor match"; where
+it is not, the verdict is recorded and counts under C4's reading (ii) and
+shows only "that a review happened and not that it was independent", so it
+is not an independent read for coverage (C22). A `changes-requested` verdict
+is never refused for its model.
+
+**Source.** The guide, "Review coverage and debt" (the independence passage:
+"The reviewing model is a second identity: a verdict or audit recorded under
+the model, at any effort, of an `Implemented-by` line in the range it judges
+warns that it shows a review happened and not that it was independent of
+whoever wrote the work. Where self-approval is forbidden the gate rejects the
+approval as it rejects a contributor match, and `arc audit` refuses to record
+it; `--verdict changes-requested` is open to anyone. Models compare as
+strings once the effort is dropped: arc holds no alias table, so a model the
+trailers spell another way is not matched. A range that cannot be read names
+nobody for this comparison: arc says it could not read the trailers, and
+neither the gate nor `arc audit` refuses on what it could not see.");
+`arc review --help` ("Where `forbid_self_approval` applies, the gate rejects
+it as a self-approval, exactly as it rejects a reviewer matching a
+contributor"); the guide, "Review coverage and debt":
 "An event's effective author is its `--on-behalf-of` subject when set,
 otherwise its actor. A patchset's effective contributors are its recorded
 set when nonempty, otherwise its effective author alone." The same section
@@ -221,7 +256,7 @@ path as dangerous under the uniform gate. `arc begin --help`,
 `--dangerous`; each command's `--help`, `--on-behalf-of`.
 
 **Realized by.** `effectiveActor`, `effectiveContributors`,
-`independenceOwed`, `authorizationFor`.
+`independenceOwed`, `authorizationFor`, `implementerModelMatch`.
 
 ### C5. Approval validity
 
@@ -253,9 +288,29 @@ any other successor leaves it stale. What happens to the approval of a
 change that has already closed is not stated. The model records no rewrite,
 so rewrites are unsupported.
 
+What the documentation states of a rewrite is the boundary the model keeps:
+"An approval follows a recorded rewrite only when the successor differs from
+the approved head in nothing but its signature"; "Snapshot records a new
+patchset whenever the latest patchset's approved head differs from the
+current branch head, even when its mapped head matches. Earlier verdicts
+remain bound to their own patchsets and stay stale for the rewritten head; a
+snapshot or rewrite grants no approval." A content or trailer rewrite keeps
+"the open patchset's approval anchor; a fresh snapshot binds the successor".
+Status and check "direct the caller to snapshot, and an implicit verdict on
+the latest patchset refuses before recording anything"; an explicit
+`--patchset` judgment "may record historical work, retaining that patchset's
+review head and its stale coverage". In the model's terms the fresh patchset
+is a patchset like any other: a verdict or waiver recorded before the rewrite
+binds an earlier patchset (C1, C6), so it covers nothing of the new one, and
+a verdict on the fresh patchset can.
+
 **Source.** The guide, "Review coverage and debt" (the
-verdict chain, contested verdicts, provisional verdicts), "Rules that
-change what you do" (staleness), and "History rewrites"; `arc review
+verdict chain, contested verdicts, provisional verdicts, "the patchset's
+approval anchor, which follows signature-only rewrites"), "Rules that
+change what you do" (staleness), and "History rewrites"; `arc snapshot
+--help` ("A head whose rewrite invalidated approval requires a fresh patchset,
+even when the latest patchset's mapped head already matches the branch.
+Re-approval requires a verdict on that fresh patchset"); `arc review
 --help`, `--relation`, `--provisional`; `README.md`, "One change, end to
 end".
 
@@ -752,6 +807,7 @@ from what it observes, under the policy in force when it runs, and names
 what moved since the earlier plan — the approved head, the target revision,
 the gate or policy declarations, the approval, or provisional routing and
 prerequisites — beside its refusal, or as a warning when it still proceeds.
+The debts a plan saw are part of the approval it names (C28).
 A store paired with replicas integrates only while it holds integration
 authority. A readiness check reports a store without it as a ground of its
 own, `integration-mode`, beside every other ground that stands, and an
@@ -791,11 +847,13 @@ integration-mode"); `arc integrate --help`, `--dry-run`, `--json`,
 ### C21. Debt kinds and the owed review
 
 **Rule.** A debt names what kind of review is missing: `nothing-read`,
-`merge-resolution-unread`, `repair-unread`, `contributor-only`, or
-`independent-review`. A declared kind wins over the derived one. The ledger
-sees a merge resolution and a repair the same way, so only a declaration
-names `merge-resolution-unread`; the ledger derives the other four. Where no
-kind is declared, the kind of a debt on a patchset is:
+`merge-resolution-unread`, `repair-unread`, `contributor-only`,
+`ineligible-review`, or `independent-review`. A declared kind wins over the
+derived one. The ledger sees a merge resolution and a repair the same way, so
+only a declaration names `merge-resolution-unread`. Only routing's reading can
+say a read does not count, so only a declaration names `ineligible-review`.
+The ledger derives the other four. Where no kind is declared, the kind of a
+debt on a patchset is:
 
 - `nothing-read` where no patchset of the change carries a verdict;
 - `contributor-only` where that patchset carries verdicts, all of them from
@@ -808,6 +866,31 @@ The owed-review projection reports, for the latest patchset, a covering
 read, a standing refusal (C8), a waiver in force (C6), or the kind of
 review still owed, derived the same way for that patchset.
 
+A debt of kind `ineligible-review` records beside the kind:
+
+- the *read*, the verdict event it names: the declaration's `--read`, else the
+  latest verdict on the patchset the debt covers, and it is refused when that
+  patchset has no verdict or the event is not one of its verdicts;
+- the *qualifiers*, why the read does not count, from the closed set
+  `same-model`, `same-family`, `below-floor`, `floor-unknown`,
+  `reviewer-unseated`;
+- the *assessment*, `assessed` when the qualifiers came from an
+  `agent-routing assess` file and `declared` when they came from
+  `--qualifier` flags;
+- the *route version*, a coordinate and nothing else.
+
+A declaration is refused, with the same refusal whether it is made, planned
+(C28) or executed, when it names a read on another kind, names no verdict to
+read, or carries an assessment whose independence is `eligible`, since "there
+is no debt to record". Arc keeps no tier, family or floor: the kind is a
+record of routing's word.
+
+Every debt's production record also keeps the `Implemented-by` values of the
+commits in the patchset's range, read when the debt is declared, without
+repeats. A range whose commits carry none records an empty list; a record
+kept before the range was read, or whose range could not be read then, has no
+list, and says nothing of it.
+
 **Status.** Settled, except for a patchset with no verdict of its own when
 earlier patchsets of the change carry verdicts and none of them is an
 approval. No documented kind names that history. (i) `independent-review`,
@@ -815,12 +898,34 @@ the general case. (ii) No derived kind; only a declaration answers. The
 model reads (i). `nothing-read` is not a reading: the documentation defines
 it as no verdict on any patchset.
 
-**Source.** The guide, "Review coverage and debt" (the
-table of kinds; "Only the caller can say a resolution was what went unread,
-because the ledger sees a repair and a merge resolution the same way";
-`review_options`); `arc debt --help`, `--kind`.
+Also unsettled for `ineligible-review`, where the documentation says the
+declaration "takes why from `--assessment` or `--qualifier`" without saying
+what a declaration with neither records: (i) it is refused, a debt of this
+kind records why; (ii) it records no qualifier. The model reads (i). A debt
+declared after integration carries no patchset (C6) and so has no verdict to
+read; the model refuses it unless the read is named, and does not model a
+named read of an unrecorded patchset. Whether a declaration whose named
+qualifier is outside the closed set is refused before or after a missing
+verdict is presentation (C23): both refuse.
 
-**Realized by.** `debtKindFor`, `derivedKind`, `reviewObligation`.
+**Source.** The guide, "Review coverage and debt" (the
+table of kinds, `ineligible-review` among them: "a read happened, by a
+reviewer routing does not count as independent of the author"; "Only the
+caller can say a resolution was what went unread, because the ledger sees a
+repair and a merge resolution the same way"; "`ineligible-review` is
+declared, never derived: arc holds no family, tier or floor, so only
+routing's reading can say a read does not count"; the record's `read`,
+`qualifiers`, `assessment` and `route_version`; "An `eligible` assessment is
+refused on this kind, because there is no debt to record"; "Production also
+names the `Implemented-by` values of the commits in the patchset's range,
+read when the debt is declared and kept verbatim, without repeats, as
+`trailer_implementers`"; `review_options`); `arc debt --help`, `--kind`,
+`--read`, `--assessment`, `--qualifier`, `--route-version` (`--read`:
+"Omitted, the latest verdict on the patchset the debt covers. Refused when
+the patchset has no verdict, or the event is not one of its verdicts").
+
+**Realized by.** `debtKindFor`, `derivedKind`, `reviewObligation`,
+`declareDebt`.
 
 ### C22. Audits, and why a fulfilled read is not an approval
 
@@ -831,14 +936,45 @@ authorization of an integration is fixed when the integration is recorded.
 Audit findings are a separate set from the shipped findings. Auditing into
 changes-requested is open to anyone. An approving audit discharges an
 obligation only when it comes from a declared identity that is not a
-contributor to the shipped patchset. Any independent verdict on the shipped
-revision, recorded after the debt, fulfils the owed read, whether it came
-before the merge or in an audit after it. A fulfilled read is not an
-approval: a negative audit can fulfil the read and leave its findings open,
-and what the reader concluded stays in its verdict and findings.
+contributor to the shipped patchset, and whose recorded model, effort
+dropped, is none of the `Implemented-by` models of the shipped range (C4).
+Any independent verdict on the shipped revision, recorded after the debt,
+fulfils the owed read, whether it came before the merge or in an audit after
+it. A fulfilled read is not an approval: a negative audit can fulfil the read
+and leave its findings open, and what the reader concluded stays in its
+verdict and findings.
+
+A debt of kind `ineligible-review` is the exception: no verdict fulfils it,
+before the merge or after, and an audit fulfils it only when routing's
+assessment of its auditor says so. The audit must carry an assessment whose
+independence is `eligible`; the auditor must also be independent as above;
+and the assessment must be *bound*, which has two parts. It describes the
+auditor when the model the audit recorded is among the reviewer's
+`identities` and, where both name an effort, the effort equals the
+reviewer's. It covers the work when its `authors`, through their `identities`,
+answer to the model of every `Implemented-by` line in the integrated range,
+read from the debt's production record, else from the range itself. A range
+read and found to have no `Implemented-by` line asks nothing of the authors;
+a range whose lines cannot be established is not an empty one. The audit
+records the outcome of the binding: `bound`, `model-mismatch`,
+`effort-mismatch`, `model-unrecorded` (an audit by a person records no
+model), `identities-unstated` (the file lists no identity),
+`authors-uncovered` (naming the models of the range the authors omit) or
+`authors-unread` (the range's authors could not be read). An audit without
+an assessment, with an `ineligible` one, or whose binding is not `bound`, is
+recorded, says why, and leaves the debt open. Other kinds ignore the
+assessment.
 
 **Status.** Settled, except:
 
+- *The binding where several parts fail.* An assessment can fail to describe
+  the auditor and fail to cover the authors at once, and the documentation
+  lists the outcomes without an order. (i) The auditor is judged first:
+  `model-unrecorded`, then `identities-unstated`, `model-mismatch`,
+  `effort-mismatch`, and only a bound assessment is then checked for the
+  authors. (ii) The authors are judged first. The model reads (i). The debt
+  stays open either way, so the order is presentation (C23) wherever only the
+  debt is compared.
 - *A non-independent approving audit.* (i) It is refused where policy
   forbids self-approval, and recorded without discharging anything
   elsewhere (the guide: "Where `forbid_self_approval` is off, an approving
@@ -859,13 +995,35 @@ and what the reader concluded stays in its verdict and findings.
 **Source.** The guide, "Review coverage and debt" (an
 audit "never rewrites what shipped with what review"; "anyone may audit
 into `changes-requested`"; discharge; "discharging the debt does not mean
-approval") and "The history model" ("a discharge is fulfilment, never
-approval, and never rewrites the basis the integration was accepted on");
-`arc audit --help`.
+approval"; "Only an audit clears it: `arc audit --assessment <file>` with
+`independence: eligible`, by an auditor who is also independent of the
+contributors and whom the assessment describes, and whose assessment covers
+the work: the `authors` it lists answer, through their `identities`, to the
+model of every `Implemented-by` line in the integrated range. An assessment
+that omits one is recorded with binding `authors-uncovered` and the omitted
+models in `uncovered_authors`, and leaves the debt open [...] A range read
+and found to have no `Implemented-by` line asks nothing of the authors; a
+range whose lines cannot be established (no list kept with the production
+record, and the range does not read) is not an empty one, and its audit is
+recorded with binding `authors-unread` and leaves the debt open. No other
+kind has this rule"; "The assessment describes the auditor when the model its
+audit event recorded is among the reviewer's `identities` [...] and, where
+both name an effort, the effort equals the reviewer's `effort`"; "a verdict
+recorded since carries no assessment and does not clear it"; "The
+`ineligible-review` kind is the exception stated above: only an audit with an
+eligible assessment clears it") and "The history model" ("a discharge is
+fulfilment, never approval, and never rewrites the basis the integration was
+accepted on"); `arc audit --help` ("An approving audit recorded under the
+model of an `Implemented-by` line in the audited range, at any effort, warns
+that it shows a review happened and not that it was independent of whoever
+wrote the work. Where `forbid_self_approval` is on it is refused, with the
+remedy a contributor match gets. `--verdict changes-requested` is open to
+anyone"; "A debt of kind `ineligible-review` is discharged only by an audit
+whose assessment says `eligible` and is `bound`").
 
 **Realized by.** `admitAudit`, `auditDischarges`, `auditIsIndependent`,
-`coverageAfterIntegration`, `openAuditFindings`, `latestIntegration`,
-`historicalAuthorization`.
+`assessmentBinding`, `coverageAfterIntegration`, `openAuditFindings`,
+`latestIntegration`, `historicalAuthorization`.
 
 ### C23. Refusal order is presentation
 
@@ -1016,3 +1174,92 @@ stops and prints the exact rebase, snapshot and review remedy").
 
 **Realized by.** Nothing yet: acceptance is preparation, and the decision
 it leads to is the one C1 to C23 describe.
+
+### C27. A debt's standing
+
+**Rule.** A debt stands in one of three states, and every reading of it is
+the same one. It is *declared* while its change has not integrated: nothing
+is owed yet and no review has answered it. It is *owed* once the change has
+integrated and no eligible review has answered it. It is *discharged* when
+one has, and the debt names the review that did. Which review is eligible is
+C22's: any independent verdict or audit on the shipped revision recorded
+after the debt was declared for the kinds C22 does not except, and only an
+audit whose assessment is bound, eligible and covers the work for
+`ineligible-review`. A debt is outstanding, listed as an obligation and
+binding as a recorded obligation only while it is owed; a declared debt is
+absent from the debt queues. Standing changes no waiver: a declared debt
+still stands in for an absent approval at integration (C6).
+
+**Status.** Settled on the three states and what moves a debt between them.
+The guide says the waiver keeps "its meaning: true, listed and binding only
+for `owed`", where a waiver that bound only after integration would rescue
+nothing the integration needed; the model reads "binding" there as the
+obligation's, and keeps C6's waiver scope. The guide does not say how the
+state reads for a debt declared on a patchset other than the one that
+shipped, or after the change closed without integrating; the model reads a
+change that has not integrated as declared, whichever the patchset, and an
+integrated change's debt as answered by any eligible review of the shipped
+revision recorded after it.
+
+**Source.** The guide, "Review coverage and debt": "A debt stands in one of
+three states, and every view that shows it reads the same one. `declared`:
+the change has not integrated, so nothing is owed yet and no review has
+answered it. `owed`: the change integrated and no eligible review has
+answered it. `discharged`: one has, and the debt names it. [...]
+`debt_outstanding`, the debt queues and the waiver keep their meaning: true,
+listed and binding only for `owed`, which is why a declared debt is absent
+from `arc inbox`, `arc query --debt` and the workspace backlog"; `arc status
+--help` ("`debt_standing` is `declared` before the change integrates, `owed`
+after, and `discharged` once a review answers the debt").
+
+**Realized by.** `debtStanding`, `coverageAfterIntegration`.
+
+### C28. Planning a declaration, and expecting a basis
+
+**Rule.** `arc integrate --debt ... --dry-run` decides the integration as it
+reads once the debt is declared, and writes no event. It says which debt it
+would declare, or that the change already carries it: a declaration that
+repeats the reason, kind and declarer against the same patchset and coverage
+records nothing and names the debt in force. A declaration the execution would
+refuse (C21) is refused by the plan, with the same message and exit code. The
+plan never invents an approval: every ground C1 to C20 reads stands, a
+`changes-requested` verdict on the exact head among them (C8), and a debt
+beside an approval that stands authorized nothing (C6).
+
+Handed back with `--expect-basis`, the plan names what moved, and the debts
+it saw are part of the approval it names. The event the execution itself
+writes is not a move. A debt another actor declared meanwhile, or an
+existing declaration the execution reuses instead of writing, is. A plan made
+without `--debt` records the debts the patchset carried when it was made, so
+a debt declared after it is a move even where the integration never
+consumes it.
+
+**Status.** Settled on the plan's decision, its refusals, and the two moves.
+The documentation does not say whether a plan that would declare a debt names
+the event the execution will write: it says only that "a plan that would
+declare names no debt event in `authorization`". The model gives the
+declaration the identifier the next one would carry, so that executing the
+same declaration yields the planned authorization and any other debt makes the
+authorization move. `--provisional --dry-run` "plans the same way".
+
+**Source.** The guide, "Review coverage and debt": "`arc integrate --debt ...
+--dry-run` plans the integration as it reads once the debt is declared, and
+writes no event. The plan says `would declare debt` with its kind, reason,
+bound patchset and, for `ineligible-review`, the named read, qualifiers and
+assessment basis; a debt the change already carries reads `debt already
+declared` with its event. A declaration the execution would refuse is refused
+by the plan with the same message and exit code: an unknown qualifier, no
+verdict to name, an eligible assessment, a read flag on another kind. The plan
+never invents an approval, and a changes-requested verdict on the exact head
+still refuses it. [...] a plan that would declare names no debt event in
+`authorization`. Handed to `--expect-basis`, the event the execution itself
+writes is not a move; a debt another actor declared meanwhile, or an existing
+declaration the execution reuses, is. `--provisional --dry-run` plans the
+same way"; `arc integrate --help`, `--dry-run` ("With `--debt`, the plan reads
+the change as it would once that debt is declared and says which debt it would
+declare; a declaration the real run would refuse is refused with the same
+message") and `--debt` ("With `--dry-run` nothing is declared: the plan shows
+the debt").
+
+**Realized by.** `declareDebt`, `planDeclaring`, `executeDeclaring`,
+`execute`.
