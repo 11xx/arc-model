@@ -4,6 +4,7 @@ module Main ( main ) where
 
 import Arc.Model
 import Comparator ( comparatorChecks )
+import DebtFixtures ( debtFixtureChecks )
 import Fixtures ( fixtureChecks )
 import Generators
 import Mutants
@@ -42,7 +43,7 @@ main = do
   coverage        <- coverageCheck seed tests
   sandbox         <- sandboxChecks
   provenance      <- provenanceChecks
-  let checks   = fixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
+  let checks   = fixtureChecks <> debtFixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""
@@ -360,6 +361,7 @@ prop_grounds_are_facts scenario = conjoin
       RefusedActorUnestablished      -> False
       RefusedUndeclaredActor         -> False
       RefusedBasisMoved _            -> False
+      RefusedDebt _                  -> False
     brief = do
       patchset <- latest
       wanted   <- patchset.brief

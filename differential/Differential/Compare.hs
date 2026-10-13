@@ -34,7 +34,7 @@ module Differential.Compare
 import Arc.Model
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
 import Generators ( Built(..), build )
-import Scenario ( ActorPick(..), GateMode(..), Scenario(..), TargetMode(..) )
+import Scenario ( ActorPick(..), GateMode(..), ModelPick(..), Scenario(..), TargetMode(..) )
 
 import Data.Maybe ( fromMaybe, isJust, isNothing )
 import Data.Set ( Set )
@@ -78,6 +78,7 @@ expected grounds = suppressApproval (Set.fromList (concatMap blockersOf grounds)
       RefusedActorUnestablished        -> []
       RefusedUndeclaredActor           -> []
       RefusedBasisMoved _              -> []
+      RefusedDebt _                    -> []
 
 -- | What an integration attempted after the moves would do, by the model.
 data Execution = WouldIntegrate
@@ -219,6 +220,18 @@ adjudicateCoverage scenario built wanted found
   = Just Adjudication
       { kind   = Encoding
       , reason = "undeclared reviewer: arc refuses to record a verdict nobody declared where policy requires a declared actor; the model's ledger holds it"
+      }
+  -- a read recorded under an implementer's model: arc counts it as the
+  -- independent read of a debt where the model, reading C4's second
+  -- identity into C22, leaves the debt owed. Everything else agrees
+  | wanted.owed
+  , not found.owed
+  , wanted { owed = False } == found
+  , scenario.implementers
+  , any (`elem` [PickImplementer, PickImplementerOtherEffort]) [scenario.reviewerModel, scenario.auditModel]
+  = Just Adjudication
+      { kind   = Unsettled
+      , reason = "implementer's model as a read: the guide says such a read shows a review happened and not that it was independent, and arc counts it as the independent read of a debt where the model leaves the debt owed; the guide does not say whether it discharges"
       }
   -- a policy that moved and now permits: arc integrates under it, the model
   -- acts only on the decision made before it moved. What arc records has to

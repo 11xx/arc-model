@@ -89,7 +89,7 @@ fixed =
 -- | The variables a scenario may add to one command: none is inherited, and
 -- none names a location.
 scenarioNames :: [String]
-scenarioNames = ["ARC_ACTOR", "GATE_FAIL", "PROBE_ENV", "ACCEPT_FAIL"]
+scenarioNames = ["ARC_ACTOR", "ARC_MODEL", "GATE_FAIL", "PROBE_ENV", "ACCEPT_FAIL"]
 
 -- | The environment of a sandbox at the given root, from the ambient one.
 mkEnvironment :: [(String, String)] -> FilePath -> [(String, String)]

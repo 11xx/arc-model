@@ -34,6 +34,7 @@ data Verdict = Verdict
   , provisional :: !(Maybe String)
   , relation    :: !VerdictRelation
   , supersedes  :: !(Maybe EventId)
+  , model       :: !(Maybe ModelCoordinate)  -- ^ The model the verdict recorded; absent for a verdict by a person.
   }
   deriving stock (Eq, Ord, Show)
 

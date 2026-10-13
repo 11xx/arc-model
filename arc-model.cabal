@@ -44,11 +44,13 @@ library
     , Arc.Model.Basis
     , Arc.Model.Coverage
     , Arc.Model.Decision
+    , Arc.Model.DebtDeclaration
     , Arc.Model.Declaration
     , Arc.Model.Discharge
     , Arc.Model.Gate
     , Arc.Model.Identifiers
     , Arc.Model.Ledger
+    , Arc.Model.Ledger.Assessment
     , Arc.Model.Ledger.Audit
     , Arc.Model.Ledger.Brief
     , Arc.Model.Ledger.Claim
@@ -136,6 +138,7 @@ test-suite spec
     , Differential.Compare
     , Differential.Plan
     , Differential.Sandbox
+    , DebtFixtures
     , Fixtures
     , Render
     , ProvenanceChecks

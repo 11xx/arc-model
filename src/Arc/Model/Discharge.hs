@@ -13,7 +13,7 @@ module Arc.Model.Discharge
     , admitAudit
     ) where
 
-import Arc.Model.Coverage ( ReadEvidence(..), auditIsIndependent, debtKindFor )
+import Arc.Model.Coverage ( ReadEvidence(..), assessmentBinding, auditClears, auditIsIndependent, debtKindFor )
 import Arc.Model.Identifiers
 import Arc.Model.Ledger
 import Arc.Model.Policy ( Policy )
@@ -36,6 +36,9 @@ auditRefusalText = \case
 
 {- | What an audit discharged, and what it left open. 'approves' is derived
 from the audit alone and never from the fact that the read was fulfilled.
+'clears' says whether the debt is answered: always, for a kind an
+independent read answers, and for @ineligible-review@ only when the audit's
+assessment is eligible and bound, which 'binding' records.
 -}
 data Discharge = Discharge
   { debt         :: !DebtId
@@ -44,6 +47,8 @@ data Discharge = Discharge
   , verdict      :: !VerdictKind
   , approves     :: !Bool
   , openFindings :: ![FindingId]
+  , clears       :: !Bool
+  , binding      :: !(Maybe AssessmentBinding)
   }
   deriving stock (Eq, Ord, Show)
 
@@ -78,6 +83,8 @@ auditDischarges state debt audit = case latestIntegration state of
       , verdict      = audit.kind
       , approves     = audit.kind == Approved
       , openFindings = openAuditFindings state
+      , clears       = debt.declaredKind /= Just IneligibleReview || auditClears state debt audit
+      , binding      = if debt.declaredKind == Just IneligibleReview then assessmentBinding state debt audit <$> audit.assessment else Nothing
       }
   where
     approvingRefusal

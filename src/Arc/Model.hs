@@ -12,6 +12,7 @@ differential compatibility with either.
 module Arc.Model
     ( module Arc.Model.Identifiers
     , module Arc.Model.Observed
+    , module Arc.Model.DebtDeclaration
     , module Arc.Model.Declaration
     , module Arc.Model.Gate
     , module Arc.Model.Policy
@@ -29,6 +30,7 @@ module Arc.Model
 import Arc.Model.Basis
 import Arc.Model.Coverage
 import Arc.Model.Decision
+import Arc.Model.DebtDeclaration
 import Arc.Model.Declaration
 import Arc.Model.Discharge
 import Arc.Model.Gate
@@ -48,4 +50,4 @@ rather than a moving branch. Historical executable build revisions and
 digests are recorded separately in @REPORT.md@.
 -}
 comparisonRevision :: String
-comparisonRevision = "73bff2027fc211568811e16f4cc5de0546278b17"
+comparisonRevision = "3e020e5df520818d8ce21154b549877d4dea0d26"

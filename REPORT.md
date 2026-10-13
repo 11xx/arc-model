@@ -933,6 +933,116 @@ run grants no claim about them. Both arc source/build directories were
 removed after the runs. The captured texts, identities and classifications
 remain in the repository.
 
+### Results at arc `3e020e5`
+
+Captured `arc 2026.9.29`, clean build and source revision
+`3e020e5df520818d8ce21154b549877d4dea0d26`, executable SHA-256
+`1429db2ca8544fff5accbf9a00059da3ac857b9cf7ea0bef766fe366ec744a36`.
+Seed `20260907`, `--cases 200 --check-time-cases 200` on decision,
+execution, and coverage; `--cases 240` on candidate. Each channel selected
+that executable with `--arc`, ran under its compiled-in heap cap, and
+replayed through `Differential.Sandbox` with roots under the scratch
+directory. The sandbox admits one more scenario variable, `ARC_MODEL`, so a
+read can record the model the plan gives it. All four commands exited 0.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed to replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 458 | 400 | 18 | 40 | 0 | 0 |
+| execution | 464 | 367 | 57 | 40 | 0 | 0 |
+| coverage | 494 | 446 | 8 | 40 | 0 | 0 |
+| candidate | 253 | 165 | 3 | 85 | 0 | 0 |
+
+Every adjudicated row and its exact compared answers and diagnosis is
+retained in [classified-rows.txt](evidence/repin/classified-rows.txt).
+Neither the model nor arc was edited in response to these mismatches.
+
+| mismatch | diagnosis | decision | execution | coverage | candidate |
+| --- | --- | --- | --- | --- | --- |
+| declaration/policy committed on target moves the target too, absent from original scenario | model defect in replay representation (comparator: encoding; C12/C3) | 18 | 57 | 0 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: authorization consumption) | 0 | 0 | 4 | 0 |
+| undeclared reviewer cannot record the model ledger's verdict | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 | 0 |
+| a read under an implementer's model beside a debt: arc counts it as the independent read, the model leaves the debt owed | unsettled contract (C4, C22: whether the second identity also stops a read from discharging) | 0 | 0 | 3 | 0 |
+| candidate evaluation at an unprobed gate without recorded environment | unsettled candidate requirements | 0 | 0 | 0 | 1 |
+| a selection's root does not retain the registration supplying reused evaluation | unsettled candidate reachability | 0 | 0 | 0 | 2 |
+
+The rows other than the implementer-model one are the classes the former pin
+recorded, with the same counts on every channel. The candidate channel's 85 skips keep the previous split of
+29 unobserved targets, 18 evaluations at another tree, 16 only-supplied, 14
+only-inferred and 8 unknown outcomes. The coverage channel gained 23
+named scenarios for the new rules, and the generated histories draw the new
+facts after every older field, so each older field draws what it did.
+
+The 40 skips on each integration channel are the same 20 unreadable
+evidence, 8 other-tree evidence with one patchset, 10 findings without a
+verdict, and 2 dirty runs against a merge evaluated in a clean checkout.
+The comparison excludes the protocols listed under "Known unsupported
+semantics"; a quiet run grants no claim about them. The arc source and build
+directory were removed after the runs.
+
+### The rules arc `3e020e5` changed
+
+What the new coverage scenarios agreed on, as the coverage channel reads it
+through `arc show`, `arc findings --audit` and `arc query --debt`
+(an `ineligible-review` debt is listed as owed until it is cleared):
+
+- A verdict never clears an `ineligible-review` debt: an independent
+  approval beside the debt leaves it owed (`cover-ineligible-open`).
+- An audit with no assessment, an `ineligible` one, one that describes
+  another model or another effort, one listing no identity, one by an auditor
+  that recorded no model, or one whose authors omit an `Implemented-by` model
+  of the range leaves the debt owed; a bound, eligible audit clears it, a
+  `changes-requested` one included; an empty range asks nothing of the
+  authors.
+- A declaration arc refuses is absent from both sides: no verdict to name, an
+  assessment file that says the read counts.
+- A debt declared through an assessment file reads as assessed and clears the
+  same way.
+- An approval under an implementer's model is a self-approval where the
+  policy forbids one, whatever its effort; an audit recorded under it is
+  refused in the same case, and recorded where policy does not forbid it.
+
+The three adjudicated coverage rows are the one place the new scenarios
+disagree. Where self-approval is not forbidden, an audit under an
+implementer's model (`cover-ineligible-audit-implementer-model`,
+`cover-implementer-model-audit-negative`), and an approving verdict under it
+(`cover-implementer-model-waived`, which the gate rejects as a
+self-approval and a waiver rescues), count in arc as the independent read
+of a debt; the model's C4 reading, "not that it was independent", leaves the
+debt owed, as it does for a contributor's read, where arc agrees with the
+model. The guide says only that such a read "shows a review happened and not
+that it was independent"; it does not say a debt stays owed. The clause
+states the model's reading as settled by that sentence; the rows show the
+sentence also admits arc's reading. It is unsettled, recorded under
+"Unsettled design", and the clause is left as it is until it is adjudicated.
+
+Rules not reached by any channel, and why, are listed under "Known
+unsupported semantics": the plan with `--debt` and `--expect-basis`, a
+named `--read`, and an unreadable range.
+
+### Re-pin todos answered
+
+- **`repin-ineligible-review-discharge`**: answered. The `ineligible-review`
+  kind, its record, the audit-only discharge, the bound-and-covering
+  assessment (including `authors-uncovered` and `authors-unread`), and the
+  rule that a verdict never clears it are C21 and C22, encoded as the
+  declaration (`declareDebt`), the binding (`assessmentBinding`) and the
+  clearing audit (`auditClears`), and compared on the coverage channel. The
+  model is pinned at `3e020e5`, after both `e8eebd9f` and `48d1e14f`.
+- **`repin-rewrite-reapproval`**: answered by recording that the documented
+  rules are the ones C1, C5 and C6 already state, with their quotations
+  refreshed at `3e020e5` (the approval anchor, fresh patchsets after content
+  and trailer rewrites, stale earlier verdicts and waivers, the implicit and
+  explicit review behaviours). Shared-history protection, `--include-shared`,
+  the refusal ordering, rollback and the keep pin are Git effects and stay
+  outside the contract's scope, now said so in its Scope section. The
+  documentation for them is unchanged since `73bff20`.
+- **`settle-c3-from-guide`**: answered. C3 was already settled on the
+  model's reading; its source now quotes the guide's sentence ("a change
+  behind its target still lists `merged-tree-unevaluated` beside
+  `needs-rebase` in `check --json`, and `check` exits 11 for the rebase
+  before it would exit 14"). The `ff-only` fixtures pin both grounds and the
+  decision channel's `ff-only-behind` scenarios agree with arc at `3e020e5`.
+
 ### Actor admission at arc `73bff20`
 
 `evidence/repin/actor-replay.sh`, run through `arc-model-sandbox` against
@@ -983,12 +1093,16 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 `comparisonRevision` names source revision
-`73bff2027fc211568811e16f4cc5de0546278b17`. The captured `arc 2026.9.29`
-executable has build revision `73bff2027fc211568811e16f4cc5de0546278b17`;
+`3e020e5df520818d8ce21154b549877d4dea0d26`. The captured `arc 2026.9.29`
+executable has build revision `3e020e5df520818d8ce21154b549877d4dea0d26`;
 its `arc env` reported the build clean. Its SHA-256 is
+`1429db2ca8544fff5accbf9a00059da3ac857b9cf7ea0bef766fe366ec744a36`.
+The comparison capture at the former pin, source revision
+`73bff2027fc211568811e16f4cc5de0546278b17`, has build revision
+`73bff2027fc211568811e16f4cc5de0546278b17`, reported clean, and SHA-256
 `1aeb78658082eab0481d654954085c598dc29da0b8c42e099d06f03c4837cc1c`.
-The comparison capture at source revision
-`6de12b7c75e9fc199eced539ce00c8e54fef41d6` has build revision
+The capture before it, at source revision
+`6de12b7c75e9fc199eced539ce00c8e54fef41d6`, has build revision
 `6de12b7c75e9fc199eced539ce00c8e54fef41d6`, reported clean, and SHA-256
 `59e4f02471a5a3b635022bcf964daa379723d7efc5cbb84421069025067b33fc`.
 These are rebuilt executables, not the historical executable whose build
@@ -996,13 +1110,82 @@ was `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199e
 
 The sources are the captured guides, command `--help`, the public README,
 and the two retained operator rulings where they read the guide. No Rust
-source informs the model. Both builds used isolated source exports with
-Git metadata anchored to their source revisions, outside the arc checkout,
-with `CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=4`. Initial builds that picked up
-the containing repository's build identity were discarded and rebuilt;
-only binaries reporting the comparison source's clean identity were used.
+source informs the model. The `3e020e5` build is a fresh clone of the arc
+repository outside its checkout, at the pinned revision, built with
+`cargo build --release --locked`, `CARGO_BUILD_JOBS=4`; its `arc env` reports
+the pinned revision clean. The earlier builds used isolated source exports
+with Git metadata anchored to their source revisions, outside the arc
+checkout, with `CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=4`. Initial builds that
+picked up the containing repository's build identity were discarded and
+rebuilt; only binaries reporting the comparison source's clean identity were
+used.
 
-### Captured documentation at `73bff20`
+### Captured documentation at `3e020e5`
+
+[evidence/repin](evidence/repin) holds the guide, README, build identity,
+executable digest, command inventory and recursive help capture of the build
+at `3e020e5`: 198 command surfaces, against 191 at `73bff20`; the new ones
+are `cost`, `cost show`, `cost retain`, `cost note`, `forge show`,
+`forge observe` and `run bind`. `capture.py` ran through `arc-model-sandbox`
+as before. `guide.txt.diff`, `help.txt.diff` and `README.md.diff` compare
+`73bff20` with `3e020e5`; the README differs in one line, the schema of
+`arc explain --json`. The earlier tables, which index the guide at
+`73bff20`, follow this one under their own headings.
+
+Every changed guide hunk is indexed by its starting line in the new capture.
+"Outside" means outside integration authorization, not agreement evidence.
+
+| guide line | passage | classification |
+| --- | --- | --- |
+| 45 | review coverage of a debt declared before it carried a session | outside: provenance display |
+| 99 | `forge show`, `cost show`, `cost note` record nothing | C18 unchanged: reads need no actor |
+| 295, 533, 641 | pending-successor refusals, quotation and answer-settlement rules | outside: journal availability and presentation |
+| 734, 817, 841, 1301 | `--custody-dir` on `accept`, `export`, `import`; `observed-commit` objects | outside: transport and custody; C26's acceptance rules are unchanged |
+| 1260, 1281 | unreadable changelog declaration; changelog renderer projection | outside: advice never blocks (C10) |
+| 1387 | candidate evidence-request digest on import | outside: candidate protocol |
+| 1496 | a refusal after a declaration prints `debt event <id> <written\|reused> publication=<state>` | C6/C25 unchanged: publication observation is unsupported |
+| 1711, 1720 | forge profile, `forge show`, `forge observe`, deliveries, disclosures, custody, coverage, identities, evidence origins | outside: forge facts are "non-authorizing"; C10 keeps forge readiness independent |
+| 1974 | the patchset's approval anchor; content or trailer rewrites keep the anchor and a fresh snapshot binds the successor | C5 settled: quoted there; forge head matches and legacy bindings are outside |
+| 2047 | the reviewing model is a second identity | C4, C22 settled; one reading of it is unsettled (below) |
+| 2138 | `integrate --debt --dry-run` plans the declaration | C28 settled |
+| 2162, 2174 | the `ineligible-review` kind, its record, audit-only discharge, binding, `trailer_implementers` | C21, C22 settled |
+| 2290 | a debt's standing: `declared`, `owed`, `discharged` | C27 settled |
+| 2340 | review assurance and staleness | outside: a derived read-time projection that "never gates anything" |
+| 2604 | `rewrite trailers` refuses an `Assisted-by` line without its `(role)` that is no fresh coordinate | outside: Git message editing |
+| 2706 | forge-recorded commits retained through rewrites | outside: Git retention |
+| 2836, 2865, 2999 | received evidence on candidates | outside: candidate protocol; "eligibility for selection is unchanged" |
+| 3010, 3020 | forge origins and disclosures in `context declare` | outside: context records |
+| 3286 | `run dispatch --journal`, `run list`, `run bind`, `cost show`, `cost retain`, `cost note` | outside: execution cost and measurement |
+| 3506 | `forge observe` exit codes | outside: forge diagnostics |
+| 3607, 3745 | custody directory; retention of forge-cited commits | outside: ledger layout and retention |
+| 3770, 3795, 3826, 3867 | schema versions, assurance cache | outside: serialization |
+
+The rules the old tables classified as outside remain so: rewrites,
+`--include-shared`, shared-ref protection, the keep pin and rollback are Git
+effects (CONTRACT's scope), and C1, C5 and C6 state what a rewrite means for
+a patchset, an approval and a waiver. The documentation for those rules did
+not change between `73bff20` and `3e020e5`.
+
+### Changed command-help passages at `3e020e5`
+
+| command | classification |
+| --- | --- |
+| `integrate` (`--dry-run`, `--debt`, `--kind`, `--read`, `--assessment`, `--qualifier`, `--route-version`) | C28, C21: plan with a declaration; the new kind and its record |
+| `debt` (`--kind`, `--read`, `--assessment`, `--qualifier`, `--route-version`; production record) | C21 |
+| `audit` (`--assessment`; discharge of `ineligible-review`; the implementer-model warning and refusal) | C22, C4 |
+| `review` (the implementer-model warning; `--forge-source`) | C4; `--forge-source` is outside: forge drift never invalidates a verdict |
+| `status` (`debt_standing`) | C27 |
+| `check` (unreadable changelog declaration) | outside: C10 advice |
+| `history rewrite --map`, `rewrite trailers` | outside: Git/message editing |
+| `finding --forge-source`; `message`; `context declare`; `candidate` and its subcommands; `forge` and its subcommands; `cost`, `run` and their subcommands | outside: forge, candidate, cost and run records |
+| `accept`, `export`, `import` custody | outside: transport |
+| `query`, `show`, `explain`, `log`, `brief`, `changelog`, `chain`, `events`, `doctor`, `workspace`, `workspace backlog` | outside: display and diagnostics |
+| `journal` and its subcommands | outside: journal |
+
+### Captured documentation at `73bff20` (the former pin)
+
+The tables below index `evidence/repin/73bff20/guide.txt`; the diff they were
+made from is the one the commit that pinned `73bff20` retained.
 
 [evidence/repin](evidence/repin) holds each guide, README, build identity,
 executable digest, command inventory, and the complete recursive help
@@ -1094,7 +1277,7 @@ contract, and remain unsupported rather than approximated by local events.
 | 3004 | complete private successor recovery evidence | outside: journal durability |
 | 3063 | unsupported journal artifacts and incomplete promotion source | outside: journal/change opening; existing change integration rules are unchanged |
 
-### Changed command-help passages
+### Changed command-help passages at `73bff20`
 
 The inherited `--actor` passage is C18's established-identity rule on every
 surface; read commands still proceed without one. The inherited `--harness`,
@@ -1404,6 +1587,33 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
+- **An implementer's model as a read (C4, C22).** The model reads "not that
+  it was independent" as: the read is no independent read, so a debt it would
+  discharge stays owed. Arc records such a read, rejects it at the gate where
+  policy forbids self-approval, and still counts it as the read of a debt. The
+  coverage channel adjudicates each such history. A ruling would settle the
+  clause one way.
+- **The binding where several parts fail (C22).** The model judges the
+  auditor (model recorded, identities listed, model among them, effort) before
+  the work (authors covered, authors read). The documentation lists the
+  outcomes without an order. The debt stays open either way, and the coverage
+  channel compares only whether it is.
+- **A declaration with no why (C21).** The documentation says an
+  `ineligible-review` declaration takes why from `--assessment` or
+  `--qualifier`; the model refuses one with neither or with no qualifier,
+  and the differential does not draw it.
+- **A planned debt's identity (C28).** The documentation says only that a plan
+  that would declare "names no debt event in `authorization`". The model gives
+  it a placeholder identity no recorded debt carries, and the execution adopts
+  the event it writes, so a debt declared meanwhile or reused is a move. The
+  debts a plan saw join its basis (`debts`), so a debt declared after any plan
+  is a move beside an approval it never consumed. As with every moved fact,
+  the model stands the execution down where the clause would proceed on the
+  rebuilt basis, the open decision recorded under "A decision made earlier
+  never changes the integration's (C20)".
+- **A waiver "binding only for `owed`" (C27).** Read literally, a waiver that
+  bound only after integration would rescue nothing the integration needed.
+  The model keeps C6's scope and reads "binding" as the obligation's.
 - **Replica rules unrealized (C24 to C26).** The contract states foreign
   review eligibility, provisional integration, and acceptance; the model
   realizes none of them, so it answers every history as one store's, with
@@ -1592,6 +1802,22 @@ about them:
   obligations would be a different model, not a refinement of this one.
 
 ## Known unsupported semantics
+
+- **Planning with `--debt`, and `--expect-basis`.** The model realizes both
+  (`planDeclaring`, `executeDeclaring`; C28), pinned by fixtures. No channel
+  replays them: the execution channel's dry run takes no debt, and arc names
+  what moved in a line of text the differential does not read.
+- **A named `--read`, an unreadable range, and the assessment file beyond its
+  shape.** The plan never passes `--read`, so the default read is the only one
+  compared; arc cannot be made to leave a range unread through the CLI, so
+  `authors-unread` and the empty production record are fixtures only; the
+  assessment documents the differential writes carry the fields the
+  documentation names and nothing else.
+- **Binding labels.** Arc keeps the assessment's binding on the audit event;
+  the coverage channel reads whether the debt is owed and not which label the
+  audit recorded.
+- **Review assurance.** `arc query --assurance` is a read-time advisory
+  projection that gates nothing, outside the model.
 
 - **Full basis encoding.** The model captures normalized gate declarations
   and policy and references the approving verdict, which carries its

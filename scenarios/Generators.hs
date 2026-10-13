@@ -16,6 +16,9 @@ module Generators
     , executionObservations
     , flipPolicy
     , reverts
+    , implementerTrailer
+    , modelText
+    , assessmentFor
     , isIntegratable
     , mutations
     , Mutation(..)
@@ -39,9 +42,12 @@ import Arc.Model.Ledger.Verification qualified as Verification
 import Arc.Model.Observations qualified as Observations
 import Scenario
 
-import Data.List ( mapAccumL, sortOn )
+import Data.List ( mapAccumL, partition, sortOn )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.List.NonEmpty qualified as NE
+import Data.Maybe ( fromMaybe )
+import Data.Map.Strict ( Map )
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 
 
@@ -113,12 +119,12 @@ build scenario = Built
     -- verdicts are recorded as the plan makes them, patchset by patchset,
     -- the earlier verdicts on a patchset before the scenario's own; each
     -- supersedes the one recorded before it, as a review does by default
-    verdictEvents = map snd . sortOn fst $
-      [ (index, verdictBy pick kind (PatchsetId index) Nothing) | (index, pick, kind) <- scenario.priorVerdicts ]
-      <> [ (ordinalOf verdictTarget, verdictBy pick scenario.verdict verdictTarget provisional) | pick <- maybe [] pure scenario.reviewer ]
+    verdictEntries = sortOn fst $
+      [ (index, verdictBy pick kind (PatchsetId index) Nothing Nothing) | (index, pick, kind) <- scenario.priorVerdicts ]
+      <> [ (ordinalOf verdictTarget, verdictBy pick scenario.verdict verdictTarget provisional (modelFor scenario.reviewerModel)) | pick <- maybe [] pure scenario.reviewer ]
     provisional = if scenario.provisional then Just "provisional" else Nothing
     ordinalOf (PatchsetId index) = index
-    verdictBy pick kind patchset provisionally = VerdictRecorded Verdict
+    verdictBy pick kind patchset provisionally model = VerdictRecorded Verdict
       { event       = EventId 0
       , patchset    = patchset
       , kind        = kind
@@ -128,6 +134,7 @@ build scenario = Built
       , provisional = provisionally
       , relation    = Supersedes
       , supersedes  = Nothing
+      , model       = model
       }
     -- a rejection of the head is followed by the closure arc records with
     -- it: the change is abandoned, with the decision as its reason
@@ -160,16 +167,40 @@ build scenario = Built
             | scenario.resolveFinding
             ]
       | otherwise = []
-    debtEvents =
-      [ DebtDeclared Debt
-          { debtId       = DebtId ordinal
-          , event        = EventId 0
-          , patchset     = Just (PatchsetId index)
-          , declaredKind = kind
-          , reason       = "declared coverage"
-          , actor        = authorActor
-          }
+    -- an ineligible-review debt names the verdict its patchset carries, so
+    -- it is declared after that patchset's reviews, and arc refuses it where
+    -- there is none or where its assessment says the read counts; the other
+    -- kinds are declared before them. Each is recorded in the order the plan
+    -- declares it.
+    debtsAt index = partition (not . isIneligible) [ debt | (declaredOn, debt) <- declared, declaredOn == index ]
+    isIneligible debt = debt.declaredKind == Just IneligibleReview
+    declared =
+      [ (index, Debt
+          { debtId              = DebtId ordinal
+          , event               = EventId 0
+          , patchset            = Just (PatchsetId index)
+          , declaredKind        = kind
+          , reason              = "declared coverage"
+          , actor               = authorActor
+          , ineligible          = if kind == Just IneligibleReview then Just ineligibleRead else Nothing
+          , trailerImplementers = implementerModels
+          })
       | (ordinal, (index, kind)) <- zip [1 ..] scenario.debts
+      , kind /= Just IneligibleReview || (hasVerdictAt index && scenario.ineligibleMode /= IneligibleEligibleFile)
+      ]
+    -- the verdict event is the patchset's latest, which numbering fills in
+    ineligibleRead = IneligibleRead
+      { read         = EventId 0
+      , qualifiers   = Set.singleton SameModel
+      , source       = if scenario.ineligibleMode == IneligibleDeclared then DeclaredByHand else Assessed
+      , routeVersion = Just (RouteVersion "rv1")
+      }
+    hasVerdictAt index = any (\(at, _, _) -> at == index) scenario.priorVerdicts || (index == ordinalOf verdictTarget && scenario.reviewer /= Nothing)
+    implementerModels = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
+    reviewEvents = concat
+      [ map DebtDeclared before <> [ event | (at, event) <- verdictEntries, at == index ] <> map DebtDeclared after
+      | index <- [1 .. scenario.patchsets]
+      , let (before, after) = debtsAt index
       ]
     -- runs are recorded as the plan makes them: patchset by patchset, the
     -- scenario's own run first
@@ -244,10 +275,9 @@ build scenario = Built
     -- the next one and the events before it keep theirs
     precedingEvents = concat
       [ map PatchsetRecorded (NE.toList patchsets)
-      , verdictEvents
+      , reviewEvents
       , externalEvents
       , findingEvents
-      , debtEvents
       , verificationEvents
       , claimEvents
       , waiverEvents
@@ -309,6 +339,8 @@ build scenario = Built
           , actor    = if independent then otherActor else authorActor
           , assumed  = False
           , findings = [ FindingId 2 | kind == ChangesRequested ]
+          , model      = modelFor scenario.auditModel
+          , assessment = assessmentFor scenario scenario.auditAssessment
           }
         : [ FindingRecorded Finding
               { event     = EventId 902
@@ -330,6 +362,7 @@ build scenario = Built
 patchsetsFor :: Scenario -> EventId -> NonEmpty Patchset
 patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
   where
+    readImplementers = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
     mkPatchset index = Patchset
       { patchsetId   = PatchsetId index
       , ordinal      = index
@@ -340,6 +373,7 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
       , brief        = case briefFor scenario of
           Just (_, from) | index >= from -> Just briefEvent
           _unbound                       -> Nothing
+      , implementers = readImplementers
       }
     contributors
       | scenario.extraContributor = Set.fromList [authorActor, otherActor]
@@ -434,26 +468,77 @@ actorForPick ActorAssumed     = reviewActor
 -- | Assign one event id per recorded event, in recording order. Each verdict
 -- supersedes the verdict recorded before it, the tip it observed.
 assignIds :: [Event] -> [Event]
-assignIds = snd . mapAccumL withId (EventId 1, Nothing)
+assignIds = snd . mapAccumL withId (EventId 1, Nothing, Map.empty)
   where
-    withId (eventId@(EventId next), tip) event = ((EventId (next + 1), tipAfter), number eventId tip event)
+    withId (eventId@(EventId next), tip, latestOn) event = ((EventId (next + 1), tipAfter, latestAfter), number eventId tip latestOn event)
       where
         tipAfter = case event of
           VerdictRecorded _ -> Just eventId
           _other            -> tip
-    number eventId tip = \case
+        latestAfter = case event of
+          VerdictRecorded value -> Map.insert value.patchset eventId latestOn
+          _other                -> latestOn
+    number :: EventId -> Maybe EventId -> Map PatchsetId EventId -> Event -> Event
+    number eventId tip latestOn = \case
       VerdictRecorded value         -> VerdictRecorded value { Verdict.event = eventId, Verdict.supersedes = tip }
       ExternalVerdictRecorded value -> ExternalVerdictRecorded value { ExternalVerdict.event = eventId }
       FindingRecorded value         -> FindingRecorded value { Finding.event = eventId }
       FindingDisposed value         -> FindingDisposed value { Disposition.event = eventId }
       VerificationRecorded value    -> VerificationRecorded value { Verification.event = eventId }
-      DebtDeclared value            -> DebtDeclared value { Debt.event = eventId }
+      DebtDeclared value            -> DebtDeclared value
+        { Debt.event      = eventId
+        , Debt.ineligible = (\named -> named { Debt.read = latestRead latestOn value }) <$> value.ineligible
+        }
       AuditRecorded value           -> AuditRecorded value { Audit.event = eventId }
       IntegrationRecorded value     -> IntegrationRecorded value { Integration.event = eventId }
       DirtyTreeWaived value         -> DirtyTreeWaived value { DirtyTreeWaiver.event = eventId }
       BriefRecorded value           -> BriefRecorded value { Brief.event = eventId }
       ProbeRunRecorded value        -> ProbeRunRecorded value { ProbeRun.event = eventId }
       unnumbered                    -> unnumbered
+
+-- | The verdict a debt on this patchset names when it names none: the
+-- latest recorded on it.
+latestRead :: Map PatchsetId EventId -> Debt -> EventId
+latestRead latestOn debt = fromMaybe (EventId 0) (debt.patchset >>= (`Map.lookup` latestOn))
+
+-- | The model every commit's @Implemented-by@ trailer names.
+implementerTrailer :: String
+implementerTrailer = "claude:impl-model#high"
+
+implementerSlug :: ModelSlug
+implementerSlug = ModelSlug "impl-model"
+
+-- | The recorded coordinate a pick stands for, as the text a command is
+-- given.
+modelText :: ModelPick -> Maybe String
+modelText = \case
+  PickUnrecorded             -> Nothing
+  PickDistinct               -> Just "other-model#high"
+  PickImplementer            -> Just "impl-model#high"
+  PickImplementerOtherEffort -> Just "impl-model#low"
+
+modelFor :: ModelPick -> Maybe ModelCoordinate
+modelFor = fmap modelCoordinate . modelText
+
+-- | The assessment an audit carries: it describes the auditor and covers the
+-- implementer unless the mode breaks one thing.
+assessmentFor :: Scenario -> AssessmentMode -> Maybe Assessment
+assessmentFor scenario = \case
+  AssessmentNone -> Nothing
+  mode           -> Just Assessment
+    { independence       = if mode == AssessmentIneligible then Ineligible else Eligible
+    , reviewerIdentities = case mode of
+        AssessmentNoIdentities -> Set.empty
+        AssessmentOtherModel   -> Set.singleton (ModelSlug "somebody-else")
+        _described             -> Set.singleton (maybe (ModelSlug "unrecorded-model") (.slug) auditor)
+    , reviewerEffort     = case mode of
+        AssessmentOtherEffort -> Just (Effort "xhigh")
+        _described            -> auditor >>= (.effort)
+    , authors            = [ Set.singleton implementerSlug | mode /= AssessmentAuthorsOmitted ]
+    , routeVersion       = Just (RouteVersion "rv1")
+    }
+  where
+    auditor = modelFor scenario.auditModel
 
 {- | Histories an integration would permit: an independent approval, a
 waiver bound to the latest patchset, or an external approval where no

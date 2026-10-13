@@ -22,6 +22,11 @@ module Arc.Model.Identifiers
     , ProbeCommand(..)
     , EnvironmentId(..)
     , ProbeName(..)
+    , ModelSlug(..)
+    , Effort(..)
+    , RouteVersion(..)
+    , ModelCoordinate(..)
+    , modelCoordinate
     ) where
 
 import Data.String ( IsString )
@@ -98,3 +103,35 @@ newtype EnvironmentId = EnvironmentId String
 newtype ProbeName = ProbeName String
   deriving stock (Eq, Ord, Show)
   deriving newtype (IsString)
+
+-- | A model with its effort dropped: the string two models are compared by.
+-- Arc holds no alias table, so a model a trailer spells another way is
+-- another model.
+newtype ModelSlug = ModelSlug String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | The effort a coordinate's trailing @#suffix@ names.
+newtype Effort = Effort String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | The routing version that selected or assessed a read, a coordinate and
+-- nothing else.
+newtype RouteVersion = RouteVersion String
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (IsString)
+
+-- | A model as an event recorded it: the model, and the effort its
+-- coordinate names where it names one.
+data ModelCoordinate = ModelCoordinate
+  { slug   :: !ModelSlug
+  , effort :: !(Maybe Effort)
+  }
+  deriving stock (Eq, Ord, Show)
+
+-- | Split a recorded @model#effort@ coordinate at its trailing suffix.
+modelCoordinate :: String -> ModelCoordinate
+modelCoordinate recorded = case break (== '#') recorded of
+  (model, '#' : effort) -> ModelCoordinate { slug = ModelSlug model, effort = Just (Effort effort) }
+  (model, _noEffort)    -> ModelCoordinate { slug = ModelSlug model, effort = Nothing }

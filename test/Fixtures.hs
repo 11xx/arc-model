@@ -441,9 +441,9 @@ equalTreeDifferentContributors :: [Check]
 equalTreeDifferentContributors =
   [ expectRefusedWith "fixture/equal-tree: contributor reviewer refuses" "self-approval" contributorBuilt.decision
   , expectPermittedWith "fixture/equal-tree: independent reviewer permits" (AuthorizedByVerdict (EventId 2)) independentBuilt.decision
-  , expectPermittedWith "fixture/equal-tree: waiver rescues the contributor" (AuthorizedByVerdictUnderWaiver (EventId 2) (DebtId 1)) waivedContributorBuilt.decision
+  , expectPermittedWith "fixture/equal-tree: waiver rescues the contributor" (AuthorizedByVerdictUnderWaiver (EventId 3) (DebtId 1)) waivedContributorBuilt.decision
   , expectTrue "fixture/equal-tree: same tree" "the two histories must share a tree" (patchsetTreeOf contributorBuilt == patchsetTreeOf independentBuilt)
-  , expectTrue "fixture/equal-tree: debt unused beside approval" "an approval that needed no waiver must not name one" (debtsNotUsed independentState (AuthorizedByVerdict (EventId 2)) == [DebtId 1])
+  , expectTrue "fixture/equal-tree: debt unused beside approval" "an approval that needed no waiver must not name one" (debtsNotUsed independentState (AuthorizedByVerdict (EventId 3)) == [DebtId 1])
   ]
   where
     contributorBuilt       = build defaultScenario { Scenario.reviewer = Just ActorContributor }
@@ -504,7 +504,7 @@ externalDangerScopes =
 -- records is still owed after the merge.
 debtBesideExternal :: [Check]
 debtBesideExternal =
-  [ expectPermittedWith "fixture/debt-beside-external: the external approval authorizes" (AuthorizedByExternalVerdict (EventId 2)) built.decision
+  [ expectPermittedWith "fixture/debt-beside-external: the external approval authorizes" (AuthorizedByExternalVerdict (EventId 3)) built.decision
   , expectEq "fixture/debt-beside-external: the debt is not in the basis" [DebtId 1] (debtsNotUsed built.state authorization)
   , expectEq "fixture/debt-beside-external: the debt is still owed" (Just (DebtId 1), Nothing) (coverage.debt, coverage.read)
   ]
@@ -532,7 +532,7 @@ retainedAcrossEpisodeExpiry =
 -- nothing. It is recorded debt, not an authorization input.
 debtAuthorizedNothing :: [Check]
 debtAuthorizedNothing =
-  [ expectPermittedWith "fixture/debt-unused: approval authorizes" (AuthorizedByVerdict (EventId 2)) built.decision
+  [ expectPermittedWith "fixture/debt-unused: approval authorizes" (AuthorizedByVerdict (EventId 3)) built.decision
   , expectTrue "fixture/debt-unused: waiver not used" "the unused debt must not be named" (not (waiverUsed authorization (DebtId 1)))
   , expectEq "fixture/debt-unused: recorded as unused" [DebtId 1] (debtsNotUsed built.state authorization)
   ]
@@ -582,7 +582,7 @@ readinessRebuilt =
     finding  = FindingRecorded Finding { event = EventId 80, findingId = FindingId 7, patchset = PatchsetId 1, actor = otherActor, blocking = True, audit = False }
     refusing = VerdictRecorded Verdict
       { event = EventId 81, patchset = PatchsetId 1, kind = ChangesRequested, actor = otherActor, onBehalfOf = Nothing
-      , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2)
+      , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2), model = Nothing
       }
     rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree))
 
@@ -697,12 +697,12 @@ auditRefusals =
   , expectTrue "fixture/audit: a refused audit is not in the ledger" "the builder must not record an audit the admission refuses" (null refusedAudit.finalState.audits)
   ]
   where
-    debt        = Debt (DebtId 9) (EventId 900) (Just (PatchsetId 1)) Nothing "owed review" authorActor
+    debt        = Debt (DebtId 9) (EventId 900) (Just (PatchsetId 1)) Nothing "owed review" authorActor Nothing Nothing
     openState   = (build defaultScenario { Scenario.verdict = ChangesRequested }).state
     closedState = (build defaultScenario { Scenario.audit = Just (Approved, True) }).finalState
     refusedAudit = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.audit = Just (Approved, False) }
-    openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False []
-    approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False []
+    openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False [] Nothing Nothing
+    approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False [] Nothing Nothing
     independentDischarges = case auditDischarges closedState debt approving of
       Right discharge -> discharge.approves && discharge.read == ReadByAudit approving.event
       Left _          -> False

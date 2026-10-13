@@ -17,9 +17,9 @@ module Differential.Plan
     , plan
     ) where
 
-import Arc.Model ( DangerScope(..), DebtKind, ExternalKind, GateResult(..), Policy, VerdictKind )
+import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind, GateResult(..), Policy, VerdictKind )
 import Arc.Model.Policy qualified as Policy
-import Generators ( flipPolicy, reverts )
+import Generators ( flipPolicy, implementerTrailer, modelText, reverts )
 import Scenario
 
 
@@ -39,14 +39,14 @@ data GateRun = GateRun
   }
   deriving stock (Eq, Show)
 
-data Step = Commit FilePath          -- ^ Commit a change to this file in the worktree.
+data Step = Commit FilePath (Maybe String)  -- ^ Commit a change to this file in the worktree, its message carrying this @Implemented-by@ trailer.
           | Revert                   -- ^ Commit the revert of the worktree's last commit.
           | Snapshot [String]        -- ^ Record the head as a patchset, declaring these contributors.
           | Verify GateRun           -- ^ Run the declared gate at the current head.
-          | Review Identity VerdictKind
+          | Review Identity VerdictKind (Maybe String)  -- ^ Record a verdict under this model, where it has one.
           | Finding Identity         -- ^ A blocking finding, through a comment-only review the next verdict supersedes.
           | ResolveFinding           -- ^ Resolve the finding recorded last.
-          | Debt (Maybe DebtKind)    -- ^ Declare a debt on the current patchset.
+          | Debt (Maybe DebtKind) IneligibleMode  -- ^ Declare a debt on the current patchset; an @ineligible-review@ one says why as the mode does.
           | External ExternalKind    -- ^ Record an external decision about the current head.
           | CommitUnrecorded         -- ^ Commit after the last snapshot, so the head moves.
           | EditGates                -- ^ Commit on the target a changed declaration of the required gate.
@@ -62,7 +62,7 @@ data Step = Commit FilePath          -- ^ Commit a change to this file in the wo
           | MoveTarget               -- ^ Commit on the target after the decision.
           | MovePolicy Policy FilePath  -- ^ Commit on the target this policy, with this file dangerous when the policy requires independence.
           | WithholdAuthority        -- ^ Pair the store with a replica and offer it integration authority.
-          | Audit VerdictKind Bool   -- ^ Audit the integrated revision; True audits as somebody other than the author.
+          | Audit VerdictKind Bool (Maybe String) AssessmentMode  -- ^ Audit the integrated revision; True audits as somebody other than the author, under this model and with an assessment the mode describes.
   deriving stock (Eq, Show)
 
 data Plan = Plan
@@ -108,7 +108,7 @@ plan scenario
           , [ MovePolicy (flipPolicy scenario.policy) changed | scenario.policyAfter ]
           , [ WithholdAuthority | scenario.authorityWithheld ]
           ]
-      , audits        = [ Audit kind independent | Just (kind, independent) <- [scenario.audit] ]
+      , audits        = [ Audit kind independent (modelText scenario.auditModel) scenario.auditAssessment | Just (kind, independent) <- [scenario.audit] ]
       }
   where
     touchesDanger = scenario.policy.danger == DangerScoped
@@ -129,22 +129,24 @@ plan scenario
       | scenario.gateMode == EvidenceOtherTree = scenario.patchsets - 1
       | otherwise                              = scenario.patchsets
     patchset index = concat
-      [ [ if index == scenario.patchsets && reverts scenario then Revert else Commit changed ]
+      [ [ if index == scenario.patchsets && reverts scenario then Revert else Commit changed trailer ]
       , [ step | index == scenario.patchsets, scenario.probe == ProbeUndischargeable, step <- [Brief, ProbeBaseline True] ]
       , [ Snapshot (if scenario.extraContributor then ["author", "other"] else []) ]
-      , [ Debt kind | (declaredOn, kind) <- scenario.debts, declaredOn == index ]
+      , [ Debt kind scenario.ineligibleMode | (declaredOn, kind) <- scenario.debts, declaredOn == index, kind /= Just IneligibleReview ]
       , [ Verify gateRun | index == verifyAt, scenario.gateMode /= EvidenceOmitted ]
       , [ WaiveDirty | index == verifyAt, scenario.gateMode /= EvidenceOmitted, scenario.worktree == WorktreeDirtyWaived ]
       , [ Verify (furtherRun result) | (runAt, result) <- scenario.gateRuns, runAt == index ]
       , [ ProbeFinal (scenario.probe == ProbeFinalFailed) | index == scenario.patchsets, scenario.probe `notElem` [ProbeNone, ProbeFinalMissing] ]
-      , [ Review (identityOf pick) kind | (at, pick, kind) <- scenario.priorVerdicts, at == index ]
+      , [ Review (identityOf pick) kind Nothing | (at, pick, kind) <- scenario.priorVerdicts, at == index ]
       , if index == target then review else []
+      , [ Debt kind scenario.ineligibleMode | (declaredOn, kind) <- scenario.debts, declaredOn == index, kind == Just IneligibleReview ]
       ]
     review = concat
       [ [ Finding (Declared "other") | scenario.blockingFinding ]
       , [ ResolveFinding | scenario.blockingFinding, scenario.resolveFinding ]
-      , [ Review (identityOf pick) scenario.verdict | Just pick <- [scenario.reviewer] ]
+      , [ Review (identityOf pick) scenario.verdict (modelText scenario.reviewerModel) | Just pick <- [scenario.reviewer] ]
       ]
+    trailer = if scenario.implementers then Just implementerTrailer else Nothing
     afterwards = concat
       [ [ External kind | Just kind <- [scenario.externalVerdict] ]
       , [ EditGates | scenario.gateMode == EvidenceShapeMoved ]

@@ -4,7 +4,8 @@ Each record kind lives in its own module, so a module that updates one can
 name it. This module gathers them into the event sum a history is made of.
 -}
 module Arc.Model.Ledger
-    ( module Arc.Model.Ledger.Audit
+    ( module Arc.Model.Ledger.Assessment
+    , module Arc.Model.Ledger.Audit
     , module Arc.Model.Ledger.Brief
     , module Arc.Model.Ledger.Claim
     , module Arc.Model.Ledger.Debt
@@ -22,6 +23,7 @@ module Arc.Model.Ledger
     ) where
 
 import Arc.Model.Identifiers
+import Arc.Model.Ledger.Assessment
 import Arc.Model.Ledger.Audit
 import Arc.Model.Ledger.Brief
 import Arc.Model.Ledger.Claim

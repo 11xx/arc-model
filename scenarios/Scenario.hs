@@ -10,6 +10,9 @@ module Scenario
     ( Scenario(..)
     , ActorPick(..)
     , GateMode(..)
+    , ModelPick(..)
+    , AssessmentMode(..)
+    , IneligibleMode(..)
     , WorktreeMode(..)
     , TargetMode(..)
     , ProbeMode(..)
@@ -40,6 +43,34 @@ import Test.QuickCheck
 data ActorPick = ActorIndependent
                | ActorContributor
                | ActorAssumed
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | The model a read records: none, as for a person; another model than the
+-- implementer's; or the implementer's, at the effort the trailer names or at
+-- another.
+data ModelPick = PickUnrecorded
+               | PickDistinct
+               | PickImplementer
+               | PickImplementerOtherEffort
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | What the assessment an audit carries says: nothing, that the read counts
+-- and describes its auditor and the work, or one way it fails to.
+data AssessmentMode = AssessmentNone
+                    | AssessmentBound
+                    | AssessmentIneligible
+                    | AssessmentOtherModel
+                    | AssessmentOtherEffort
+                    | AssessmentNoIdentities
+                    | AssessmentAuthorsOmitted
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
+-- | How an @ineligible-review@ debt says why: by qualifier flags, by an
+-- assessment file whose independence is @ineligible@, or by one that says
+-- the read counts, which arc refuses.
+data IneligibleMode = IneligibleDeclared
+                    | IneligibleAssessed
+                    | IneligibleEligibleFile
   deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 -- | How the required gate's evidence relates to the declaration, tree, and
@@ -101,6 +132,11 @@ data Scenario = Scenario
   , policyAfter       :: !Bool
   , authorityWithheld :: !Bool                   -- ^ The store lacks integration authority when it executes.
   , audit             :: !(Maybe (VerdictKind, Bool))
+  , implementers      :: !Bool                   -- ^ The commits carry an @Implemented-by@ trailer naming the implementer's model.
+  , reviewerModel     :: !ModelPick              -- ^ The model the scenario's own verdict records.
+  , auditModel        :: !ModelPick
+  , auditAssessment   :: !AssessmentMode
+  , ineligibleMode    :: !IneligibleMode
   , episodeExpired    :: !Bool
   , worktree          :: !WorktreeMode
   , targetMode        :: !TargetMode
@@ -133,6 +169,11 @@ defaultScenario = Scenario
   , policyAfter       = False
   , authorityWithheld = False
   , audit             = Nothing
+  , implementers      = False
+  , reviewerModel     = PickUnrecorded
+  , auditModel        = PickUnrecorded
+  , auditAssessment   = AssessmentNone
+  , ineligibleMode    = IneligibleDeclared
   , episodeExpired    = False
   , worktree          = WorktreeClean
   , targetMode        = TargetContained
@@ -256,7 +297,30 @@ namedExecutionScenarios =
 -- channel.
 namedCoverageScenarios :: [(String, Scenario)]
 namedCoverageScenarios =
-  [ ("cover-approved",                   defaultScenario)
+  [ ("cover-ineligible-open",             ineligible)
+  , ("cover-ineligible-negative-audit",   ineligible { audit = Just (ChangesRequested, True), auditModel = PickDistinct, auditAssessment = AssessmentBound })
+  , ("cover-ineligible-audit-unassessed", ineligible { audit = Just (Approved, True), auditModel = PickDistinct })
+  , ("cover-ineligible-audit-bound",      ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentBound })
+  , ("cover-ineligible-audit-bound-implemented", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentBound, implementers = True })
+  , ("cover-ineligible-audit-ineligible", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentIneligible })
+  , ("cover-ineligible-audit-other-model", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentOtherModel })
+  , ("cover-ineligible-audit-other-effort", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentOtherEffort })
+  , ("cover-ineligible-audit-no-identities", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentNoIdentities })
+  , ("cover-ineligible-audit-model-unrecorded", ineligible { audit = Just (Approved, True), auditAssessment = AssessmentBound })
+  , ("cover-ineligible-audit-authors-omitted", ineligible { audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentAuthorsOmitted, implementers = True })
+  , ("cover-ineligible-audit-by-author",  ineligible { audit = Just (Approved, False), auditModel = PickDistinct, auditAssessment = AssessmentBound })
+  , ("cover-ineligible-audit-implementer-model", ineligible { audit = Just (ChangesRequested, True), auditModel = PickImplementer, auditAssessment = AssessmentBound, implementers = True })
+  , ("cover-ineligible-assessed",         ineligible { ineligibleMode = IneligibleAssessed, audit = Just (Approved, True), auditModel = PickDistinct, auditAssessment = AssessmentBound })
+  , ("cover-ineligible-eligible-refused", ineligible { ineligibleMode = IneligibleEligibleFile, reviewer = Nothing })
+  , ("cover-ineligible-no-verdict",       ineligible { reviewer = Nothing })
+  , ("cover-implementer-model-approval",  defaultScenario { implementers = True, reviewerModel = PickImplementer, policy = dangerPolicy })
+  , ("cover-implementer-model-approval-other-effort", defaultScenario { implementers = True, reviewerModel = PickImplementerOtherEffort })
+  , ("cover-implementer-model-waived",    defaultScenario { implementers = True, reviewerModel = PickImplementer, debts = [(1, Nothing)] })
+  , ("cover-implementer-model-permitted", defaultScenario { implementers = True, reviewerModel = PickImplementer, policy = dangerPermittingSelfPolicy })
+  , ("cover-implementer-model-audit",     defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (Approved, True), auditModel = PickImplementer })
+  , ("cover-implementer-model-audit-negative", defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (ChangesRequested, True), auditModel = PickImplementer })
+  , ("cover-distinct-model-audit",        defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (Approved, True), auditModel = PickDistinct })
+  , ("cover-approved",                   defaultScenario)
   , ("cover-approved-negative-audit",    defaultScenario { audit = Just (ChangesRequested, True) })
   , ("cover-approved-approving-audit",   defaultScenario { audit = Just (Approved, True) })
   , ("cover-waived",                     defaultScenario { reviewer = Nothing, debts = [(1, Nothing)] })
@@ -270,6 +334,10 @@ namedCoverageScenarios =
   , ("cover-debt-beside-external",       defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], externalVerdict = Just ExternalApproved, policy = openPolicy })
   , ("cover-undeclared-reviewer-waived", defaultScenario { reviewer = Just ActorAssumed, debts = [(1, Nothing)], policy = requireDeclaredPolicy })
   ]
+  where
+    -- an independent approval, and a declared debt that records the read as
+    -- one routing does not count
+    ineligible = defaultScenario { debts = [(1, Just IneligibleReview)], policy = openPolicy }
 
 -- generation
 
@@ -348,13 +416,32 @@ genCheckTime scenario = do
   probe            <- frequency ((5, pure ProbeNone) : (2, pure ProbeDischarged) : [ (1, pure mode) | mode <- [ProbeBaselinePassed ..] ])
   branchMissing    <- frequency [(9, pure False), (1, pure True)]
   conflictingGates <- frequency [(12, pure False), (1, pure True)]
+  implementers     <- frequency [(2, pure False), (1, pure True)]
+  reviewerModel    <- elements [minBound .. maxBound]
+  auditModel       <- elements [minBound .. maxBound]
+  auditAssessment  <- frequency ((2, pure AssessmentNone) : (3, pure AssessmentBound) : [ (1, pure mode) | mode <- [AssessmentIneligible ..] ])
+  ineligibleMode   <- elements [minBound .. maxBound]
+  ineligibleDebt   <- frequency [(3, pure False), (1, pure True)]
   pure scenario
     { worktree         = worktree
     , targetMode       = targetMode
     , probe            = probe
     , branchMissing    = branchMissing
     , conflictingGates = conflictingGates
+    , implementers     = implementers
+    , reviewerModel    = reviewerModel
+    , auditModel       = auditModel
+    , auditAssessment  = auditAssessment
+    , ineligibleMode   = ineligibleMode
+    , debts            = if ineligibleDebt then asIneligible scenario.debts else scenario.debts
     }
+
+-- | The scenario's first debt declared as @ineligible-review@, where it has
+-- one.
+asIneligible :: [(Int, Maybe DebtKind)] -> [(Int, Maybe DebtKind)]
+asIneligible = \case
+  (index, _) : rest -> (index, Just IneligibleReview) : rest
+  []                -> []
 
 debtFor :: Int -> Gen (Maybe (Int, Maybe DebtKind))
 debtFor count = Just <$> oneDebt count
@@ -445,6 +532,10 @@ instance Arbitrary Scenario where
   arbitrary = genAnyScenario
   shrink    = shrinkScenario
 
+instance Arbitrary ModelPick where
+  arbitrary    = elements [minBound .. maxBound]
+  shrink value = [ candidate | candidate <- [minBound .. value], candidate /= value ]
+
 instance Arbitrary ActorPick where
   arbitrary    = elements [minBound .. maxBound]
   shrink value = [ candidate | candidate <- [minBound .. value], candidate /= value ]
@@ -492,6 +583,13 @@ shrinkScenario scenario =
       , [ scenario { probe = mode }              | mode <- [minBound .. scenario.probe], mode /= scenario.probe ]
       , [ scenario { branchMissing = False }     | scenario.branchMissing ]
       , [ scenario { conflictingGates = False }  | scenario.conflictingGates ]
+      , [ scenario { implementers = False }      | scenario.implementers ]
+      , [ scenario { reviewerModel = pick }      | pick <- [minBound .. scenario.reviewerModel], pick /= scenario.reviewerModel ]
+      , [ scenario { auditModel = pick }         | pick <- [minBound .. scenario.auditModel], pick /= scenario.auditModel ]
+      , [ scenario { auditAssessment = mode }    | mode <- [minBound .. scenario.auditAssessment], mode /= scenario.auditAssessment ]
+      , [ scenario { ineligibleMode = mode }     | mode <- [minBound .. scenario.ineligibleMode], mode /= scenario.ineligibleMode ]
+      , [ scenario { debts = [ (index, Nothing) | (index, Just IneligibleReview) <- scenario.debts ] <> [ debt | debt@(_, kind) <- scenario.debts, kind /= Just IneligibleReview ] }
+        | any ((== Just IneligibleReview) . snd) scenario.debts ]
       ]
     referencedPatchsets current = map fst current.debts <> map fst current.gateRuns <> [ index | (index, _, _) <- current.priorVerdicts ]
     dropAt index items = take index items <> drop (index + 1) items

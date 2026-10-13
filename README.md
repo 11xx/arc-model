@@ -31,6 +31,11 @@ text differences are retained under [`evidence/repin`](evidence/repin).
 Write execution requires an established actor and honors declared-actor
 requirements from both the invoking checkout and the integration target;
 readiness checks remain readable without an actor.
+A reviewing model counts as a second identity beside the actor: a read under
+the model of an `Implemented-by` line is not independent of the work. A debt
+declared as `ineligible-review` is cleared only by an audit whose routing
+assessment is eligible, bound to its auditor and covering the work's
+implementers, and a debt stands as declared, owed or discharged.
 
 The package also models the candidate protocol — alternative answers to one
 brief, registered, evaluated, selected, and promoted — and the differential's

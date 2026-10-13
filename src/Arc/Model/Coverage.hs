@@ -14,6 +14,10 @@ module Arc.Model.Coverage
     , waiverUsed
     , debtsNotUsed
     , auditIsIndependent
+    , assessmentBinding
+    , auditClears
+    , DebtStanding(..)
+    , debtStanding
     ) where
 
 import Arc.Model.Decision ( newestWaiver )
@@ -112,7 +116,7 @@ coverageAfterIntegration state = case latestIntegration state of
     }
   Just record -> CoverageAfterIntegration
     { read          = readEvidence record
-    , debt          = listToMaybe (authorizationDebts record.authorization) <|> ((.debtId) <$> newestWaiver state record.patchset)
+    , debt          = (.debtId) <$> standingDebt record
     , verdict       = (.kind) <$> newest state.audits
     , approved      = independentApproval record
     , openFindings  = openAuditFindings state
@@ -133,9 +137,18 @@ coverageAfterIntegration state = case latestIntegration state of
       , a.revision == record.head
       , auditIsIndependent state a
       ]
-    readEvidence record = case independentVerdict record of
-      Just event -> Just (ReadByVerdict event)
-      Nothing    -> auditRead record
+    -- the debt the basis consumed, otherwise the newest bound to the
+    -- shipped patchset
+    standingDebt record = (listToMaybe (authorizationDebts record.authorization) >>= debtById) <|> newestWaiver state record.patchset
+    debtById identifier = listToMaybe [ d | d <- state.debts, d.debtId == identifier ]
+    -- an ineligible-review debt is answered by an audit its assessment
+    -- admits and by nothing else; a verdict never clears it
+    readEvidence record = case standingDebt record of
+      Just debt | debt.declaredKind == Just IneligibleReview
+        -> ReadByAudit . (.event) <$> newest [ a | a <- state.audits, auditClears state debt a ]
+      _otherKind -> case independentVerdict record of
+        Just event -> Just (ReadByVerdict event)
+        Nothing    -> auditRead record
     independentApproval record
       = any (\a -> a.kind == Approved && auditIsIndependent state a) state.audits
       || isJust (independentVerdict record)
@@ -146,21 +159,98 @@ verdictByEvent state event = listToMaybe [ v | v <- state.verdicts, v.event == e
 verdictIsIndependent :: ChangeState -> Verdict -> Maybe ()
 verdictIsIndependent state verdict = do
   patchset <- patchsetById state verdict.patchset
-  if verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset
+  if verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset || implementerModelMatch patchset verdict.model
     then Nothing
     else Just ()
 
--- C22
+-- C4, C22
 {- | A read recorded after integration is independent when its identity was
-declared and it is not one of the shipped patchset's contributors. The
-same predicate the audit gate consults, so a projection and a refusal
-cannot disagree about independence.
+declared, it is not one of the shipped patchset's contributors, and the
+model it recorded is none of the shipped range's implementers. The same
+predicate the audit gate consults, so a projection and a refusal cannot
+disagree about independence.
 -}
 auditIsIndependent :: ChangeState -> Audit -> Bool
 auditIsIndependent state audit =
   case latestIntegration state >>= patchsetById state . (.patchset) of
     Nothing       -> False
-    Just patchset -> not audit.assumed && audit.actor `Set.notMember` effectiveContributors patchset
+    Just patchset -> not audit.assumed
+      && audit.actor `Set.notMember` effectiveContributors patchset
+      && not (implementerModelMatch patchset audit.model)
+
+-- C22
+{- | How an assessment answers to the audit that carries it. The auditor is
+judged first: the audit must have recorded a model, the assessment must list
+identities for its reviewer, the model must be one of them, and the efforts
+must agree where both are named. Only then is the work judged: the
+assessment's authors must answer to every @Implemented-by@ model of the
+integrated range, which the debt's production record keeps, otherwise the
+range itself. A range whose lines cannot be established is not an empty one.
+-}
+assessmentBinding :: ChangeState -> Debt -> Audit -> Assessment -> AssessmentBinding
+assessmentBinding state debt audit assessment = case audit.model of
+  Nothing -> ModelUnrecorded
+  Just model
+    | Set.null assessment.reviewerIdentities     -> IdentitiesUnstated
+    | model.slug `Set.notMember` assessment.reviewerIdentities -> ModelMismatch
+    | effortsDiffer model                         -> EffortMismatch
+    | otherwise -> case implementers of
+        Nothing     -> AuthorsUnread
+        Just needed -> case needed `Set.difference` answered of
+          uncovered | Set.null uncovered -> Bound
+                    | otherwise          -> AuthorsUncovered uncovered
+  where
+    effortsDiffer model = case (model.effort, assessment.reviewerEffort) of
+      (Just recorded, Just assessed) -> recorded /= assessed
+      _unnamed                       -> False
+    implementers = debt.trailerImplementers <|> (latestIntegration state >>= patchsetById state . (.patchset) >>= (.implementers))
+    answered     = Set.unions assessment.authors
+
+-- C22
+{- | Whether an audit clears an @ineligible-review@ debt: it was recorded
+after the debt, by an independent auditor, with an assessment that says the
+auditor is eligible and is bound to both the auditor and the work. No
+verdict ever does.
+-}
+auditClears :: ChangeState -> Debt -> Audit -> Bool
+auditClears state debt audit = case audit.assessment of
+  Nothing         -> False
+  Just assessment -> audit.event > debt.event
+    && auditIsIndependent state audit
+    && assessment.independence == Eligible
+    && assessmentBinding state debt audit assessment == Bound
+
+-- | Where a debt stands: nothing is owed before the change integrates.
+data DebtStanding = StandingDeclared
+                  | StandingOwed
+                  | StandingDischarged ReadEvidence
+  deriving stock (Eq, Ord, Show)
+
+-- C27
+{- | The one standing every reading of a debt shares. An integrated change's
+debt is discharged by the read the integration's coverage names: an
+independent read of the shipped revision, or for @ineligible-review@ an
+audit that clears it.
+-}
+debtStanding :: ChangeState -> Debt -> DebtStanding
+debtStanding state debt = case latestIntegration state of
+  Nothing     -> StandingDeclared
+  Just record -> maybe StandingOwed StandingDischarged (answering record)
+  where
+    answering record
+      | debt.declaredKind == Just IneligibleReview
+        = ReadByAudit . (.event) <$> newest [ a | a <- state.audits, auditClears state debt a ]
+      | otherwise = case verdictAfter record of
+          Just event -> Just (ReadByVerdict event)
+          Nothing    -> ReadByAudit . (.event) <$> newest
+            [ a | a <- state.audits, a.revision == record.head, a.event > debt.event, auditIsIndependent state a ]
+    verdictAfter record = fmap (.event) . newest $
+      [ v
+      | v <- state.verdicts
+      , v.patchset == record.patchset
+      , v.event > debt.event
+      , verdictIsIndependent state v == Just ()
+      ]
 
 -- C6
 {- | Whether an authorization actually consumed this debt. A debt recorded

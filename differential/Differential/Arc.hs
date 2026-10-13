@@ -20,6 +20,7 @@ module Differential.Arc
     ) where
 
 import Arc.Model ( DangerScope(..), DebtKind(..), ExternalKind(..), IntegrationShape(..), Policy, VerdictKind(..) )
+import Scenario ( AssessmentMode(..), IneligibleMode(..) )
 import Arc.Model.Policy qualified as Policy
 import Differential.Plan
 import Differential.Sandbox qualified as Sandbox
@@ -325,10 +326,10 @@ runSteps options sandbox = mapM_ step
     wt        = sandbox.worktree
     author    = Declared "author"
     step = \case
-      Commit file -> do
+      Commit file trailer -> do
         appendFile (wt </> file) "work\n"
         git sandbox wt ["add", file]
-        git sandbox wt ["commit", "-q", "-m", "edit " <> file]
+        git sandbox wt (["commit", "-q", "-m", "edit " <> file] <> concat [ ["-m", "Implemented-by: " <> by] | Just by <- [trailer] ])
       Revert ->
         git sandbox wt ["revert", "--no-edit", "HEAD"]
       Snapshot contributors ->
@@ -376,11 +377,15 @@ runSteps options sandbox = mapM_ step
       MovePolicy policy file -> do
         writeFile (sandbox.repo </> ".arc" </> "policy.toml") (policyToml policy (dangerPaths policy.danger file))
         git sandbox sandbox.repo ["commit", "-q", "-m", "the policy moves after the decision", "--", ".arc/policy.toml"]
-      Audit kind independent ->
+      Audit kind independent model mode -> do
         -- arc refuses an audit of a change that did not integrate, which is
         -- the answer when the plan's integration was refused
-        allowRefusal =<< arc options sandbox sandbox.repo (Declared (if independent then "other" else "author")) []
-          (["audit", changeSlug, "--verdict", verdictFlag kind, "--body", "audit"] <> [ "--findings-json" | kind == ChangesRequested ] <> [ "-" | kind == ChangesRequested ])
+        let assessmentFile = sandbox.home </> "audit-assessment.json"
+        writeFile assessmentFile (assessmentJson mode (maybe "unrecorded-model" modelSlug model) (model >>= modelEffort))
+        allowRefusal =<< arc options sandbox sandbox.repo (Declared (if independent then "other" else "author")) [ ("ARC_MODEL", coordinate) | Just coordinate <- [model] ]
+          (["audit", changeSlug, "--verdict", verdictFlag kind, "--body", "audit"]
+            <> [ "--findings-json" | kind == ChangesRequested ] <> [ "-" | kind == ChangesRequested ]
+            <> [ "--assessment=" <> assessmentFile | mode /= AssessmentNone ])
           (if kind == ChangesRequested then "[{\"summary\":\"audit\",\"body\":\"raised\",\"severity\":\"major\",\"blocking\":true}]" else "")
       -- the store is one for every checkout, so the pairing is made from the
       -- main checkout, which outlives a deleted branch
@@ -398,10 +403,10 @@ runSteps options sandbox = mapM_ step
         expect =<< arc options sandbox sandbox.repo author [] ["replica", "init", "here"] ""
         expect =<< arc options sandbox sandbox.repo author [] ["replica", "pair", "elsewhere", "--repository-id", peerId] ""
         expect =<< arc options sandbox sandbox.repo author [] ["replica", "authority", "offer", "--to", "elsewhere"] ""
-      Review identity kind ->
+      Review identity kind model ->
         -- a verdict nobody declared is refused where policy requires a
         -- declared actor; the plan asks anyway, because the model records it
-        allowRefusal =<< arc options sandbox wt identity [] (["review", changeSlug, "--verdict", verdictFlag kind, "--body", "review"] <> causeFlag kind) ""
+        allowRefusal =<< arc options sandbox wt identity [ ("ARC_MODEL", coordinate) | Just coordinate <- [model] ] (["review", changeSlug, "--verdict", verdictFlag kind, "--body", "review"] <> causeFlag kind) ""
       Finding identity ->
         expect =<< arc options sandbox wt identity [] ["review", changeSlug, "--verdict", "comment-only", "--findings-json", "-"]
           "[{\"summary\":\"finding\",\"body\":\"raised\",\"severity\":\"major\",\"blocking\":true}]"
@@ -412,8 +417,19 @@ runSteps options sandbox = mapM_ step
           Right _                                                    -> ioError (userError "no finding to resolve")
           Left failure                                               -> ioError (userError ("findings JSON: " <> failure))
         expect =<< arc options sandbox wt (Declared "other") [] ["resolve", changeSlug, identifier, "--status", "resolved", "--evidence", "repaired"] ""
-      Debt kind ->
-        expect =<< arc options sandbox wt author [] (["debt", changeSlug, "--reason", "coverage"] <> [ "--kind=" <> debtKindFlag k | Just k <- [kind] ]) ""
+      Debt kind mode -> do
+        -- arc refuses an ineligible-review debt where the patchset has no
+        -- verdict to name or the assessment says the read counts, which is
+        -- the answer when the model's ledger holds no such debt
+        let assessmentFile = sandbox.home </> "debt-assessment.json"
+        writeFile assessmentFile (debtAssessmentJson (mode == IneligibleEligibleFile))
+        (if kind == Just IneligibleReview then allowRefusal else expect) =<< arc options sandbox wt author []
+          ( ["debt", changeSlug, "--reason", "coverage"]
+          <> [ "--kind=" <> debtKindFlag k | Just k <- [kind] ]
+          <> (if kind /= Just IneligibleReview then [] else case mode of
+                IneligibleDeclared -> ["--qualifier", "same-model", "--route-version", "rv1"]
+                _assessed          -> ["--assessment=" <> assessmentFile]) )
+          ""
       External kind -> do
         (_, revision, _) <- gitOut sandbox wt ["rev-parse", "HEAD"]
         expect =<< arc options sandbox wt author []
@@ -500,7 +516,51 @@ debtKindFlag = \case
   MergeResolutionUnread -> "merge-resolution-unread"
   RepairUnread          -> "repair-unread"
   ContributorOnly       -> "contributor-only"
+  IneligibleReview      -> "ineligible-review"
   IndependentReview     -> "independent-review"
+
+-- | The slug and the effort of a recorded @model#effort@ coordinate.
+modelSlug, modelSuffix :: String -> String
+modelSlug   = takeWhile (/= '#')
+modelSuffix = drop 1 . dropWhile (/= '#')
+
+modelEffort :: String -> Maybe String
+modelEffort coordinate = case modelSuffix coordinate of
+  ""     -> Nothing
+  effort -> Just effort
+
+-- | The @agent-routing assess --json@ file an audit hands to arc, saying
+-- what the mode says of an auditor recorded under this model and effort.
+assessmentJson :: AssessmentMode -> String -> Maybe String -> String
+assessmentJson mode auditor effort = assessment
+  (if mode == AssessmentIneligible then "ineligible" else "eligible")
+  [ "same-family" | mode == AssessmentIneligible ]
+  (case mode of
+     AssessmentNoIdentities -> []
+     AssessmentOtherModel   -> ["somebody-else"]
+     _described             -> [auditor])
+  (case mode of
+     AssessmentOtherEffort -> "xhigh"
+     _described            -> maybe "high" id effort)
+  (if mode == AssessmentAuthorsOmitted then [] else [["impl-model"]])
+
+-- | The assessment file an @ineligible-review@ debt is declared from.
+debtAssessmentJson :: Bool -> String
+debtAssessmentJson eligible
+  | eligible  = assessment "eligible" [] ["reviewer-model"] "high" [["impl-model"]]
+  | otherwise = assessment "ineligible" ["same-model"] ["reviewer-model"] "high" [["impl-model"]]
+
+-- | One @agent-routing-assessment/1@ document.
+assessment :: String -> [String] -> [String] -> String -> [[String]] -> String
+assessment independence qualifiers identities effort authors = concat
+  [ "{\"schema\":\"agent-routing-assessment/1\",\"independence\":", show independence
+  , ",\"qualifiers\":[", commaList' (map show qualifiers), "],\"route_version\":\"rv1\""
+  , ",\"debt_kind\":\"ineligible-review\",\"floor\":2"
+  , ",\"reviewer\":{\"identities\":[", commaList' (map show identities), "],\"effort\":", show effort, ",\"model\":\"reviewer\",\"family\":\"claude\",\"review_tier\":2}"
+  , ",\"authors\":[", commaList' [ "{\"identities\":[" <> commaList' (map show names) <> "],\"effort\":\"high\",\"family\":\"claude\",\"floor\":2,\"model\":\"author\"}" | names <- authors ], "]}"
+  ]
+  where
+    commaList' = foldr (\item rest -> if null rest then item else item <> "," <> rest) ""
 
 commaList :: [String] -> String
 commaList = foldr1 (\item rest -> item <> "," <> rest)

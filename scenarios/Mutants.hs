@@ -126,7 +126,9 @@ allMutants =
   , Mutant
       { name      = "latest-debt-applied-to-every-patchset"
       , channel   = ChannelDecision
-      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      -- where the change is permitted without the waiver, the fault still
+      -- shows the debt among those the basis saw
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceDifferentValue]
       , run       = decisionOn debtsRelocated
       }
   , Mutant
@@ -313,6 +315,7 @@ externalTreatedAsWitnessed built = case (latestPatchset built.state, externalVer
                 , provisional = Nothing
                 , relation    = Supersedes
                 , supersedes  = (.event) <$> governingVerdict built.state
+                , model       = Nothing
                 }
             ]
         }

@@ -7,6 +7,8 @@ ledger. A refusal is a structured reason, not a sentence.
 module Arc.Model.Basis
     ( Decision(..)
     , DecisionBasis(..)
+    , DebtRefusal(..)
+    , debtRefusalText
     , Refusal(..)
     , MovedFact(..)
     , refusalTag
@@ -34,6 +36,7 @@ data DecisionBasis = DecisionBasis
   , target           :: !Revision
   , policy           :: !Policy
   , authorization    :: !Authorization
+  , debts            :: ![DebtId]                              -- ^ Every debt bound to the patchset when the decision was taken, whether or not the authorization consumed it.
   , gates            :: ![(GateName, EventId, DeclarationId)]  -- ^ One covered, passing evaluation per required gate.
   , declarations     :: ![(GateName, Declaration)]            -- ^ Normalized values consumed by required gates.
   , prerequisites    :: ![(ChangeId, EventId)]                 -- ^ Each prerequisite and the closure that integrated it.
@@ -59,6 +62,7 @@ data MovedFact = MovedHead Revision Revision
                | MovedPolicy Policy Policy
                | MovedPatchset PatchsetId PatchsetId
                | MovedAuthorization Authorization Authorization
+               | MovedDebts [DebtId] [DebtId]
                | MovedGates [(GateName, EventId, DeclarationId)] [(GateName, EventId, DeclarationId)]
                | MovedDeclarations [(GateName, Declaration)] [(GateName, Declaration)]
                | MovedPrerequisites [(ChangeId, EventId)] [(ChangeId, EventId)]
@@ -93,7 +97,26 @@ data Refusal = RefusedConflictingDeclarations [GateName]
              | RefusedActorUnestablished
              | RefusedUndeclaredActor
              | RefusedBasisMoved [MovedFact]
+             | RefusedDebt DebtRefusal
   deriving stock (Eq, Ord, Show)
+
+-- | Why a debt declaration is refused, whether it is made, planned or
+-- executed.
+data DebtRefusal = ReadOnOtherKind               -- ^ A read was named for a kind that records none.
+                 | NoVerdictToRead               -- ^ The patchset the debt covers has no verdict to name.
+                 | ReadNotAVerdict EventId       -- ^ The named read is not one of the patchset's verdicts.
+                 | EligibleAssessment            -- ^ The assessment says the read counts: there is no debt to record.
+                 | NoReasonForIneligible         -- ^ An ineligible-review debt names neither an assessment nor a qualifier.
+  deriving stock (Eq, Ord, Show)
+
+debtRefusalText :: DebtRefusal -> String
+debtRefusalText = \case
+  ReadOnOtherKind         -> "a read is named only for an ineligible-review debt"
+  NoVerdictToRead         -> "the patchset has no verdict to name as the read"
+  ReadNotAVerdict event   -> "the event " <> show event <> " is not a verdict of the patchset"
+  EligibleAssessment      -> "an eligible assessment records no debt: the read counts"
+  NoReasonForIneligible   -> "an ineligible-review debt needs an assessment or a qualifier"
+
 
 -- | A stable short name for a refusal, for test output and mutant
 -- comparison.
@@ -122,6 +145,7 @@ refusalTag = \case
   RefusedUndeclaredActor           -> "undeclared-actor"
   RefusedAuthorityWithheld         -> "authority-withheld"
   RefusedBasisMoved _              -> "basis-moved"
+  RefusedDebt _                    -> "debt-declaration"
 
 refusalText :: Refusal -> String
 refusalText = \case
@@ -144,6 +168,7 @@ refusalText = \case
   RefusedUndeclaredActor    -> "the acting identity is not declared and policy requires one"
   RefusedAuthorityWithheld  -> "this replica does not hold integration authority"
   RefusedBasisMoved moved   -> "the basis moved: " <> unwords (map movedText moved)
+  RefusedDebt refusal       -> debtRefusalText refusal
   RefusedHeadMoved observed recorded
     -> "head " <> show observed <> " is not the recorded patchset head " <> show recorded
   RefusedBlockingFindings findings
@@ -167,6 +192,7 @@ refusalText = \case
       MovedPolicy before after   -> "policy " <> show before <> " -> " <> show after
       MovedPatchset before after -> "patchset " <> show before <> " -> " <> show after
       MovedAuthorization before after -> "authorization " <> show before <> " -> " <> show after
+      MovedDebts before after    -> "debts " <> show before <> " -> " <> show after
       MovedGates before after    -> "gates " <> show before <> " -> " <> show after
       MovedDeclarations before after -> "declarations " <> show before <> " -> " <> show after
       MovedPrerequisites before after -> "prerequisites " <> show before <> " -> " <> show after

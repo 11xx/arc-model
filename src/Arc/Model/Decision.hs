@@ -132,6 +132,7 @@ evaluateJudged observations state = case latestPatchset state of
       , target           = observations.target
       , policy           = policy
       , authorization    = authorization
+      , debts            = map (.debtId) (debtsForPatchset state patchset.patchsetId)
       , gates            = gates
       , declarations     =
           [ (gate, declaration)
@@ -197,7 +198,7 @@ authorizationFor policy state patchset
       _absent                       -> AuthorizedByWaiver . (.debtId) <$> waiver
     selfApprovalRejected verdict
       = Policy.independenceOwed policy
-      && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset)
+      && (verdict.assumed || effectiveActor verdict `Set.member` effectiveContributors patchset || implementerModelMatch patchset verdict.model)
 
 -- C6, C7
 {- | The newest debt whose waiver binds to exactly this patchset. Later
@@ -272,6 +273,7 @@ execute observations state = \case
       , [ MovedPolicy basis.policy rebuilt.policy                      | basis.policy        /= rebuilt.policy ]
       , [ MovedPatchset basis.patchset rebuilt.patchset                | basis.patchset      /= rebuilt.patchset ]
       , [ MovedAuthorization basis.authorization rebuilt.authorization | basis.authorization /= rebuilt.authorization ]
+      , [ MovedDebts basis.debts rebuilt.debts                         | basis.debts         /= rebuilt.debts ]
       , [ MovedGates basis.gates rebuilt.gates                         | basis.gates         /= rebuilt.gates ]
       , [ MovedDeclarations basis.declarations rebuilt.declarations   | basis.declarations  /= rebuilt.declarations ]
       , [ MovedPrerequisites basis.prerequisites rebuilt.prerequisites | basis.prerequisites /= rebuilt.prerequisites ]
