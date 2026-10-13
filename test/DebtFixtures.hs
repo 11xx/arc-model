@@ -338,13 +338,15 @@ decisionOfPlanned (DebtPlan _ _ decision) = decision
 expectedBases :: [Check]
 expectedBases =
   [ expectTrue "fixture/expect-basis: the event the execution writes is not a move" "executing the plan's own declaration must proceed" (either (const False) (const True) (executeDeclaring built.observation built.state declaration planned))
-  , expectEq "fixture/expect-basis: a debt another actor declared meanwhile is a move"
-      (Left (RefusedBasisMoved [MovedDebts [DebtId 2] [DebtId 1, DebtId 2]]))
-      (executeDeclaring built.observation (withDebtBy otherActor) declaration planned)
-  , expectEq "fixture/expect-basis: an existing declaration the execution reuses is a move"
-      (Left (RefusedBasisMoved [movedAuthorization 0 1, MovedDebts [DebtId 0] [DebtId 1]]))
-      (executeDeclaring built.observation (withDebtBy authorActor) declaration planned)
-  , expectTrue "fixture/expect-basis: a debt the plan never saw is a move beside an approval" "a debt declared after a plan without one must be reported" (case execute approved.observation withUnusedDebt approvedPlan of Left (RefusedBasisMoved moved) -> any isDebtMove moved; _ -> False)
+  , expectEq "fixture/expect-basis: another actor's debt permits a fresh declaration"
+      (Right (AuthorizedByWaiver (DebtId 2)))
+      ((.integration.authorization) <$> executeDeclaring built.observation (withDebtBy otherActor) declaration planned)
+  , expectEq "fixture/expect-basis: execution uses the existing matching declaration"
+      (Right (AuthorizedByWaiver (DebtId 1)))
+      ((.integration.authorization) <$> executeDeclaring built.observation (withDebtBy authorActor) declaration planned)
+  , expectEq "fixture/expect-basis: a later unused debt leaves the current approval standing"
+      (Right (AuthorizedByVerdict (EventId 2)))
+      ((.integration.authorization) <$> execute approved.observation withUnusedDebt approvedPlan)
   , expectTrue "fixture/expect-basis: no new debt, no move" "an unchanged history must execute" (either (const False) (const True) (execute approved.observation approved.state approvedPlan))
   ]
   where
@@ -353,12 +355,8 @@ expectedBases =
     planned     = case planDeclaring built.observation built.state declaration of
       Right plan -> decisionOfPlanned plan
       Left _     -> Refused RefusedNoApproval
-    movedAuthorization before after = MovedAuthorization (AuthorizedByWaiver (DebtId before)) (AuthorizedByWaiver (DebtId after))
     -- the debt as the ledger holds it, declared with the same reason
     withDebtBy actor = built.state { State.debts = built.state.debts <> [ Debt (DebtId 1) (EventId 70) (Just (PatchsetId 1)) (Just IndependentReview) "declared coverage" actor Nothing (Just Set.empty) ] }
     approved     = build defaultScenario
     approvedPlan = approved.decision
     withUnusedDebt = approved.state { State.debts = [ Debt (DebtId 4) (EventId 71) (Just (PatchsetId 1)) Nothing "later" otherActor Nothing Nothing ] }
-    isDebtMove = \case
-      MovedDebts _ _ -> True
-      _other         -> False

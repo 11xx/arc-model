@@ -114,7 +114,7 @@ allMutants =
   , Mutant
       { name      = "authorization-reused-after-basis-moved"
       , channel   = ChannelExecution
-      , predicted = [DivergencePermits, DivergenceDifferentRefusal]
+      , predicted = [DivergencePermits, DivergenceDifferentRefusal, DivergenceRefuses, DivergenceDifferentValue]
       , run       = \b -> BehaviourExecution (execute b.observation b.state b.decision)
       }
   , Mutant
