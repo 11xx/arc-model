@@ -6,6 +6,7 @@ import Arc.Model
 import Comparator ( comparatorChecks )
 import DebtFixtures ( debtFixtureChecks )
 import Fixtures ( fixtureChecks )
+import GateTierFixtures ( gateTierChecks )
 import Generators
 import Mutants
 import Render
@@ -44,7 +45,7 @@ main = do
   coverage        <- coverageCheck seed tests
   sandbox         <- sandboxChecks
   provenance      <- provenanceChecks
-  let checks   = fixtureChecks <> debtFixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
+  let checks   = fixtureChecks <> gateTierChecks <> debtFixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""
@@ -414,6 +415,7 @@ prop_grounds_are_facts scenario = conjoin
       GateEnvironmentUnobserved gate        -> gate
       GateEvaluatedDirtyTree gate           -> gate
       GateWorktreeUnrecorded gate           -> gate
+      GateEvaluatedOtherEvent gate _        -> gate
 
 -- mutants
 

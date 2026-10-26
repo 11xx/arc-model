@@ -1,0 +1,21 @@
+--- 10b5d87/help.txt
++++ 8d93a6e/help.txt
+@@ -1894,13 +1894,13 @@
+ 
+ Options:
+       --actor <ACTOR>                Acting identity, from ARC_ACTOR when the flag is absent. Falls back to <harness>:<session> when both are known, else git user.name; arc records either as an identity nobody declared. A write refuses when none of these names one, and refuses a declared placeholder (unknown, none, n/a, ...) or a harness:model form carrying one; a harness:session form is an actor. A read proceeds without one
+-      --target <TARGET>              
++      --target <TARGET>              Local target branch whose committed gate declarations apply
+       --harness <HARNESS>            Harness label, e.g. claude, codex, opencode. A write refuses a placeholder such as unknown; omit a harness nobody established [env: ARC_HARNESS=test]
+       --revision <REVISION>          Require the full commit ID queued by the caller's push or release
+-      --profile <PROFILE>            [default: local]
+-      --session <SESSION>            Native session ID of the acting harness thread. A write refuses a placeholder such as unknown; omit a session nobody established [env: ARC_SESSION=session-a]
+-      --session-link <SESSION_LINK>  Private web link for the acting session; recorded only in arc events [env: ARC_SESSION_LINK=]
+-      --skip-green                   
++      --profile <PROFILE>            Gate profile required for publication [default: local]
++      --session <SESSION>            Native session ID of the acting harness thread. A write refuses a placeholder such as unknown; omit a session nobody established [env: ARC_SESSION=session-a]
++      --session-link <SESSION_LINK>  Private web link for the acting session; recorded only in arc events [env: ARC_SESSION_LINK=]
++      --skip-green                   Reuse a complete publication pass at the same tree and environment
+       --model <MODEL>                Declare a model slug with optional #effort. Without this flag or ARC_MODEL, each invocation resolves the acting session store once when it writes. A corroborated Claude recording without a model selection is re-read every 50 ms for up to 1 second; other store answers return immediately. Declarations retain any observed disagreement and its coordinate. Model and supplied effort segments must be nonempty. A write refuses a placeholder model or effort (unknown, none, n/a, ...) and a session id as the model, whether flagged or in ARC_MODEL: drop the declaration and arc records the observed model
+       --on-behalf-of <ON_BEHALF_OF>  Subject a lead runs delegated ceremony for; recorded beside the invoker. A write refuses a placeholder or a harness:model form carrying one [env: ARC_ON_BEHALF_OF=]
+       --role <ROLE>                  Execution boundary: implementer | reviewer | lead [env: ARC_ROLE=]

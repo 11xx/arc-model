@@ -1,0 +1,961 @@
+--- 3e020e5/guide.txt
++++ 10b5d87/guide.txt
+@@ -12,6 +12,8 @@
+ findings, holds, and required verification gates before merging.
+ Run `arc catchup` for live project state and `arc journal open` for work
+ waiting for a session.
++Run `arc guide` for indexed topics, `arc guide <topic>` for depth, or
++`arc guide --search <text>` to find a topic or command-help route.
+ 
+ SAY WHO YOU ARE (before the first write)
+   eval "$(arc env)"                    Detect harness, session, model, and session link.
+@@ -28,6 +30,15 @@
+   model. Declare one with `--model` or export ARC_MODEL; the declaration is
+   recorded with any observed disagreement. `arc show --json` and `arc log`
+   show the model evidence.
++
++  A Codex model selection outside the transcript tail is sought through at
++  most sixteen 1 MiB metadata pages per invocation, in addition to the normal
++  store and transcript reads. Private checkpoints under
++  `<ai-home>/arc/cache/model-lookups` retain the selection or backward cursor
++  bound to the recording's session, source and stat revision. An unchanged
++  recording resumes; changed recordings restart. Rerun `arc env` after a
++  bounded lookup to continue. Missing selections, skipped records and source
++  changes remain explicit rather than attributing an older cached model.
+ 
+   Omit a value nobody established; never declare a placeholder. A write
+   refuses a harness, session, actor or on-behalf-of subject that is one
+@@ -99,19 +110,19 @@
+   repository-wide events with no change target. Queue integration opens it
+   afresh before each member's preparation and landing. An unparseable append
+   policy refuses the command. These commands record nothing, in any form or flag:
+-    forge show  status  trailers  show  check  explain  findings  log  list
+-    query  blocker-status  is-blocked  messages  inbox  catchup  stats  diff
+-    chain  events  watch  export  replica id  replica export  replica status
+-    env  completions  mangen  resume  prompt  fork list  fork thread
+-    history resolve  candidate show  candidate list  pass list  run list
+-    cost show  cost note  policy show  policy path  config  sandbox diff
+-    doctor  hooks status  instructions git  workspace list  workspace inbox
+-    workspace inventory  workspace backlog  workspace report  restack
+-    journal dir  journal doctor  journal source  journal filed
+-    journal scaffolds  journal questions  journal events  journal catchup
+-    journal memories  journal open  journal list  journal inventory
+-    journal show  journal latest  journal discussion  journal stamp
+-    journal lane list  journal export
++    guide  forge show  status  trailers  show  check  explain  findings  log
++    list  query  blocker-status  is-blocked  messages  inbox  catchup  stats
++    diff  chain  events  watch  export  replica id  replica export
++    replica status  env  completions  mangen  resume  prompt  fork list
++    fork thread  history resolve  candidate show  candidate list  pass list
++    run list  cost show  cost evidence  cost note  policy show  policy path
++    config  sandbox diff  doctor  hooks status  instructions git
++    workspace list  workspace inbox  workspace inventory  workspace backlog
++    workspace report  restack  journal dir  journal doctor  journal source
++    journal filed  journal scaffolds  journal questions  journal events
++    journal catchup  journal memories  journal open  journal list
++    journal inventory  journal show  journal latest  journal discussion
++    journal stamp  journal lane list  journal export
+   They read the ledger through a handle that never parses that policy,
+   refuses any append, and leaves ledger files byte-identical. Entries name complete leaf paths. Output files,
+   generated manuals, hook commands and writability probes retain their
+@@ -226,6 +237,28 @@
+                        `--help` lists every attention rule. Versioned
+                        `arc-workspace-report/3`.
+   cd <anchor>          Enter one project named by the report, then orient there.
++  arc workspace retire <journal-dir|slug|anchor> --reason TEXT [--dry-run]
++                       Take a registration whose project is gone (a probe,
++                       deleted worktree, or scratch directory) out of what the
++                       workspace views observe, so its missing anchor stops
++                       failing the collection. It shows what the project still
++                       holds, refuses while the anchor exists, a `data_root`
++                       ledger holds open changes or owed debts, a transition
++                       is unfinished, or a claim is active, and refuses
++                       unresolved artifacts unless --archive-unresolved
++                       shelves each in the cold archive with the reason. The
++                       `retired` binding with its reason lands in the
++                       journal's own bindings.jsonl; nothing is deleted.
++                       Views count it as `collection.retired` and list it
++                       under --retired. Read its history with
++                       `ARC_JOURNAL_DIR=<journal-dir> arc journal show <file>`.
++                       A moved project is not retired: `arc journal rebind`
++                       adopts it from the new checkout.
++  arc workspace restore <journal-dir|slug|anchor> --reason TEXT
++                       End a retirement. A journal write from a checkout at
++                       the anchor ends it too, re-registering the project.
++                       Archived artifacts stay archived until
++                       `arc journal unarchive`.
+ 
+ ORIENT INSIDE A PROJECT (start here, in this order)
+   arc catchup --sessions 5
+@@ -253,7 +286,7 @@
+                          are omitted; journal doctor reports pending transitions.
+                          --session matches the writing or source session id.
+                          Fates are open, taken (with change ids), done, superseded,
+-                         discarded, or stale. Staleness
++                         discarded, relocated, or stale. Staleness
+                          measures recorded inactivity on open actionable items;
+                          active claims and evidence suppress it. Plain reads
+                          record no activity.
+@@ -331,6 +364,24 @@
+   FILE to restore storage. Terminal resolution remains terminal. Pending
+   storage moves appear in journal doctor and must be retried before other
+   writes; the retry validates the operation's paths and body digest.
++  Archiving keeps every byte readable. To take content out of reach:
++    arc journal relocate FILE... --to DIR --reason TEXT [--dry-run]
++                         Move whole artifacts to a directory outside arc. The
++                         body leaves the hot directory, the cold archive, and
++                         any prepared transition copy; a `relocated`
++                         tombstone keeps the file, destination, reason, and
++                         digest, and readers report that fate. Open claims,
++                         unfinished transitions or storage moves, and
++                         unanswered questions refuse until acknowledged.
++                         Exchange neither carries nor restores the artifact.
++    arc journal redact FILE (--replace OLD --with NEW)... | --body-file F
++        --reason TEXT [--dry-run]
++                         Rewrite passages of a hot or archived body in place,
++                         keeping its entries. The `redacted` event records
++                         digests and the reason, never the removed text, and
++                         exchange keeps the redacted revision on both sides.
++  The event log keeps what events recorded, such as topics and titles; both
++  commands change bodies, not the log.
+   arc journal dir        The authoritative journal location for the project
+                          you are standing in, honoring ARC_JOURNAL_DIR and
+                          [journals.dirs]; the default path is only a default.
+@@ -744,8 +795,9 @@
+                                      requires a fresh patchset even when the
+                                      mapped head already matches the branch.
+                                      A snapshot grants no approval.
+-    --verify [--gate <name>...]      Run required gates, or selected gates.
+-                                     Selected names must be unique and declared;
++    --verify [--gate <name>...]      Run required gates, reusing the newest
++                                     green evidence at the same tree. Selected
++                                     --gate names rerun explicitly and must be unique and declared;
+                                      invalid names refuse before any write.
+     --contributors <a,b> | --solo    Declare who wrote it; required while
+                                      another actor holds a live claim.
+@@ -776,7 +828,8 @@
+     --falsified-by <id> --predicted <why>
+                                      Name the failure this pass answers,
+                                      storing its original event revision.
+-  arc done                           Snapshot, run every gate, print check state.
++  arc done                           Snapshot, verify every gate with green-tree
++                                     reuse, print check state.
+     --contributors <a,b> | --solo    As on `arc snapshot`.
+   arc rebase [--verify]              Replay the branch onto its target, snapshot
+                                      the new head, name the gates it owes.
+@@ -817,6 +870,8 @@
+                                      Export a versioned event bundle and its
+                                      Git objects, with a count by role.
+     --objects-json <file>            Write an arc-bundle-objects/1 transport file.
++    --json                          Print arc-export/1 summary JSON, including
++                                     custody counts; requires --output <file>.
+     --custody-dir <dir>              Also write an arc-custody-bundle/1 sidecar
+                                      of the retained forge content.
+   arc import <file|-> [--dry-run]     Require every listed object locally before
+@@ -825,6 +880,13 @@
+     --provenance-only                Import events despite missing objects,
+                                      reporting the unavailable evidence.
+     --custody-dir <dir>              Install a sidecar the bundle binds.
++    --json                          Print arc-import/1 summary JSON, including
++                                     diagnostics and structured custody counts.
++                                     Custody phase is planned, installed or
++                                     not-supplied; installed counts in a planned
++                                     summary describe the prospective effect.
++                                     arc accept --json carries the same custody
++                                     summary from its latest import step.
+ 
+   Change history checksums hash compact JSON with recursively sorted object
+   keys and a newline after each event. The checksum names the same prefix
+@@ -2338,7 +2400,10 @@
+   identity wrote, and whether arc assumed the identity rather than anyone
+   declaring it. Such a
+   verdict is a review that happened, not an independent one, and it leaves an
+-  independent-review debt owed.
++  independent-review debt owed. A read under a model named by an
++  `Implemented-by` trailer in the debt's production record, at any effort,
++  also leaves the debt owed, regardless of `forbid_self_approval`. That
++  policy governs approval authority, not independent coverage.
+ 
+ REVIEW ASSURANCE
+   Every integrated change carries a dated assurance record: the reads it
+@@ -2389,6 +2454,10 @@
+     as `agent-routing-refusal/1`; a refused reviewer coordinate costs only
+     the read it names, a refused author costs the change its standing. Its
+     own error text and paths never reach the view.
++
++  Routing requests and their output pipes share a 30-second deadline.
++  Responses larger than 1 MiB or invalid UTF-8 are malformed; Arc prints
++  only fixed failure reasons.
+ 
+   With `--stale` each row shows four components, in this order, each
+   displayed and none stored:
+@@ -2819,7 +2888,10 @@
+   and what that candidate's parents and adoptions carry. arc never collects
+   on its own: `arc candidate retire` deletes a pin only when no root reaches
+   it, on the operator's command, and retirement deletes a pin, never an
+-  event.
++  event. Reusing an evaluation supplies no pin root for its registration or
++  ancestry. An otherwise-unrooted supplier may retire; its registration,
++  evaluation and the basis's original references remain evidence, and the
++  chosen registration pins the evaluated tree.
+ 
+   A debt is a record of review that did not happen, carried with the
+   coverage the work did have, its coordinates, and who produced it. A later
+@@ -2937,8 +3009,12 @@
+   exactly. Each fact is recorded once; conflicting retries refuse. Registration
+   without evidence establishes no request: --evidence-file cannot attach one
+   later (`evidence-not-requested`). Older records without this optional intent
+-  remain readable and importable, including their received evidence, but grant
+-  no registration retry. An evidence publication failure names the durable
++  remain readable but grant no registration retry. Already-held evidence
++  without an intent reads as `request_binding: unbound`, never producer
++  consent. A newly admitted attachment requires an original request digest
++  and matching declarant; an unrequested attachment refuses before any import
++  publication, naming its event. Registrations without attachments remain
++  importable. An evidence publication failure names the durable
+   registration event. Without a custody directory, absent receipt bytes remain
+   unavailable and do not block registration.
+ 
+@@ -2962,7 +3038,12 @@
+   shipped tree, the chosen registration's, under the declaration in force and
+   in the environment observed now at that tree; under `never` only the chosen
+   registration's evaluations count, under `matching-coordinates` any
+-  registration's whose tree, declaration, and environment match. Each
++  registration's whose tree, declaration, and environment match, even after
++  that supplier retires. Reuse roots neither the supplier nor its ancestry;
++  its registration and evaluation remain evidence and the chosen pin holds
++  the evaluated tree. A supplier reached independently by a selection,
++  promotion, parent or adoption still cannot retire. A retired chosen
++  registration remains refused. Each
+   `--must-read` of the registration's brief version needs a tool read on the
+   registration or one along its parent chain, by an episode one of them cites,
+   at the required version and covering the required extent. A declaration,
+@@ -3046,10 +3127,11 @@
+   by file name in this project's journal, as `<journal-dir>::<file>` in
+   another project's.
+ 
+-  `--from-tapes` takes the reads from a `tapes-events/9` document or the
+-  `tapes-session/14` `.json` of a `tapes export` bundle, one per tool call
++  `--from-tapes` takes the reads from a `tapes-events/14` document or the
++  `tapes-session/19` `.json` of a `tapes export` bundle, one per tool call
+   with a `read` member, skipping each call with no stable id, path, or digest,
+   each that failed, and each record already held, with one printed line.
++  Legacy `tapes-events/9` and `tapes-session/14` documents are also accepted.
+   arc reads only that file; it opens no harness store and runs no program.
+   tapes digests the text a tool returned, which arc records unnormalized, so
+   a tool that decorates what it returns, like a line-numbered `Read`, never
+@@ -3171,6 +3253,13 @@
+     ships, a change behind its target still lists `merged-tree-unevaluated`
+     beside `needs-rebase` in `check --json`, and `check` exits 11 for the
+     rebase before it would exit 14.
++  - At unchanged content, an explicit snapshot subject (`--on-behalf-of`,
++    including `ARC_ON_BEHALF_OF`) that differs from the latest patchset's
++    effective author records a fresh patchset. An equal or omitted subject
++    preserves the existing patchset and its attribution; omission never
++    reverts a represented subject to the invoker. The output names the
++    effective subject. Earlier verdicts stay bound to their own patchsets;
++    gate evidence at an unchanged tree follows its ordinary reuse rules.
+   - A snapshot records the context that framed the work. Each journal link
+     names an artifact by filename with the body digest read at record time,
+     and a `via` saying where it came from. With no `--journal-ref`, a
+@@ -3235,6 +3324,24 @@
+     identity with `--environment <IDENTITY>`.
+   - A hostname arc could not read is recorded as `unknown`, a host fact
+     on verification and candidate-evaluation events.
++  - Executed verification and candidate gates retain combined stdout and
++    stderr under the producing ledger's private `gate-output/` directory.
++    Files have mode 0600 and the directory 0700. Each capture keeps its first
++    16 MiB; publication retains 16 completed files, expiring the oldest
++    captures, while active captures are separate. Events carry
++    `output_artifact`: the producing store, relative path, retained SHA-256
++    and byte length, full observed stream SHA-256 and byte length, and
++    explicit truncation or capture errors. Capturing a truncated prefix does
++    not prove the absence of diagnostics in the omitted bytes. A capture
++    error does not change the command's observed result or prevent its tail
++    from being recorded. Status carries the metadata even for a passing gate;
++    ordinary output retains only a short tail. Attestations carry no capture.
++    An output reader unfinished at its deadline supplies no artifact: its
++    diagnostics have unknown capture coverage, never an invented empty stream.
++    These files are local diagnostics: exports contain their metadata alone,
++    and a path naming an expired or another store's file is unavailable. The
++    verification event binds the capture to its command, revision, tree,
++    environment and result; retention never changes those evidence facts.
+   - A gate that passed is not evidence that it could have failed. Watch it
+     fail first, then record the pass with `--falsified-by <failing-event>
+     --predicted "<why it should fail>"`; the gate line then reads
+@@ -3322,7 +3429,30 @@
+     `--forked-from` names the session in the executor's harness whose
+     history it began as a copy of, and follows the validation and retry
+     rules of `--executor-session`. Fork origins participate in binding tuples.
+-  - `arc cost show <change|journal-file> [--json]` reports what the executor
++  - A lead that spawns a native child, a Claude Agent-tool subagent or a
++    Codex `thread_spawn` thread, records it by hand as a run: `arc run
++    dispatch --change <id> --route <route> --worktree <path>` before it
++    spawns the child, `arc run bind <dispatch> --executor-harness <h>
++    --executor-session <child> --parent-session <parent> [--executor-role
++    reviewer]` once the child's id is known, and `arc run end` when it
++    returns. A Claude subagent is named by the agent id the Agent tool's
++    result names; tapes reads its recording, held under the parent's, as
++    `<parent>::<agent>`. A Codex child is named by its own thread id, and its
++    recording must name the parent as `parent_thread_id`. The pinned reader
++    must find exactly one recording naming both, or the binding refuses with
++    a fixed reason that echoes neither: the parent does not resolve, the
++    parent records no such child, the child's recording is not in the store,
++    or it names another parent or none. A delegated-agents mirror row
++    (`agentType` `delegated-agents:run`) carries no consumption of its own:
++    binding one refuses and names the agent-delegate run it mirrors, with
++    the dispatch that binds that run's handle when one does. A child is
++    never named `<parent>::<agent>` in `--executor-session`.
++    `--executor-role` is `implementer`, the default, or `reviewer`, on any
++    binding. `run list` shows `parent=` and `role=`, and JSON rows carry
++    `binding.parent_session` and `binding.role`. A resumed child is a further
++    dispatch bound to the same child, so its runs are its spans. Binding
++    still attributes by the ledger alone, never by timestamp proximity.
++  - `arc cost show <change|journal-file>... [--json]` reports what the executor
+     sessions bound to the selected runs, and the participants that act on the
+     selected work, consumed, and records nothing. A
+     change selects itself and the artifact it was begun from; an artifact
+@@ -3341,13 +3471,53 @@
+     --from-journal` add no consumption. Each session is measured through
+     the pinned tapes reader, or from retained facts when its source no longer
+     answers, and the report says which; a fresh read that disagrees with
+-    facts retained at the same frontier shows the conflict. Direct totals
+-    hold sessions whose every span is the item's, inclusive totals add the
+-    artifact a change was begun from, and the union counts each session once.
+-    A session spanning several items is shared beside the totals, and one
+-    with several spans has no per-run figure. A harness-written dollar
++    facts retained at the same frontier shows the conflict. A session
++    whose read failed and that no retained facts measure is unmeasured with
++    `usage read failed`, or with `usage read failed transiently; a later
++    read may succeed` where tapes found its store busy or unavailable
++    through every attempt it makes, so reading again may measure it. Direct
++    totals hold
++    each undivided session whose work the item holds, and the item's share of
++    each divided session with a span on it; inclusive totals add the artifact
++    a change was begun from, and the union counts each session once, a
++    divided one by the selected items' shares. A run's
++    figure is the segments that run alone covers. A harness-written dollar
+     figure is a harness-calculated estimate with an unknown pricing basis;
+-    token counts are resource quantities by tapes' categories. A harness's
++    token counts are resource quantities by tapes' categories. A list-price
++    estimate prices a figure's disjoint categories by a `tapes-price-table/1`
++    or `/2` table: `--prices <file>`, else the file `TAPES_PRICES` names, else
++    `$XDG_CONFIG_HOME/tapes/prices.toml` (`~/.config/tapes/prices.toml`). It
++    uses the table rows of the one model the recording says served the
++    figure, or each model's rows share by share, through tapes' pricing,
++    where the recording splits it by several models, where it counts events
++    on branches besides the active one, each priced by the model it names,
++    or where its attribution is uncertain and the split leaves part of it to
++    no model, a part no row prices; a model served at several efforts is one share,
++    priced over every request it served, and a figure added up from a
++    divided session's segments holds each segment's models. Each share is
++    priced by its own recorded cache-write TTLs and keeps its own reasons. A `/2` row's terms set by the request, a
++    long-context rate above a prompt size for the billing it applies to,
++    time-of-day rates and a validity window, are priced request by request
++    over the requests a fresh read kept, a Pi figure's on every branch its
++    recording retains, under the billing the recording establishes; a
++    subscription pays no long-context surcharge. A model the
++    table lacks, a figure no model is known to have served, a figure one
++    model served whole where its read leaves attribution uncertain, a
++    category measured incompletely, a cache write with no recorded TTL, a
++    term the figure's requests do not settle, billing the recording does not
++    establish, and a request no row was in effect for each leave a known
++    subtotal with a fixed reason, priced at the least it can cost where a
++    rate is in doubt, with the most it can cost under `bound`: `whole
++    figure` when those doubts are its only reasons, else `known_bound`. A
++    total adds its members' least and most alike. Retained facts, a share
++    of a request and a child's figure from its family hold no request one
++    by one, so a term they could pay leaves such a subtotal. The estimate
++    is priced when the view is shown, from fresh or retained facts alike,
++    and is never retained. With no table it is absent with the
++    reason `no price table is loaded`; an invalid default table is reported
++    and leaves it absent, and a named or environment table that cannot be read
++    refuses. A harness's
++
+     native counters add only within that harness: a raw input sum across
+     harnesses is refused and other native sums across harnesses are
+     withheld. Tapes' disjoint categories (uncached input, cache read, cache
+@@ -3382,62 +3552,294 @@
+     currency bounds round outwards.
+     A recording beginning before its session's first dispatch has
+     pre-dispatch consumption: assignment is incomplete and work totals are
+-    withheld. An unknown opening boundary also withholds them. Sessions
+-    retain their own measurements; consumption is never split by time.
++    withheld. An unknown opening boundary also withholds them. A session the
++    ledger gives one span is measured whole. Spans come only from the
++    session's own ledger records, never from proximity: an executor's span is
++    each bound run, from its dispatch to its recorded `run end`, open to the
++    read frontier while it has none; a participant's span on a work item runs
++    from its first to its last ledger event there, both inclusive. Any event
++    its own session records counts, so a reviewer opens its span with `arc
++    review <change> --start` before it reads, as a claim its session records
++    also does, and the span then runs to its verdict. An event a lead records
++    on its behalf carries the lead's instant, not the session's, and opens
++    no span of it. A session
++    with several spans is cut at every span boundary into disjoint segments,
++    read in one pass through tapes' span reader, so no request is counted
++    twice. A segment one work item alone covers is that item's share. A
++    segment several items cover, a segment none covers, and a request whose
++    time the recording leaves unrecorded belong to no item: they are the
++    session's unattributed part, with the fixed reasons `overlap`, `before
++    first item`, `between items`, `after last item` and `request time
++    unrecorded`. Conservation holds per counter within the segments'
++    accounting basis: the item shares and the unattributed part add up to the
++    session's whole figure in that basis. `conservation` reads `conserved`
++    only when every counter and disjoint category compares: one the parts
++    and the whole do not add up in is named under `differs` (`not-conserved`),
++    and one either side leaves unknown is named under `uncompared`
++    (`unestablished`), never read as agreeing. A Codex session's segments
++    are read in the summed-requests basis. A recorded total no span divides,
++    such as a Claude cost-state or an OpenCode session row, stays whole in its
++    own basis on the session row while the shares take the request basis tapes
++    reads spans in, and the unattributed part then names `recorded total not
++    splittable`; every figure names its basis, and totals mix bases only as
++    the partition rules allow. A session the reader refuses to divide (`span
++    reading unsupported`), one with no measurement (`unmeasured`), a
++    participant whose ledger records are not all readable (`ledger records are
++    unreadable`), and retained facts whose segments are not the ones the
++    ledger gives now (`retained spans do not match the ledger`), and a
++    participant with several members one of which only events recorded on
++    its behalf name (`recorded on its behalf`) stay
++    undivided, outside every share with that reason. An undivided session
++    that also acted on work the figure does not hold has an unknown share in
++    it, so every figure it would join is withheld, naming the session. A
++    divided session joins every figure by its items' shares, even when the
++    figure holds all of its work, so its unattributed part is never charged
++    to a selection; its consumption before its first span is unattributed and
++    withholds no share, and an undivided session counted whole still
++    withholds as above. `--allocate even`
++    divides each segment several items cover evenly among them, tokens kept
++    whole with the first items in order taking one token each of the
++    remainder. `--allocate following` gives what remains unattributed
++    between two items, after a participant's estimated parts, to the next
++    item. Every allocated figure is labelled `allocated`, with its
++    `allocation` method, beside the conserving one and never replaces it,
++    and allocation is never the default.
++    A participant's segments no item covers are estimated from its working
++    stretches, read from the same transcript pass as its spans: its
++    activity cut wherever the gap between two stamps exceeds `--idle`
++    (default `45m`, as `tapes stats` reads active time). Within a stretch,
++    the requests up to and including one of the participant's own events
++    serve that event's item, those after the stretch's last event serve the
++    same item, and a stretch with no event of the participant stays
++    unattributed; a segment several items cover keeps to its evidence.
++    Estimates never apply to an executor, whose run spans are exact. Each
++    estimated part is labelled `estimated` with its basis
++    (`working-stretch`) and idle gap, and never enters the measured figure:
++    `sessions[].split.estimate` holds each item's estimated share, what stays
++    unattributed, and whether the measured shares, the estimated shares and
++    that remainder add up to the whole. Every figure a participant's
++    estimate touches carries the figure with estimates beside the measured
++    one, under `work[].estimated` and `union.estimated`, and the table adds
++    a `total with estimates` row. A read past the request timeline's bound
++    estimates nothing and names tapes' reason, as does a reader that keeps
++    no timeline (`request timeline unavailable`). An estimate answers only
++    the idle gap it was read at: retained facts estimated at another gap
++    than `--idle` estimate nothing (`retained facts were estimated at
++    another idle gap`), and their measured split stands.
+     Lineage relatives are plain session ids. A non-id reference makes
+     identity unknown with a fixed reason; arc does not parse a recording path
+-    to infer an id. Lineage notes, failed reads and bounded reads also make
+-    identity unknown, using fixed categories and note counts.
++    to infer an id. Lineage is read from the whole recording, as usage is,
++    so a large recording with no fork, copy or child evidence keeps its
++    identity established. Lineage notes and failed reads make identity
++    unknown, using fixed categories and note counts.
+     Every direct, inclusive, and union figure groups recorded parent, child,
+     and fork relations transitively, including a binding's declared
+     `--forked-from`.
+     An origin outside the figure contributes no consumption and does not
+     make the figure's identity incomplete by itself. Binding relations are
+     durable alongside retained usage facts, so source rotation preserves
+-    these groups. Unknown or bounded lineage may overlap any other session.
++    these groups. Unknown lineage may overlap any other session.
+     Overlapping groups make identity incomplete and withhold exact
+     totals; each group's consumption is bounded by its largest member and
+-    the sum of its members. Disjoint group bounds add. Missing or incomplete
+-    measurements qualify the bounds as covering only known recorded amounts.
++    the sum of its members, a list price in doubt counting its least toward
++    the first and its most toward the second. Disjoint group bounds add.
++    Missing or incomplete measurements qualify the bounds as covering only
++    known recorded amounts.
+     Per-session figures remain available. The top-level identity status
+     summarizes the figures. A participant is a session no dispatch binds
+     whose ledger events act on the selected work; a session a dispatch binds
+-    is an executor and never a participant. The kind of an event is the
+-    only source of its roles: a snapshot or a verdict makes the session a
+-    reviewer, an integration, a debt or a closure an integrator, and a
+-    dispatch an orchestrator; any other kind makes no participant, and
+-    prose and trailers name none. A participant is measured whole through
+-    the same reader as an executor, or from retained facts when its source no
+-    longer answers, and is never split by time or by event. Its membership is
+-    every change in this ledger whose events carry it, read in one pass.
+-    It counts as direct only where the item holds every member; otherwise it
+-    is listed under `shared` and in `participants` with its whole figure,
+-    roles and span count, the number of members. A union counts it once when
+-    the selection covers its whole membership. A recording cannot show
+-    whether its session is still running, so a participant's figure is as of
+-    its read frontier and says so as incomplete measurement. A session may
++    is an executor and never a participant. One rule gives every session
++    its roles: those its bindings name (an executor's `--executor-role`),
++    and those the kinds of its events name. A snapshot or a verdict makes
++    the session a reviewer, an integration, a debt or a closure an
++    integrator, and a dispatch an orchestrator; any other kind names no
++    role and makes no participant, and prose and trailers name none. A
++    bound session's snapshot is the work its binding gave it and names no
++    role, while its own verdicts, integrations and dispatches give it those
++    roles beside its binding's. An event recorded `--on-behalf-of` a
++    `harness:<id>` subject that names a session is the subject's event too:
++    it gives the subject the kind's role and membership while the invoker
++    keeps its own roles for the event it ran. A subject
++    `harness:<id>:<model>[#effort]`, followed by a parenthesized label or
++    not, names the session `<id>` and declares `<model>` as that session's
++    model on the event. The subject names a session
++    when the tapes reader of its harness locates the id as one of that
++    harness's recordings, each harness shaping its own ids (an OpenCode
++    `ses_…`, a Pi id as its recording names it, a Claude or Codex UUID),
++    when that harness's store cannot answer, when the ledger retains facts
++    for it, or when the id is shaped as that harness shapes a session id (a
++    UUID, a Claude cloud session's `cse_…`, an OpenCode `ses_…`) though
++    nothing on this machine locates it:
++    such a session is a participant without a figure, `not located on this
++    machine`, so the figures it would join say they are incomplete. A
++    subject naming a person, a label, a `harness:model`, or any other id no
++    reader locates and no retained facts name, names no session. A participant is measured through the same
++    reader as an executor, or from retained facts when its source no longer
++    answers, and divided by its span on each work item. Its membership is
++    every change in this ledger with an event of any kind that names it, as
++    its session or its subject, read in one pass; `--footprint` selects by
++    the same rule.
++    Undivided, it counts whole where the item holds every member. Divided,
++    its share joins each item's total, and a union takes the selected items'
++    shares. It is listed in `participants` with its whole figure, roles,
++    span count, the number of members, `counted` and `share`. A recording cannot show
++    whether its session is still running, so the view asks `agent-status`
++    once, bounded to two seconds (`ARC_AGENT_STATUS` names another program).
++    A session it lists, in any state, is live: its figure is as of its read
++    frontier and incomplete. A claude, codex or pi session absent from a
++    snapshot its registry owner answered has ended: a fresh read of it is
++    complete as of its final frontier. Every other answer is unknown and
++    incomplete with a fixed reason: no program, a failure, no answer in
++    time, unreadable output, a snapshot no registry owner answered, or a
++    harness agent-status does not report on. Facts retained after the
++    session ended stay complete unless it is listed again; facts retained
++    while it was live or unknown stay incomplete even once it has ended,
++    since it may have gone on past their frontier. Each participant row
++    shows the answer under `liveness`. An executor's run ends are the
++    stronger evidence: one whose every bound dispatch has a recorded `run
++    end` has ended, and one with a dispatch that has none is still running
++    and incomplete as of its frontier, naming the open dispatch. An
++    agent-status listing makes an executor live either way. When unreadable
++    ledger records could hold the missing end, only a listing qualifies it.
++    An executor's facts retained before its last run ended stay incomplete;
++    facts retained after it, or while agent-status answered ended, are
++    final. arc works fully without agent-status. A session may
+     also act in other repositories' ledgers, which this ledger cannot see.
+     An unreadable ledger record leaves a participant's membership incomplete,
+     so it is never counted as the work's alone. Acting events with no
+     harness or session, or one that is not a plain id, are counted under
+-    `unattributed_events` and make assignment incomplete. A session that
+-    acted on the selected work and is not measured, such as one the store
+-    cannot resolve, is named outside assignment coverage with its event
+-    count, never zero. A Claude session's recorded total is
++    `unattributed_events` and make assignment incomplete. A participant
++    that is not measured, such as one the store cannot resolve or a subject
++    not located on this machine, is still a session row and a participant
++    without a figure: every total it would
++    join is absent or withheld beside its known subtotal, never complete,
++    measurement coverage lists it, and it is named outside assignment
++    coverage with its event count and reason, which makes assignment
++    incomplete. A bound executor whose read fails with nothing retained
++    likewise leaves its totals without an amount. An unmeasured session has
++    no accounting basis, so it qualifies every partition it could belong
++    to. Another session with events on the selected work but no acting
++    kind is named outside assignment coverage with its event count, never
++    zero. A Claude session's recorded total is
+     reconciled per counter with the requests its recording family
+     identifies. The residual is the signed difference, never clamped, with
+     tapes' status (`reconciled`, `conflict`, `discrepancy` or `withheld`) and
+     fixed reasons; a conflict, a recorded total below its requests, qualifies
+     the counter it understates, a withheld counter has no residual, and a
+     family that cannot be read leaves only the residual unavailable.
++    A native child a binding names is an executor row measured from its own
++    recording by its own requests, with `parent` naming the session that
++    spawned it, roles from its bindings' `--executor-role`, and its agent
++    from the model its recording says served it, else its dispatches'
++    routes. A Claude session whose recording names native children with
++    consumption of their own is measured by its own requests, in the
++    summed-requests basis, because its recorded total covers those children
++    too; a session whose only figure is held in the recorded-total basis is
++    unmeasured (`recorded total covers its native children`) rather than
++    counted beside its children. A spawn a binding identified is a parent
++    and a child with recordings of their own, so it groups no overlap,
++    except that a Claude child's recording can hold a request its parent's
++    holds too: unless the parent's family reconciliation is `conserved`, a
++    measured parent and its bound child are one overlap group, and a total
++    holding both is withheld between its largest member and their sum,
++    with identity incomplete, never a complete double count. A
++    bound child whose recording is gone is unmeasured (`child recording
++    missing`). Each parent row carries `family`: `bound`, its bound child
++    rows; `children`, every child its recording names, `bound` when any
++    dispatch binds it, to this view's work or to work it does not select,
++    with the recording `present` or `missing` and, for one no binding names,
++    its figure, from
++    tapes' family reconciliation for a Claude subagent and a fresh read for
++    a child with its own session; and `unassigned`, those children's figure,
++    listed and never in a total. An unassigned child without a figure
++    leaves that figure absent beside its known subtotal, naming the child. A mirror row is never listed. A Claude
++    parent's `family.reconciliation` says whether its own requests and each
++    child's add up to the family's identified union per counter
++    (`conserved`, `not-conserved` naming each counter under `differs`, as a
++    request two recordings both hold leaves it, or `unestablished`), and
++    carries the residual, the recorded total less that union: the parent's,
++    no child's, and in no total.
++  - `arc cost show` selects the union of its positional targets, change ids
++    and journal artifacts mixed, and its range selectors, and the union
++    counts each session once. `--tag <t>`, repeatable with every tag
++    required, selects each change carrying it as `begin --tag` and `arc meta
++    --tag` record it. `--footprint <harness:id>` selects each change and
++    journal item that session was bound to or dispatched, and each change
++    with an event of any kind that names it, as its session or its
++    `--on-behalf-of` subject: the work its membership holds, so a session
++    counted whole in a change view is counted whole beside them. It shows
++    its whole figure beside them. A native child is named by its
++    measured key, `claude:<parent>::<agent>`, and selects the work its
++    bindings name; a child key no binding records is refused. `--since` and `--until` select each
++    change with a ledger event, or a run dispatched or ended for it, in the
++    window; the window selects work items only, and a session is divided by
++    its spans, never by the window's edges. `--all` selects every change in this ledger. Each selected
++    target keeps its own selection rules; a change whose state cannot be
++    read for a tag is a selection gap, and a range that selects nothing
++    refuses.
++    Text output is a table, one row per session: its agent
++    (`harness:model#effort`, from the bound dispatches' routes when each
++    names one coordinate, else the models its own events carry and the
++    subjects recorded on its behalf declare, else the one
++    model its recording says served it, effort unnamed when it served
++    several; the harness alone when none
++    establishes a single model; a coordinate that carries the row's harness
++    as a prefix, such as a route `claude:claude-opus-5-5#medium`, names it
++    once; one whose prefix names another harness tapes reads establishes
++    none and is shown beside the agent with its source, as in
++    `claude:claude-opus-5-5 (route codex:gpt-6.1-sol#high)`, and in
++    `agent_conflict`), roles (impl, review, orch, integ), the shortest
++    session id prefix of at least eight characters no other row
++    shares, runs and spans, the disjoint token total, the money columns, and a
++    status: `complete`, `subtotal`, `split ×N` (divided among N work items,
++    its share in the total), `shared ×N` (undivided and outside the total),
++    `live`, `unmeasured` or `withheld`. With a price table the money columns
++    are the list-price estimate, then the harness-written estimate; without
++    one the harness-written estimate alone, and a footer line says how to
++    install a table. Footer rows hold the total, which is the union figure
++    with its status and a row per accounting partition when it spans several;
++    the `total with estimates` row when a participant's estimate touches it;
++    with `--allocate`, the allocated total beside it; the `unattributed
++    shared` row with everything of each session outside the total, its
++    unattributed part and its shares of items the view does not select
++    (`unselected item`), and one line per session naming its reasons; and a line counting the qualifications
++    `--detail` explains, then per parent of native children a `children`
++    line naming its bound rows, the children bound to unselected work, and
++    the unassigned figure outside the total,
++    and a `family` line with the reconciliation status and each residual
++    counter that does not reconcile. An amount not established is shown as
++    its known subtotal, as `least–most` for a list price in doubt, or as `≥`
++    the least an overlapping figure is known to be, with its status
++    beside it. `--detail` prints the per-category report instead. `--by
++    agent|role|model|harness|change|session`, repeatable or comma-separated,
++    groups the counted rows with one subtotal per group; a subtotal never
++    adds incompatible accounting domains and shows their partitions as the
++    total does. `change` gives each selected change its subtotal: a divided
++    session joins each by its share of it, never by its membership, and a
++    session several selected changes hold undivided forms one group naming
++    them. A model groups under the id its recording gives, namespace and
++    case kept (`z-ai/glm-5.3-flash`). `--json` carries the same rows, total, allocated total,
++    unattributed figure, qualification count, groups, families and price
++    table under `table`, each session's segments, shares, run figures and unattributed
++    parts under `sessions[].split`, each item's allocated figures under
++    `work[].allocated`, the price table under `prices`, and a footprint under
++    `footprint`.
+   - `arc cost retain <change|journal-file>` keeps, per bound or participating
+     session, the facts a fresh read gives: reader and calculation versions, source
+     frontier, digest and opening boundary, counters with their basis,
+     coverage and category-specific gaps, the disjoint categories with their
+     convention and gaps, the consumption events with their per-counter coverage and
+     identity, the Claude residual, and any harness-written dollar figure
+-    with its pricing coverage, plus lineage relations and read failures
+-    as fixed categories. Retained facts carry no recording locators or raw
++    with its pricing coverage, plus lineage relations, read failures
++    as fixed categories, the one model the recording says served the
++    session when it names one, whether the recording leaves its attribution
++    uncertain, each model's disjoint categories, its efforts added together
++    and its cache writes by TTL, where the figure is priced share by share,
++    the segments a session with several spans was read in, each with
++    its bounds, covering work items and runs, request count and facts, the
++    remainder and the whole in the segments' basis, and the liveness
++    agent-status answered then (`live`, `ended` or `unknown`). A list-price
++    estimate is never retained. Retained facts carry no recording locators or raw
+     errors. Display sanitizes older facts field by field, so one unreadable
+     field leaves the rest of the measurement available; bundle import and export refuse
+     nonportable identities, metadata, quantities or reason categories without
+@@ -3448,7 +3850,9 @@
+     whose source does not answer is reported and skipped independently.
+     The source bytes stay in the harness store. Identical facts record
+     nothing; retained facts are observations at their frontier and are never
+-    added to one another.
++    added to one another. A fresh read and retained facts at one frontier
++    compare their segment figures when both cut the session alike, and a
++    disagreement shows as a conflict.
+   - `arc cost show --commit <rev> [--json]` answers for a commit, which has
+     no cost of its own. Git resolves the revision, and the commit maps to the
+     change that records it: a patchset head or the integrated commit decides
+@@ -3459,15 +3863,38 @@
+     sibling commits, and states that the change's figures are shared by
+     those commits and that none is per commit. Each role trailer on the
+     commit lists the sessions recorded for that role. `Implemented-by` lists
+-    the sessions bound to the change's runs whose route model, effort
+-    dropped, equals the trailer's model. `Reviewed-by` lists the
+-    participants that acted as reviewer, and `Planned-by` and
+-    `Orchestrated-by` those that acted as orchestrator, whose declared model
+-    equals the trailer's. A matching session's figure is its whole figure,
+-    shared exactly as the change view shares it. A trailer no recorded
+-    session answers, such as a person's or another model's, reads `no
+-    session recorded`, never zero. A commit no change records answers `no
+-    change records this commit`, shows no figure and succeeds. `--json`
++    the sessions bound as implementer to the change's runs whose route
++    model, effort and a prefix naming the executor's harness dropped, equals
++    the trailer's model. `Reviewed-by` lists
++    the sessions bound as reviewer on the same terms, and the sessions,
++    bound or not, whose events give them the reviewer role, and `Planned-by`
++    and `Orchestrated-by` those whose events give them the orchestrator
++    role, whose own model equals the trailer's: the models the session's
++    own events, or a subject recorded on its behalf, declared in that role,
++    else the one model its recording says served it, effort dropped, never
++    the invoker's model on an event recorded on its behalf. Each session
++    matched by its events names its `model_source` (`events` or
++    `recording`). A session in that role of the trailer's harness that no
++    source gives a model is listed in `unestablished` as unmatched, `no
++    model of its own is established`, rather than matched by a guess. A
++    matching session's figure is its whole figure, shared exactly as the
++    change view shares it, with the change's share beside it when the view
++    divides the session, and its `status` is the word the change's table
++    gives its row (`complete`, `subtotal`, `split ×N`, `unmeasured`, ...);
++    `measurement` keeps whether the reader's counters cover its recording.
++    A trailer no recorded session answers, such as a
++    person's or another model's, reads `no session recorded` when no
++    session is unmatched, never zero. A commit no change records answers
++    `no change records this commit`, shows no figure and succeeds. The lookup
++    reads every change's state and follows the aggregate read rule: each
++    change whose state cannot be read is named with its error on stderr,
++    and the command still succeeds. Such a change might record the commit,
++    so a lookup that skipped one never answers that no-match: it answers
++    `no readable change records this commit` naming the unreadable changes,
++    with `lookup.status` `unresolved`. A match found beside one is still
++    shown, with `lookup.status` `may-not-be-unique` and a line saying so.
++    `lookup.unreadable` lists the changes either way, and a lookup that read
++    every change carries no `lookup`. `--json`
+     emits `arc-cost-commit/1`, wrapping the embedded `arc-cost/1`. A price
+     never enters a commit message: a figure is incomplete while a session
+     runs, and no session's spend has a per-commit split.
+@@ -3487,8 +3914,69 @@
+     refresh. `--all` refreshes every commit that already holds an arc-cost
+     note, wherever a newer read changes its text beyond the opening time,
+     and leaves the others as they are; a noted commit no change records
+-    keeps its note. The notes ref is local: arc never configures it for
+-    push, never adds it to a refspec and never pushes it. The command
++    keeps its note. A commit target or a noted commit is located as `cost
++    show --commit` locates it: a target no readable change records is
++    refused naming the unreadable changes, a noted one is left as it is with
++    them named, and a note written from a match found beside an unreadable
++    change carries the same `may not be unique` line. The notes ref is
++    local: arc never configures it for push, never adds it to a refspec and
++    never pushes it. The command records no ledger event.
++  - `arc cost evidence <change|journal-file>... | --all` writes the evidence
++    `cost show` divides its sessions by to standard output, as a
++    `tapes-attribution-evidence/1` file (UTF-8 JSON Lines) that `tapes usage
++    SESSION --evidence FILE` reads, or with `--output-dir DIR` into a
++    directory of such files that `tapes usage SESSION --evidence DIR` reads,
++    so tapes gives arc's figure wherever arc's ledger exists. It takes `cost
++    show`'s selection, read the same way.
++    Export `--all` for exact figures: a participant's division rests on every
++    piece of work it took part in, not only the selected one. The first line
++    is the header, with producer `arc/<version>`. A session `cost show` gives
++    a figure writes the evidence that decides it, every record at tier
++    `bound`: an executor the ledger gives one run, one `binding` with no
++    span, the whole session; an executor with several runs, one `binding` per
++    run with a `span` from the dispatch to its recorded `run end`, or to the
++    header's `written_at` while the run has none, and the run's role; a
++    participant divided by its own events, one `event` per event with the
++    role its kind gives it; a participant acting on one piece of work, one
++    `binding` with no span, with its role when its events give it exactly
++    one. A participant the ledger does not divide, because an event recorded
++    on its behalf names an item, or because a ledger record could not be
++    read, writes nothing, as does a session `cost show` names without a
++    figure; standard error counts both. Each record's work is `label`, the
++    change id or journal artifact as `cost show` names it; `commits`, the
++    commits the change made itself, in full, left out for a change that has
++    none and for an artifact; and `repository`, the `origin` remote URL
++    without its user information, query or fragment, left out when there is
++    none or it names a place on this machine. A change's commits are those
++    `cost note` finds for it less the current-patchset commits of every change
++    below it in a stack, and always include its own integration commit. A
++    change is below another when it is open or integrated and its current
++    patchset head, different from the other's, lies in the other's patchset
++    range; a change closed without integration is below nothing, and changes
++    with one head exclude nothing from each other. Where a dispatch records
++    both the session that made it and the executor it bound, one `lineage`
++    record per distinct pair is written at the earliest such dispatch, with
++    the binding's handle as `label` and the work as `subject`; a native child
++    is linked by its recording and writes none. The `lineage` lines come
++    first, by time, parent and child, then each session's bindings and events,
++    by session, time and work. Two exports of an unchanged ledger differ only
++    in `written_at`, which also ends each span of a run still open. Evidence
++    tapes would stop reading before its end is refused and nothing is
++    written. Standard output carries one file, of at most 10,000 records
++    after the header; a longer export is refused naming `--output-dir`.
++    `--output-dir DIR` takes an absent or empty directory, checked before the
++    ledger is read, writes `evidence-0001.jsonl`, `evidence-0002.jsonl`, ...
++    into it in name order, and leaves standard output empty: each file is the
++    header, one `written_at` for all, followed by at most 10,000 records,
++    which keep the export's order and are never split. Evidence that would
++    need more than the 1,000 files tapes reads from a directory, or that holds
++    a line longer than 256 KiB, which no file holds whole, is refused either
++    way. The files are written beside DIR and moved into place together, so a
++    failure leaves DIR as it was. Standard error summarizes the sessions
++    written, the records by kind, the commits that still appear under several
++    labels, the sessions without a figure, the sessions the ledger does not
++    divide, the runs still open, and with `--output-dir` the files written.
++    Every session is measured as `cost show` measures it, and the command
+     records no ledger event.
+   - A bounded round records what it deliberately left, so the next round
+     inherits a list instead of a memory: `arc run end <dispatch> --outcome
+@@ -3634,6 +4122,8 @@
+   the operator policy at `<git-common-dir>/arc/operator-policy.toml`, outside
+   every tree (`arc policy path|show|write`). Both apply, the stricter reading
+   winning.
++  `arc doctor` reports an unreadable or malformed policy as the problem
++  `policy-unreadable`, naming its file and error, and exits 1.
+ 
+     [policy] forbid_self_approval = true
+     [policy] require_declared_actor = true
+@@ -3736,9 +4226,59 @@
+ 
+     command = "<shell command>"
+     profiles = ["<profile>"]            omitted: required for every profile
++    events = ["integration"]           omitted: integration and publication
+     timeout = "10m"                     s, m, or h; omitted: unbounded
+     environment = "<probe command>"     evidence counts only where the probe
+                                         prints the same output
++
++  `arc verify --all --event integration|publication` selects the event's
++  gates. Evidence identifies its event, tree, command and environment;
++  a publication pass does not satisfy an integration requirement.
++  Historical verification evidence with no recorded event is integration
++  evidence. An omitted event on a gate declaration applies to both events.
++  `arc publication --target <branch> --profile <profile>` runs the complete
++  publication tier at that branch's head. Push and release tooling can use
++  `--revision <full-commit-id>` to require the exact revision queued by the
++  caller and use its exit status as a local guard. Arc makes no network
++  request and installs no hook implicitly. A failed publication names the integrations since the
++  most recent successful publication pass.
++
++  A gate's optional `selector` command reads `arc-gate-delta/1` JSON with
++  `source_tree`, `target_tree`, `paths` and `gates`. It answers
++  `arc-gate-selection/1` with `complete: true` and the gate names affected by
++  that delta. Missing, failed, malformed, incomplete or unknown selections
++  run the required checks. Delta selection applies to integration; publication
++  checks every required gate on a changed tree. A reuse receipt retains the
++  passing source tree, target tree, selector and declarations; it grants no result to another
++  event or environment.
++
++  `.arc/worktrees.toml` declares optional build preparation:
++
++    [prepare]
++    command = "<project preparation command>"
++    timeout = "30s"
++
++  Preparation runs after begin, fork, acceptance and replay checkout
++  population. Its working directory and `ARC_WORKTREE_BUILD` name an
++  Arc-owned directory specific to that checkout and source tree. Gates and
++  probes use prepared output only with a matching successful receipt;
++  otherwise they receive fresh cold storage.
++  `ARC_WORKTREE_PATH`, `ARC_WORKTREE_REVISION` and `ARC_WORKTREE_TREE` identify
++  the source; `ARC_WORKTREE_CACHE` names a shared cache protected by a lease.
++  Build outputs belong in the build directory and reusable compiler data in
++  the cache. An inherited `CARGO_TARGET_DIR` is removed. A busy cache or failed
++  preparation continues cold; changed source, index, HEAD or untracked source
++  paths refuses the checkout. The timeout covers output pipes and cleanup of
++  the hook's process group. Preparation is never gate evidence.
++  Gate commands and environment probes receive the same build/source/cache
++  variables. A project selects its prepared output explicitly, such as
++  `CARGO_TARGET_DIR="$ARC_WORKTREE_BUILD/target"`. An administrative receipt
++  reuses preparation at unchanged source; changed source prepares again.
++
++  A timeout bounds the process and its output-pipe cleanup. A descendant
++  holding a pipe after the leader exits still times out; arc kills the
++  process group and returns without waiting on an escaped descendant. An
++  unfinished output reader supplies no tail or environment identity.
+ 
+   Every patchset's resolved head is pinned by `refs/arc/keep/<change>/<patchset>`
+   so Git's garbage collection cannot take it. Pins follow recorded rewrites
+@@ -3753,6 +4293,12 @@
+   it, and closing a change without integrating it releases nothing. Release
+   any other with `git update-ref -d`. A registered candidate's tree is pinned by
+   `refs/arc/candidate/<id>` until `arc candidate retire` releases it.
++
++  Publication receipts retain their tested commits under
++  `refs/arc/publication/<receipt-id>`, named by the receipt's `retention_ref`.
++  Export and import preserve the tested objects and pin identity. Integration cleanup keeps these refs while the
++  publication history cites them; an operator may release one deliberately
++  with `git update-ref -d`.
+ 
+ SCHEMAS
+   Every structured surface carries a `schema` string `<name>/<n>`. A shape
+@@ -3784,7 +4330,11 @@
+     `arc-watch/1`                    arc watch --json, stdin of arc watch --exec
+     `arc-config/1`                   arc config
+     `arc-accept/1`                   arc accept --json
++    `arc-export/1`                   arc export --json
++    `arc-import/1`                   arc import --json
+     `arc-integration-plan/1`         arc integrate --dry-run --json
++    `arc-gate-delta/1`               gate selector stdin
++    `arc-gate-selection/1`           gate selector stdout
+     `arc-provisional-transition/2`   arc integrate --provisional --json
+     `arc-brief/2`                    arc brief --json
+     `arc-journal-artifact/3`         arc journal show --json
+@@ -3811,6 +4361,7 @@
+     `arc-workspace-backlog/19`       arc workspace backlog --json
+     `arc-workspace-report/3`         arc workspace report --json
+     `arc-workspace-inventory/2`      arc workspace inventory --json
++    `arc-workspace-retirement/1`     arc workspace retire|restore --json
+     `arc-writability/1`              arc config --check-writable --json
+     `arc-sandbox-clone/1`            arc sandbox clone --json
+     `arc-sandbox-diff/1`             arc sandbox diff --json
+@@ -3839,6 +4390,10 @@
+     `arc-journal-spool/2`            .arc/outbox/<ts>-<kind>-<topic>.json
+     `arc-trailer-edits/1`            arc rewrite trailers --edits
+ 
++  `arc cost evidence` writes `tapes-attribution-evidence/1`, a format tapes
++  owns and versions; this rule counts the shapes arc defines, so that file
++  takes no arc schema string.
++
+   Imports accept `arc-bundle/5` and `arc-replica-bundle/2` alongside
+   current export formats. Journal imports accept
+   `arc-journal-bundle/1`.
+@@ -3847,7 +4402,8 @@
+   A journal event omits the harness or session key nobody established.
+   Owned claim and lane lifecycle events require their complete identities;
+   an event lacking one is unsupported and cannot change ownership state.
+-  `journal-events/2` covers that and the `evidence` kind; `journal-events/1`
++  `journal-events/2` covers that and the `evidence`, `relocated`, and
++  `redacted` kinds; `journal-events/1`
+   events, which carry both keys, are read alongside it, and a value of
+   `unknown` in either reads as absent. A journal bundle and a journal spool
+   (`arc-journal-spool/1` or current) carry events of either version. A reader
+@@ -3868,6 +4424,7 @@
+     `arc-journal-exchange-import/1`  receipt of an imported journal bundle
+     `arc-sandbox/2`                  .arc-sandbox.json
+     assurance blame cache            <ledger>/cache/assurance/<change>.json
++    Codex model checkpoint format 1  <ai-home>/arc/cache/model-lookups/<key>.json
+     `journal-binding/1`              bindings.jsonl
+ 
+ WHAT ARC WILL NOT DO

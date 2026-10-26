@@ -15,6 +15,7 @@ module Arc.Model
     , module Arc.Model.DebtDeclaration
     , module Arc.Model.Declaration
     , module Arc.Model.Gate
+    , module Arc.Model.GatePlan
     , module Arc.Model.Policy
     , module Arc.Model.Observations
     , module Arc.Model.Ledger
@@ -34,6 +35,7 @@ import Arc.Model.DebtDeclaration
 import Arc.Model.Declaration
 import Arc.Model.Discharge
 import Arc.Model.Gate
+import Arc.Model.GatePlan
 import Arc.Model.Identifiers
 import Arc.Model.Ledger
 import Arc.Model.Observations
@@ -50,4 +52,4 @@ rather than a moving branch. Historical executable build revisions and
 digests are recorded separately in @REPORT.md@.
 -}
 comparisonRevision :: String
-comparisonRevision = "3e020e5df520818d8ce21154b549877d4dea0d26"
+comparisonRevision = "8d93a6e58d780090f3f83d99ac855316d7185c08"

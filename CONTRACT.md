@@ -222,7 +222,10 @@ The reviewing model is a second identity. Where self-approval is forbidden
 the gate rejects such an approval "as it rejects a contributor match"; where
 it is not, the verdict is recorded and counts under C4's reading (ii) and
 shows only "that a review happened and not that it was independent", so it
-is not an independent read for coverage (C22). A `changes-requested` verdict
+is not an independent read for coverage (C22). A read under an
+`Implemented-by` model in the debt's production record, at any effort, leaves
+the debt owed regardless of `forbid_self_approval`; that policy governs
+approval authority rather than independent coverage. A `changes-requested` verdict
 is never refused for its model.
 
 **Source.** The guide, "Review coverage and debt" (the independence passage:
@@ -512,7 +515,11 @@ blocker still applies." `arc iterating --help`; `arc begin --help`,
 ### C12. Gate declarations
 
 **Rule.** A gate is declared by name with a command, an optional timeout,
-optional profiles, and an optional environment probe. The declarations in
+optional profiles, optional events, an optional selector (C29), and an
+optional environment probe. Its event set selects integration, publication,
+or both; an omitted set selects both. Required integration gates exclude
+declarations selecting publication alone. Publication has its own guard
+(C30). The declarations in
 force are `.arc/gates.toml` as committed on the change's target branch at
 its current head, together with the operator's gates, plus gates the
 change's own head declares under names the target does not; a change can
@@ -566,7 +573,7 @@ and gate execution refuse), "Rules
 that change what you do" (the run under the declared gate decides), and
 "Files" (the `[gates.<name>]` table); `arc policy --help`.
 
-**Realized by.** `declarationShape`, `evaluate`, `gateEvidence`,
+**Realized by.** `declarationShape`, `declarationApplies`, `evaluate`, `gateEvidence`,
 `execute`.
 
 ### C13. The four gate readings
@@ -574,7 +581,7 @@ that change what you do" (the run under the declared gate decides), and
 **Rule.** A required gate is read four ways, kept apart:
 
 - **pass/fail**: what the run reported;
-- **coverage**: whether the run answers the declaration, the evaluated
+- **coverage**: whether the run answers the event, declaration, the evaluated
   tree (C3), the worktree state (C16), and the environment (C15) in force;
 - **availability**: whether a record exists, whether arc ran it or somebody
   attested to it, and whether the record could be read;
@@ -607,8 +614,11 @@ coverage to a tree and declaration and makes falsification advisory;
 
 ### C14. Which verification answers a gate (question a)
 
-**Rule.** Evidence is keyed by the tree the run read, the declaration it
-ran, and the environment it recorded. Two commits with one tree are one
+**Rule.** Evidence is keyed by the operation event, the tree the run read,
+the declaration it ran, and the environment it recorded. A publication pass
+answers no integration requirement, and an integration pass answers no
+publication requirement. Evidence that recorded no event is read as
+integration evidence. Two commits with one tree are one
 evaluation, so evidence recorded at an earlier revision answers a later head
 with the same tree. A record at another tree, under another declaration, or
 from another environment never answers the gate at the evaluated tree, and
@@ -622,7 +632,8 @@ evaluated tree that carries no environment, for a gate that declares a
 probe, is not under the key in force, so it answers nothing (C15) and hides
 nothing.
 
-**Status.** Settled.
+**Status.** Settled. Declaration omission and evidence omission are
+separate claims: the former selects both events, the latter is integration.
 
 **Source.** The guide, "Rules that change what you do": "Gate evidence
 binds to a tree, not to a commit"; the gate line reads "`inherited from
@@ -637,7 +648,12 @@ evidence to carry the same content key"), so a reuse for a head that
 already contains its target answers at that head's tree, and a gate whose
 newest evidence failed or carries no tree is run again rather than reused.
 
-**Realized by.** `readGate`.
+The guide, "Files", states that evidence identifies its event and that a
+publication pass does not satisfy an integration requirement. The same
+section states that historical verification evidence with no recorded event
+is integration evidence.
+
+**Realized by.** `readGate`, `readGateFor`, `evidenceEvent`.
 
 ### C15. Environment probes
 
@@ -1263,3 +1279,56 @@ the debt").
 
 **Realized by.** `declareDebt`, `planDeclaring`, `executeDeclaring`,
 `execute`.
+
+### C29. Conservative delta selectors
+
+**Rule.** Integration may use a gate's optional selector, which receives the
+source and target trees, the changed paths and the declared gates as `arc-gate-delta/1`. A complete
+`arc-gate-selection/1` answer names the gates affected by that delta.
+A required gate excluded by such an answer may reuse passing evidence at
+the source tree only under the same event, declaration and applicable
+environment. The receipt retains the source evidence, both trees, selector,
+declaration and environment. A selector produces no gate result.
+
+A missing command or answer, a failed, malformed or incomplete answer,
+unknown named gates, unobserved source or paths, or missing green source
+evidence runs the required check. A selector that names the gate runs it.
+Publication checks every required gate on a changed tree and never uses a delta selector to skip one.
+
+**Status.** Settled on conservative fallback and the coordinates of reuse.
+The model takes a typed selector answer and the path delta as observations;
+it neither executes a selector nor infers the relevance of a path. Receipt
+creation plans reuse; appending a production reuse event and retention are
+outside its effects. The guide does not define whether a selector editing
+its own command must always select its gate; the model grants no source
+evidence under a changed gate command, and leaves selector relevance to
+the declared command.
+
+**Source.** The guide, "Files" (`arc-gate-delta/1`,
+`arc-gate-selection/1`, conservative fallback, and reuse provenance).
+
+**Realized by.** `planGate`, `ReuseReceipt`, `gateGreenFor`.
+
+### C30. Standalone publication guard
+
+**Rule.** `arc publication --target <branch> --profile <profile>` runs the
+complete publication tier at that local branch's current head. The profile
+defaults to `local`. Optional `--revision <full-commit-id>` requires the
+observed branch head to equal the caller's queued revision, even when two
+revisions have the same tree. Passing integration evidence does not satisfy
+it, and passing publication evidence at an earlier tree does not satisfy the current
+tree. A profile selecting no publication gates owes none. This guard is
+local: it makes no network request, installs no implicit hook, and needs no
+change, patchset or review verdict. Failure names the integrations since the
+most recent successful publication pass. `--skip-green` reuses a complete
+publication pass at the same tree and environment.
+
+**Status.** Settled. The model receives the resolved branch tree and the
+effective declarations for the selected profile. It answers evidence
+coverage; running the checks, recording the publication, choosing the
+failure's integration interval, recognizing a complete publication receipt,
+and retaining its Git objects are effects outside the pure model.
+
+**Source.** The guide, "Files"; `arc publication --help`.
+
+**Realized by.** `publicationAt`, `publicationEvidence`, `gateGreenFor`.

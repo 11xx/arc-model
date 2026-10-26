@@ -14,6 +14,10 @@ module Arc.Model.Decision
     , decide
     , authorizationFor
     , gateEvidence
+    , gateEvidenceFor
+    , publicationEvidence
+    , PublicationRefusal(..)
+    , publicationAt
     , newestWaiver
     , execute
     , ExecutionPlan(..)
@@ -36,6 +40,7 @@ import Arc.Model.State
 import Arc.Model.State qualified as State
 
 import Control.Applicative ( (<|>) )
+import Data.Bifunctor ( first )
 import Data.List.NonEmpty ( NonEmpty(..) )
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe ( fromMaybe, listToMaybe )
@@ -119,11 +124,16 @@ evaluateJudged observations state = case latestPatchset state of
       HeadContainsTarget      -> False
     -- a merge nobody ran any required gate on: evidence at the head says
     -- nothing about content neither branch committed
-    required              = map fst observations.requiredGates
+    required =
+      [ gate
+      | (gate, wanted) <- observations.requiredGates
+      , maybe True (Declaration.declarationApplies Declaration.Integration)
+          (listToMaybe [ d | d <- observations.declarations, d.declarationId == wanted ])
+      ]
     mergedTreeUnevaluated
       =  observations.targetRelation == HeadBehindTarget
       && not (null required)
-      && not (any (\v -> v.gate `elem` required && v.tree == observations.evaluatedTree) state.verifications)
+      && not (any (\v -> v.gate `elem` required && Declaration.evidenceEvent v.gateEvent == Declaration.Integration && v.tree == observations.evaluatedTree) state.verifications)
     basisOn patchset authorization gates = DecisionBasis
       { patchset         = patchset.patchsetId
       , head             = patchset.revision
@@ -214,15 +224,20 @@ its probe yields here. A gate that is required but not declared is refused
 like any other missing evidence.
 -}
 gateEvidence :: Observations -> ChangeState -> Either [GateRefusal] [(GateName, EventId, DeclarationId)]
-gateEvidence observations state =
+gateEvidence = gateEvidenceFor Declaration.Integration
+
+-- C12, C14
+gateEvidenceFor :: Declaration.GateEvent -> Observations -> ChangeState -> Either [GateRefusal] [(GateName, EventId, DeclarationId)]
+gateEvidenceFor operation observations state =
   case [ refusal | (_, _, Left refusal) <- results ] of
     []      -> Right [ evidence | Just evidence <- map toEvidence results ]
     refused -> Left refused
   where
     results =
-      [ (gate, declaration, gateGreen gate declaration observations.evaluatedTree (environmentFor declaration) waived state.verifications)
+      [ (gate, declaration, gateGreenFor operation gate declaration observations.evaluatedTree (environmentFor declaration) waived state.verifications)
       | (gate, wanted) <- observations.requiredGates
       , let declaration = lookupDeclaration wanted
+      , maybe True (Declaration.declarationApplies operation) declaration
       ]
     waived = (.revision) <$> dirtyTreeWaiver state
     lookupDeclaration wanted = listToMaybe [ d | d <- observations.declarations, d.declarationId == wanted ]
@@ -234,6 +249,46 @@ gateEvidence observations state =
         Covered event -> Just (gate, event, declaration.declarationId)
         _uncovered    -> Nothing
       _refused -> Nothing
+
+-- C30
+-- | The complete publication tier at one observed branch tree. Its selected
+-- profile and effective declarations are observations; no change or approval
+-- authorizes this local guard.
+publicationEvidence
+  :: TreeId
+  -> [(GateName, Declaration.Declaration)]
+  -> [(ProbeCommand, Observed EnvironmentId)]
+  -> [Verification]
+  -> Either [GateRefusal] [(GateName, EventId, DeclarationId)]
+publicationEvidence tree declarations environments verifications =
+  case [ refusal | (_, _, Left refusal) <- results ] of
+    []      -> Right [ (gate, event, declaration.declarationId) | (gate, declaration, Right reading) <- results, Covered event <- [reading.coverage] ]
+    refused -> Left refused
+  where
+    results =
+      [ (gate, declaration, gateGreenFor Declaration.Publication gate (Just declaration) tree (environmentFor declaration) Nothing verifications)
+      | (gate, declaration) <- declarations
+      , Declaration.declarationApplies Declaration.Publication declaration
+      ]
+    environmentFor declaration = fromMaybe Omitted (declaration.environment >>= (`lookup` environments))
+
+data PublicationRefusal = PublicationRevisionMoved Revision Revision
+                        | PublicationGates [GateRefusal]
+  deriving stock (Eq, Ord, Show)
+
+-- C30
+-- | A caller's queued revision must still be the observed local branch head.
+publicationAt
+  :: Revision
+  -> Maybe Revision
+  -> TreeId
+  -> [(GateName, Declaration.Declaration)]
+  -> [(ProbeCommand, Observed EnvironmentId)]
+  -> [Verification]
+  -> Either PublicationRefusal [(GateName, EventId, DeclarationId)]
+publicationAt current required tree declarations environments verifications
+  | Just queued <- required, queued /= current = Left (PublicationRevisionMoved queued current)
+  | otherwise = first PublicationGates (publicationEvidence tree declarations environments verifications)
 
 -- C2, C12, C18, C20
 -- | Execute under current observations and history. Authority and actor

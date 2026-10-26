@@ -74,10 +74,12 @@ counterexample can be generated for them.
 
 ### Unit fixtures
 
-`test/Fixtures.hs` pins the exact answer for each required case: 186 checks
-at seed `20260907`, alongside 54 comparator, 10 sandbox, and 21 historical
-provenance checks. The 14 properties, 18 killed mutants, and coverage sampler
-bring the spec suite to 304/304 passing checks.
+`test/Fixtures.hs` and `test/DebtFixtures.hs` pin 275 exact answers.
+`test/GateTierFixtures.hs` adds 30 gate-tier, selector and publication checks.
+At seed `20260907`, 93 comparator, 10 sandbox and 21 historical provenance
+checks, 15 properties, 18 killed runtime mutants and the coverage sampler
+bring the spec suite to 463/463 passing checks. Seven additional deliberate
+faults for the public contract delta have retained semantic failure receipts.
 
 | fixture | what it anchors |
 | --- | --- |
@@ -1093,9 +1095,16 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 `comparisonRevision` names source revision
-`3e020e5df520818d8ce21154b549877d4dea0d26`. The captured `arc 2026.9.29`
-executable has build revision `3e020e5df520818d8ce21154b549877d4dea0d26`;
+`8d93a6e58d780090f3f83d99ac855316d7185c08`. The captured `arc 2026.9.29`
+executable has build revision `8d93a6e58d780090f3f83d99ac855316d7185c08`;
 its `arc env` reported the build clean. Its SHA-256 is
+`d522d621aa3e5d15d9de60bff582d4823f16c275b3bc42ca7cf84a0608cb7e49`.
+Executable identity is independent of whether the source revision has been
+integrated into a particular checkout; this pin asserts the clean public
+build being compared.
+The previous comparison capture, source revision
+`3e020e5df520818d8ce21154b549877d4dea0d26`, has the same build revision,
+reported clean, and SHA-256
 `1429db2ca8544fff5accbf9a00059da3ac857b9cf7ea0bef766fe366ec744a36`.
 The comparison capture at the former pin, source revision
 `73bff2027fc211568811e16f4cc5de0546278b17`, has build revision
@@ -1119,6 +1128,67 @@ checkout, with `CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=4`. Initial builds that
 picked up the containing repository's build identity were discarded and
 rebuilt; only binaries reporting the comparison source's clean identity were
 used.
+
+### Captured documentation at `8d93a6e`
+
+The clean public build `8d93a6e58d780090f3f83d99ac855316d7185c08`,
+SHA-256 `d522d621aa3e5d15d9de60bff582d4823f16c275b3bc42ca7cf84a0608cb7e49`,
+is captured under [8d93a6e](evidence/repin/8d93a6e): guide, 205 recursive
+help surfaces, command inventory, README and executable identity. The
+capture uses `arc-model-sandbox`; its binary is copied before capture and
+has the same digest as the named public build. Integration is reported
+separately from executable identity. The README is byte-identical to the
+`3e020e5` capture. The seven added command surfaces are `guide`,
+`publication`, `cost evidence`, `workspace retire`, `workspace restore`,
+`journal relocate` and `journal redact`.
+The earlier clean candidate `10b5d8702da3241ec3dbf4173cacf39eec3b42f9`,
+SHA-256 `414e2df205fbc4ec4a2a3424ad42f0f9f5274f4e615acd2f7cb04f7d225823cf`,
+is retained under [10b5d87](evidence/repin/10b5d87). Its guide and README
+are identical; `publication --help` has three additional option descriptions
+at `8d93a6e`, retained in the help diff between the captures.
+
+The retained `*.from-3e020e5.diff` files compare both public captures. Every
+guide hunk is indexed below by its new line. Repeated command-help identity
+text describes bounded native-model lookup and changes no modeled identity
+predicate. The affected authorization help surfaces are `snapshot`,
+`verify`, `done`, `publication`, `review` and `audit`; capture includes the
+other surfaces without treating diagnostics, storage or accounting as
+integration rules.
+
+| guide line | passage | classification |
+| --- | --- | --- |
+| 12 | indexed guide topics | outside: documentation navigation |
+| 30 | bounded native model lookup and private checkpoints | outside: identity acquisition; observed model remains an input |
+| 110 | read-only command inventory | C18 unchanged; additional commands record nothing |
+| 237 | workspace retirement and restoration | outside: registration lifecycle |
+| 286 | relocated journal fate | outside: journal display |
+| 364 | journal relocation and redaction | outside: body storage |
+| 795 | explicit snapshot gates rerun; ordinary verification reuses | C12/C14 unchanged evidence scope; execution is not modeled |
+| 828 | done uses green-tree reuse | C14 unchanged |
+| 870 | guide command route | outside: documentation navigation |
+| 880 | object/custody import receipts | outside: exchange effects |
+| 2400 | implementer-model reads leave debt owed regardless of approval policy | C4/C22 settled; comparator rejects improper discharge |
+| 2454 | bounded routing requests | outside: assurance subprocess |
+| 2888 | reused evaluation supplies no supplier pin root | candidate model defect; exact reading classified, retention repair deferred |
+| 3009 | held candidate evidence and retry boundaries | outside: custody and write effects |
+| 3038 | supplier retirement and retained evaluated tree | candidate model defect as at 2888 |
+| 3127 | context export schema compatibility | outside: encoding boundary |
+| 3253 | explicit snapshot subject changes patchset identity at equal content | C1 recorded patchset identity; recording protocol is outside |
+| 3324 | captured gate diagnostics and retention | outside: output custody; results remain gate evidence |
+| 3429 | cost attribution and native children | outside: accounting |
+| 3471 | cost footprint and price semantics | outside: accounting |
+| 3552 | consumption partitioning and provenance | outside: accounting |
+| 3850 | skipped attribution sources | outside: accounting |
+| 3863 | trailer-session model provenance | outside: advisory contribution display |
+| 3914 | exported cost evidence | outside: accounting export |
+| 4122 | doctor reports malformed policy | outside: diagnostic command |
+| 4226 | event tiers, delta selectors, publication and warm preparation | C12/C14/C29/C30; preparation is never gate evidence |
+| 4293 | publication retention refs | outside: Git retention effects |
+| 4330 | event and selector schemas | C12/C14/C29/C30 vocabulary; output retention is outside |
+| 4361 | attribution-evidence schema | outside: accounting |
+| 4390 | cost-evidence file format | outside: accounting |
+| 4402 | journal event schema | outside: journal effects |
+| 4424 | model lookup checkpoint location | outside: identity acquisition |
 
 ### Captured documentation at `3e020e5`
 
@@ -1587,12 +1657,6 @@ still choose differently. Each is a deliberate choice, not an oversight.
   authorization's verdict unrewritten and the audit verdicts beside it, and
   the coverage channel compares that pair. Whether a later negative audit
   should withdraw the approval flag is open.
-- **An implementer's model as a read (C4, C22).** The model reads "not that
-  it was independent" as: the read is no independent read, so a debt it would
-  discharge stays owed. Arc records such a read, rejects it at the gate where
-  policy forbids self-approval, and still counts it as the read of a debt. The
-  coverage channel adjudicates each such history. A ruling would settle the
-  clause one way.
 - **The binding where several parts fail (C22).** The model judges the
   auditor (model recorded, identities listed, model among them, effort) before
   the work (authors covered, authors read). The documentation lists the
@@ -1642,6 +1706,22 @@ names the reading the model takes, and nothing is listed here.
   deletes the target, so the run cannot show it.
 
 ## Adjudicated
+
+- **An implementer's model as an independent read (C4, C22): settled documentation.**
+  "Review coverage and debt" states that a read under an `Implemented-by`
+  model in a debt's production record, at any effort, leaves that debt owed,
+  regardless of `forbid_self_approval`. Approval authority and independent
+  coverage are separate. The pure model already enforces that reading; the
+  coverage comparator rejects an improper discharge instead of adjudicating
+  it. The results at `3e020e5` retain the historical disagreement. Two model
+  efforts have comparator fixtures requiring agreement on the retained debt
+  and disagreement on its improper discharge.
+- **Publication selector scope (C29): model defect.** The public "Files"
+  passage restricts delta selection to integration and requires every
+  publication gate on a changed tree. A `Publication` call to `planGate`
+  requires a run even with an excluding complete selector and green source
+  evidence. The event-independent draft plan contradicted that clause;
+  `selector/publication` rejects that faulty reading.
 
 - **Execution re-decides current readiness (C20): model defect.** An earlier
   decision cannot constrain a later integration. `execute` computes current
@@ -1817,6 +1897,74 @@ about them:
   is the production reducer's semantics; a representation carrying several
   obligations would be a different model, not a refinement of this one.
 
+## Gate tiers and selector coverage
+
+C12 and C14 distinguish declaration scope from evidence scope. An omitted
+scope on a declaration selects integration and publication. A verification
+records one event; the public guide reads a legacy event omission as
+integration. `GateReading` reports an
+other-event observation separately, and such a record cannot hide the newest
+record under the requested event's key.
+
+C29's `planGate` consumes typed selector answers. Only a complete known
+selection excluding the required gate, observed delta coordinates, and green
+same-event source evidence offer `ReusePassing`. The receipt keeps the gate,
+event, source evidence, delta, selector, effective declarations and environment.
+It records no passing verification. Delta selection is restricted to
+integration; publication checks its complete tier on a changed tree. Missing,
+failed, malformed, incomplete, unknown and affected selections require a run. C30's `publicationEvidence`
+checks the selected publication tier at the observed branch tree without a
+change, patchset or verdict. `publicationAt` also checks a caller's queued
+revision against the observed local head.
+
+`test/GateTierFixtures.hs` contains 30 checks for these caller-visible claims.
+Deliberate model faults confirm that the fixtures reject event-blind evidence,
+ignored declaration event sets and selectors assumed complete: respectively
+5, 3 and 6 semantic assertions fail. An unconditional-reuse fault fails all
+14 conservative fallback assertions. Publication-selector, ignored queued
+revision and improper same-model-discharge faults fail 1, 1 and 2 targeted
+assertions. [Model mutant receipts](evidence/repin/8d93a6e/model-mutants.txt)
+retain the exact semantic failures. The restored head passes 463 spec checks
+and 102 candidate checks. `evidence/repin/gate-tier-replay.py`, run through
+`arc-model-sandbox`, exercises event isolation and standalone publication
+through the public CLI; it does not build an environment or change Git
+identity configuration.
+
+The four existing differential channels keep their historical scope. Their
+ordinary gate runs exercise integration with omitted declaration event sets;
+they do not generate selectors or publication histories. The bounded replay
+covers those event/publication claims separately. Selector execution and
+receipt decoding are not compared: the pure fixtures exercise selection
+semantics, not the selector process, its timeout or persistence. Warm worktree
+preparation is outside authorization; the public guide says preparation is
+never gate evidence. No model executable is installed as an operator tool.
+Same-model coverage scenarios share the patchset's implementer snapshot with
+the debt's production record. A disagreement between those snapshots, or a
+range unread at one observation and readable at another, is not generated;
+the pure coverage predicate reads the patchset snapshot. C13's advisory
+falsification remains separate from coverage and reads any passing evidence
+at the counted tree, as its public "any passing evidence" rule states.
+
+### Bounded comparison at `8d93a6e`
+
+The seed `20260907` includes every named history, eight generated histories
+per channel, and eight check-time histories for decision, execution and
+coverage. [Retained summaries](evidence/repin/8d93a6e/comparison-results.txt)
+and the [six public CLI claims](evidence/repin/8d93a6e/publication-replay.json)
+record this bounded comparison.
+
+| Channel | Cases | Agreed | Adjudicated | Skipped | Disagreed | Replay failures |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| decision | 74 | 71 | 1 | 2 | 0 | 0 |
+| execution | 80 | 75 | 3 | 2 | 0 | 0 |
+| coverage | 110 | 106 | 2 | 2 | 0 | 0 |
+| candidate | 21 | 15 | 2 | 4 | 0 | 0 |
+
+Adjudicated differences and unsupported cases retain their stated
+classifications. The reuse-only candidate supplier-retention defect remains
+separate from the event-gate contract. These runs are supporting evidence,
+not a proof of equivalence.
+
 ## Known unsupported semantics
 
 - **Planning with `--debt`, and `--expect-basis`.** The model realizes both
@@ -1837,11 +1985,13 @@ about them:
 
 - **Full basis encoding.** The model captures normalized gate declarations
   and policy and references the approving verdict, which carries its
-  provisional reason. The policy's danger scope represents the danger
-  determination, without its source provenance. The differential compares
-  authorization slots only; it does not validate every encoded
-  integration-basis field, and it does not read the
-  `arc-integration-plan/1` plan `integrate --dry-run --json` prints.
+  provisional reason. The execution channel compares the dry run's
+  `arc-integration-plan/1`: patchset, head, target, tree, shape, authorization,
+  gate evidence, consumed declarations, policy, danger, prerequisites,
+  findings and holds after naming replay-created coordinates. It does not
+  validate every encoded basis field or raw source document. The policy's
+  danger scope represents the determination without its source provenance.
+  The coverage channel compares authorization slots, not the full basis.
 - **Unresolved counted tree for falsification.** The guide falls back to
   revision when the tree is unresolved; the model observes an evaluated
   tree and cannot represent that fallback.
@@ -2117,29 +2267,18 @@ reports it unsupported, and states no default:
 ### Unsettled design
 
 Readings the model fixes where the sources do not; each could be chosen
-differently.
+differently. Historical candidate results retain the classifications of the
+public documentation at their recorded revisions. At `10b5d87`, the guide
+explicitly excludes an evaluation-only supplier and its ancestry from pin
+roots. The candidate model retains that supplier; its exact differential
+reading is classified as a model defect and deferred outside the gate-tier
+authorization change. The model's `collection` follows evaluation references; the documented
+production roots follow only the chosen registration, its parents and its
+adoptions. Correcting that distinct retention model is separate work.
 
 - **Liveness.** Episode expiry gates no write: a registration may cite, and a
   tool may record a read for, an expired episode. What an expired episode may
   still record is not stated by the sources.
-- **What a root reaches.** A candidate reaches its tree, brief, parents,
-  the registrations it adopts, episodes, and declared context; an episode
-  reaches what was supplied to and read by it; a selection reaches its
-  candidate, shipped tree, evaluations, review, and the references its
-  reads resolved. Judgements and inferences reach nothing. arc reads it
-  narrower: a selection or promotion reaches its candidate and what that
-  candidate's parents and adoptions carry, and not the registration whose
-  evaluation it relies on, so `candidate retire` of that registration is
-  permitted where `collection` refuses. The channel classifies the
-  difference as unsettled. It deletes only that registration's pin; the
-  evaluation it relied on answers only at the shipped tree, which the
-  chosen registration and the promotion keep. arc's guide states arc's
-  reach in its history model ("A retention root is a selection or a
-  promotion. It reaches its candidate and what that candidate's parents and
-  adoptions carry"), as its candidates section did, and names no declared
-  root any more; it still does not say whether the registration a
-  selection relied on for an evaluation is retained, so the reading stays
-  open.
 - **An environment where the gate declares no probe.** An evaluation whose
   environment is `Omitted` answers no gate (`EnvironmentUnrecorded`), since
   `Requirements` names a declaration and not whether it declares an
@@ -2337,7 +2476,7 @@ unchanged.
 | reading | class | how it shows |
 | --- | --- | --- |
 | a gate that declares no environment probe takes a candidate evaluation from any environment, as C15 has such a gate take patchset evidence; the model binds every evaluation to a recorded environment | unsettled | the named `candidate-environment-unprobed` history: the model refuses `environment-unrecorded`, arc selects and promotes, exactly as the model does for the evaluation run in the observed environment |
-| a selection and a promotion reach the chosen registration and what its parents and adoptions carry, not the registration whose evaluation the selection relies on | unsettled ("What a root reaches") | under `matching-coordinates`, an equal-tree sibling's evaluation answers; the model refuses to collect the sibling, arc retires it, and every other answer agrees |
+| a selection and a promotion reach the chosen registration and what its parents and adoptions carry, not the registration whose evaluation the selection relies on | model defect at `10b5d87`; historically unsettled | under `matching-coordinates`, an equal-tree sibling's evaluation answers; the model refuses to collect the sibling, arc retires it, and every other answer agrees |
 
 arc keeps a promotion at `refs/arc/candidate-promotion/<candidate>/<selection>`.
 The model names no ref, so this is no disagreement with it; the channel

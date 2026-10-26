@@ -9,12 +9,18 @@ yields where the decision is made.
 module Arc.Model.Declaration
     ( GateResult(..)
     , ExecutionKind(..)
+    , GateEvent(..)
     , Declaration(..)
     , DeclarationShape(..)
     , declarationShape
+    , declarationApplies
+    , evidenceEvent
     ) where
 
 import Arc.Model.Identifiers
+
+import Data.Set ( Set )
+import Data.Set qualified as Set
 
 
 -- | Whether a gate command reported success or failure when it ran.
@@ -28,11 +34,17 @@ data ExecutionKind = RanLocally
                    | Attested
   deriving stock (Eq, Ord, Show)
 
+data GateEvent = Integration
+               | Publication
+  deriving stock (Eq, Ord, Show)
+
 data Declaration = Declaration
   { declarationId  :: !DeclarationId
   , command        :: !String
   , timeoutSeconds :: !Int
   , environment    :: !(Maybe ProbeCommand)  -- ^ The probe whose identity evidence must carry, when the gate declares one.
+  , events         :: !(Maybe (Set GateEvent))
+  , selector       :: !(Maybe String)
   }
   deriving stock (Eq, Ord, Show)
 
@@ -50,3 +62,13 @@ declarationShape declaration = DeclarationShape
   { command        = declaration.command
   , timeoutSeconds = declaration.timeoutSeconds
   }
+
+-- C12
+-- | An omitted declaration event set requires the check for both operations.
+declarationApplies :: GateEvent -> Declaration -> Bool
+declarationApplies event declaration = maybe True (Set.member event) declaration.events
+
+-- C14
+-- | A verification that recorded no event is integration evidence.
+evidenceEvent :: Maybe GateEvent -> GateEvent
+evidenceEvent = maybe Integration id

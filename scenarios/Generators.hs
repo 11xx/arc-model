@@ -68,6 +68,8 @@ buildDeclaration = Declaration
   , command        = "cargo build"
   , timeoutSeconds = 60
   , environment    = Just probe
+  , events         = Nothing
+  , selector       = Nothing
   }
 
 probe :: ProbeCommand
@@ -222,6 +224,7 @@ build scenario = Built
       , readable    = mode /= EvidenceRecordUnreadable
       , environment = environmentFor mode
       , worktree    = Observed (if scenario.worktree == WorktreeClean then CleanWorktree else DirtyWorktree)
+      , gateEvent   = Nothing
       }
     -- a further run is clean, at the patchset's own head, in the
     -- environment here, under the declaration every run was recorded under
@@ -238,6 +241,7 @@ build scenario = Built
       , readable    = True
       , environment = Just hereEnvironment
       , worktree    = Observed CleanWorktree
+      , gateEvent   = Nothing
       }
     -- the patchset whose head the gate ran at: the one before the latest
     -- when the evidence is for another tree and there is one

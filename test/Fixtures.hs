@@ -146,7 +146,7 @@ gateName :: GateName
 gateName = GateName "build"
 
 declaration :: Declaration
-declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe"))
+declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe")) Nothing Nothing
 
 readingIn :: GateMode -> GateReading
 readingIn mode = readGate gateName declaration (TreeId "tree1") (hereIn built) Nothing built.state.verifications
@@ -210,7 +210,7 @@ environmentCoverage =
   ]
   where
     unprobed      = declaration { Declaration.environment = Nothing }
-    anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True Nothing (Observed CleanWorktree)
+    anywhere      = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape unprobed) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True Nothing (Observed CleanWorktree) Nothing
     unprobedGreen = either (const False) (const True) (gateGreen gateName (Just unprobed) (TreeId "tree1") Omitted Nothing [anywhere])
 
 {- | Evidence is keyed by the tree the run read, the declaration it ran, and
@@ -236,7 +236,7 @@ evidenceKeyedByTree =
     here     = Just (EnvironmentId "env-here")
     known    = FailureLabel "known-failure"
     passHere = run 1 (Revision "rev1") (TreeId "tree1") GatePass here
-    run event revision tree result environment = Verification (EventId event) gateName (DeclarationId "build") (declarationShape declaration) revision tree result RanLocally Nothing True environment (Observed CleanWorktree)
+    run event revision tree result environment = Verification (EventId event) gateName (DeclarationId "build") (declarationShape declaration) revision tree result RanLocally Nothing True environment (Observed CleanWorktree) Nothing
     keyedAt  = readGate gateName declaration (TreeId "tree1") (Observed (EnvironmentId "env-here")) Nothing
 
 {- | The three contract questions, each on the named history the
@@ -322,8 +322,8 @@ dirtyTree =
   where
     dirty      = (readGateIn defaultScenario { Scenario.worktree = WorktreeDirty })
     here       = Observed (EnvironmentId "env-here")
-    unrecorded = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True (Just (EnvironmentId "env-here")) Omitted
-    attested   = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass Attested Nothing True (Just (EnvironmentId "env-here")) (Observed DirtyWorktree)
+    unrecorded = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass RanLocally Nothing True (Just (EnvironmentId "env-here")) Omitted Nothing
+    attested   = Verification (EventId 1) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") GatePass Attested Nothing True (Just (EnvironmentId "env-here")) (Observed DirtyWorktree) Nothing
     worktreeDecision mode = (build defaultScenario { Scenario.worktree = mode }).decision
 
 {- | A change behind its target ships the merge, a tree neither branch
@@ -583,7 +583,7 @@ readinessRebuilt =
       { event = EventId 81, patchset = PatchsetId 1, kind = ChangesRequested, actor = otherActor, onBehalfOf = Nothing
       , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2), model = Nothing
       }
-    rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree))
+    rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree) Nothing)
 
 {- | Integration authority is asked of the store the question is asked in
 (C20): a check there reports the missing authority beside every other

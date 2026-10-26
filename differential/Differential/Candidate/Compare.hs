@@ -284,8 +284,8 @@ readings =
       , rereadPlan   = id
       , reach        = ParentsAndAdoptions
       , adjudication = Adjudication
-          { kind   = Unsettled
-          , reason = "what a root reaches: arc's selection and promotion reach the chosen registration and what its parents and adoptions carry; the model's selection also reaches the registration of every evaluation it relies on"
+          { kind   = ModelDefect
+          , reason = "evaluation supplier retention: the guide excludes reuse-only suppliers and their ancestry from pin roots; the candidate model's selection also reaches the registration of every evaluation it relies on"
           }
       }
   ]

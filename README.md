@@ -41,6 +41,13 @@ declared as `ineligible-review` is cleared only by an audit whose routing
 assessment is eligible, bound to its auditor and covering the work's
 implementers, and a debt stands as declared, owed or discharged.
 
+Gate declarations select integration, publication or both. Evidence keeps its
+event, so a publication pass cannot authorize integration. Delta selectors
+can offer reuse only from matching green source evidence, with complete known
+selections and retained provenance. `publicationEvidence` answers the local
+publication tier without requiring a change or a review verdict. Selector
+execution, publication receipts and build preparation remain external effects.
+
 The package also models the candidate protocol — alternative answers to one
 brief, registered, evaluated, selected, and promoted — and the differential's
 candidate channel compares it with `arc candidate`.

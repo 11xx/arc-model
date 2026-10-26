@@ -14,7 +14,7 @@ module Arc.Model.Ledger.Verification
     , Verification(..)
     ) where
 
-import Arc.Model.Declaration ( DeclarationShape, ExecutionKind, GateResult )
+import Arc.Model.Declaration ( DeclarationShape, ExecutionKind, GateEvent, GateResult )
 import Arc.Model.Identifiers
 import Arc.Model.Observed ( Observed )
 
@@ -36,5 +36,6 @@ data Verification = Verification
   , readable    :: !Bool
   , environment :: !(Maybe EnvironmentId)
   , worktree    :: !(Observed WorktreeState)  -- ^ Omitted where the run recorded nothing about it.
+  , gateEvent   :: !(Maybe GateEvent)
   }
   deriving stock (Eq, Ord, Show)

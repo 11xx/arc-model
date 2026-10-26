@@ -26,6 +26,7 @@ comparatorChecks = concat
   [ coveragePolicyMotion
   , coverageExternalBesideLocal
   , coverageUndeclaredReviewer
+  , coverageImplementerModel
   , executionPolicyMotion
   , executionAuthority
   , executionWouldIntegrate
@@ -88,6 +89,27 @@ coverageExternalBesideLocal =
     defaultScenario { Scenario.externalVerdict = Just ExternalApproved, Scenario.policy = openPolicy }
     Unsettled
     (PostIntegration True (Set.fromList ["verdict", "external"]) Nothing 0 False)
+
+-- | C4/C22: approval authority cannot discharge independent coverage under
+-- an implementer's model, at either effort and whatever self-approval allows.
+coverageImplementerModel :: [Check]
+coverageImplementerModel = concat
+  [ [ expectTrue ("comparator/implementer model: " <> show model <> " owes the read") "the model must retain the obligation" wanted.owed
+    , expectEq ("comparator/implementer model: " <> show model <> " matching coverage agrees") Agreed
+        (compareCoverage scenario built wanted wanted)
+    , expectEq ("comparator/implementer model: " <> show model <> " improper discharge disagrees") Disagreed
+        (compareCoverage scenario built wanted (wanted { owed = False }))
+    ]
+  | model <- [Scenario.PickImplementer, Scenario.PickImplementerOtherEffort]
+  , let scenario = defaultScenario
+          { Scenario.implementers = True
+          , Scenario.reviewerModel = model
+          , Scenario.policy = openPolicy
+          , Scenario.debts = [(1, Nothing)]
+          }
+        built = build scenario
+        wanted = expectedCoverage (historicalAuthorization built.finalState) (coverageAfterIntegration built.finalState)
+  ]
 
 coverageUndeclaredReviewer :: [Check]
 coverageUndeclaredReviewer =

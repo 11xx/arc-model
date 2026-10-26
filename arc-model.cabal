@@ -48,6 +48,7 @@ library
     , Arc.Model.Declaration
     , Arc.Model.Discharge
     , Arc.Model.Gate
+    , Arc.Model.GatePlan
     , Arc.Model.Identifiers
     , Arc.Model.Ledger
     , Arc.Model.Ledger.Assessment
@@ -141,6 +142,7 @@ test-suite spec
     , Differential.Sandbox
     , DebtFixtures
     , Fixtures
+    , GateTierFixtures
     , Render
     , ProvenanceChecks
     , SandboxChecks

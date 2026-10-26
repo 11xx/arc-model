@@ -265,6 +265,7 @@ evidenceFabricated built
           , readable    = True
           , environment = declaration.environment >>= \probe -> lookup probe built.observation.environments >>= observedToMaybe
           , worktree    = Observed CleanWorktree
+          , gateEvent   = Nothing
           }
       | (gate, wanted) <- take 1 built.observation.requiredGates
       , declaration    <- take 1 [ d | d <- built.observation.declarations, d.declarationId == wanted ]
