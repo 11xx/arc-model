@@ -352,8 +352,9 @@ runSteps options sandbox = mapM_ step
         git sandbox wt (["commit", "-q", "-m", "edit " <> file] <> concat [ ["-m", "Implemented-by: " <> by] | Just by <- [trailer] ])
       Revert ->
         git sandbox wt ["revert", "--no-edit", "HEAD"]
-      Snapshot contributors ->
-        expect =<< arc options sandbox wt author [] (["snapshot", changeSlug] <> [ "--contributors=" <> commaList contributors | not (null contributors) ]) ""
+      Snapshot contributors model ->
+        expect =<< arc options sandbox wt author [ ("ARC_MODEL", coordinate) | Just coordinate <- [model] ]
+          (["snapshot", changeSlug] <> [ "--contributors=" <> commaList contributors | not (null contributors) ]) ""
       Verify run -> do
         -- a failing gate makes verify exit non-zero after recording the
         -- evidence, which is the run the plan asked for, and so does a run

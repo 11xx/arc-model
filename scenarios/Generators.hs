@@ -185,7 +185,7 @@ build scenario = Built
           , reason              = "declared coverage"
           , actor               = authorActor
           , ineligible          = if kind == Just IneligibleReview then Just ineligibleRead else Nothing
-          , trailerImplementers = implementerModels
+          , trailerImplementers = trailerModels
           })
       | (ordinal, (index, kind)) <- zip [1 ..] scenario.debts
       , kind /= Just IneligibleReview || (hasVerdictAt index && scenario.ineligibleMode /= IneligibleEligibleFile)
@@ -198,7 +198,7 @@ build scenario = Built
       , routeVersion = Just (RouteVersion "rv1")
       }
     hasVerdictAt index = any (\(at, _, _) -> at == index) scenario.priorVerdicts || (index == ordinalOf verdictTarget && scenario.reviewer /= Nothing)
-    implementerModels = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
+    trailerModels = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
     reviewEvents = concat
       [ map DebtDeclared before <> [ event | (at, event) <- verdictEntries, at == index ] <> map DebtDeclared after
       | index <- [1 .. scenario.patchsets]
@@ -342,6 +342,7 @@ build scenario = Built
           , assumed  = False
           , findings = [ FindingId 2 | kind == ChangesRequested ]
           , model      = modelFor scenario.auditModel
+          , heldRoles  = Set.empty
           , assessment = assessmentFor scenario scenario.auditAssessment
           }
         : [ FindingRecorded Finding
@@ -364,7 +365,8 @@ build scenario = Built
 patchsetsFor :: Scenario -> EventId -> NonEmpty Patchset
 patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets])
   where
-    readImplementers = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
+    recordedModels = if scenario.ledgerModel then Set.singleton implementerSlug else Set.empty
+    trailerModels = Just (if scenario.implementers then Set.singleton implementerSlug else Set.empty)
     mkPatchset index = Patchset
       { patchsetId   = PatchsetId index
       , ordinal      = index
@@ -375,7 +377,8 @@ patchsetsFor scenario briefEvent = mkPatchset <$> (1 :| [2 .. scenario.patchsets
       , brief        = case briefFor scenario of
           Just (_, from) | index >= from -> Just briefEvent
           _unbound                       -> Nothing
-      , implementers = readImplementers
+      , implementerModels   = recordedModels
+      , trailerImplementers = trailerModels
       }
     contributors
       | scenario.extraContributor = Set.fromList [authorActor, otherActor]

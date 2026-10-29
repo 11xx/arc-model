@@ -1,5 +1,5 @@
 -- | An immutable snapshot of the branch, bound to the contributors whose
--- work it carries.
+-- work it carries and the coordinates the ledger recorded for them.
 module Arc.Model.Ledger.Patchset
     ( Patchset(..)
     , effectiveContributors
@@ -20,7 +20,8 @@ data Patchset = Patchset
   , author       :: !ActorId
   , contributors :: !(Set ActorId)
   , brief        :: !(Maybe EventId)  -- ^ The brief in force when the patchset was recorded.
-  , implementers :: !(Maybe (Set ModelSlug))  -- ^ The @Implemented-by@ models of the commits in the patchset's range; absent where the range cannot be read.
+  , implementerModels :: !(Set ModelSlug)  -- ^ The models the ledger records for the patchset's implementers: its declared contributors, else its effective author. Empty where it records none. A mechanical replay carries the replayed patchset's coordinates here.
+  , trailerImplementers :: !(Maybe (Set ModelSlug))  -- ^ The @Implemented-by@ values of the commits in the patchset's range, a projection; absent where the range was not read.
   }
   deriving stock (Eq, Ord, Show)
 
@@ -34,11 +35,12 @@ effectiveContributors patchset
 
 -- C4
 {- | Whether a read recorded under this model is a second reading by one of
-the patchset's own implementers. A model compares by its slug once the
-effort is dropped; a read that recorded no model, or a range that cannot be
-read, names nobody.
+the patchset's own implementers. The models are the ledger's, so a commit
+trailer never supplies one; a model compares by its slug once the effort is
+dropped, and a read that recorded no model, or a ledger that records none
+for the implementer, names nobody.
 -}
 implementerModelMatch :: Patchset -> Maybe ModelCoordinate -> Bool
 implementerModelMatch patchset = \case
   Nothing    -> False
-  Just model -> maybe False (Set.member model.slug) patchset.implementers
+  Just model -> model.slug `Set.member` patchset.implementerModels

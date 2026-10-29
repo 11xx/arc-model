@@ -41,7 +41,7 @@ data GateRun = GateRun
 
 data Step = Commit FilePath (Maybe String)  -- ^ Commit a change to this file in the worktree, its message carrying this @Implemented-by@ trailer.
           | Revert                   -- ^ Commit the revert of the worktree's last commit.
-          | Snapshot [String]        -- ^ Record the head as a patchset, declaring these contributors.
+          | Snapshot [String] (Maybe String)  -- ^ Record the head as a patchset, declaring these contributors and recording this implementer model where given.
           | Verify GateRun           -- ^ Run the declared gate at the current head.
           | Review Identity VerdictKind (Maybe String)  -- ^ Record a verdict under this model, where it has one.
           | Finding Identity         -- ^ A blocking finding, through a comment-only review the next verdict supersedes.
@@ -131,7 +131,8 @@ plan scenario
     patchset index = concat
       [ [ if index == scenario.patchsets && reverts scenario then Revert else Commit changed trailer ]
       , [ step | index == scenario.patchsets, scenario.probe == ProbeUndischargeable, step <- [Brief, ProbeBaseline True] ]
-      , [ Snapshot (if scenario.extraContributor then ["author", "other"] else []) ]
+      , [ Snapshot (if scenario.extraContributor then ["author", "other"] else [])
+            (if scenario.ledgerModel then modelText PickImplementer else Nothing) ]
       , [ Debt kind scenario.ineligibleMode | (declaredOn, kind) <- scenario.debts, declaredOn == index, kind /= Just IneligibleReview ]
       , [ Verify gateRun | index == verifyAt, scenario.gateMode /= EvidenceOmitted ]
       , [ WaiveDirty | index == verifyAt, scenario.gateMode /= EvidenceOmitted, scenario.worktree == WorktreeDirtyWaived ]

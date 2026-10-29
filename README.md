@@ -35,11 +35,14 @@ Execution computes readiness from the current history and observations; an
 earlier refusal or permission does not constrain it. The execution channel
 compares the dry run's JSON plan, including replay-relative revisions,
 selected approval and gate evidence, declarations, policy and danger scope.
-A reviewing model counts as a second identity beside the actor: a read under
-the model of an `Implemented-by` line is not independent of the work. A debt
+Authorship comes from the ledger, never from commit trailers: a reviewing
+model counts as a second identity beside the actor, and a read under the
+model the ledger records for the implementer is not independent of the work.
+A debt
 declared as `ineligible-review` is cleared only by an audit whose routing
-assessment is eligible, bound to its auditor and covering the work's
-implementers, and a debt stands as declared, owed or discharged.
+assessment is eligible, bound to its auditor and covering the
+`Implemented-by` projection of the shipped range, and a debt stands as
+declared, owed or discharged.
 
 Gate declarations select integration, publication or both. Evidence keeps its
 event, so a publication pass cannot authorize integration. Delta selectors

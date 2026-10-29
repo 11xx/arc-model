@@ -6,6 +6,8 @@ identity (C4, C22), a debt's standing (C27), and planning a declaration
 module DebtFixtures ( debtFixtureChecks ) where
 
 import Arc.Model
+import Arc.Model.Ledger.Audit qualified as Audit
+import Arc.Model.Ledger.Debt qualified as Debt
 import Arc.Model.Ledger.Patchset qualified as Patchset
 import Arc.Model.State qualified as State
 import Generators
@@ -43,6 +45,7 @@ withAudit model mode = ineligibleScenario
   , Scenario.auditModel      = model
   , Scenario.auditAssessment = mode
   , Scenario.implementers    = True
+  , Scenario.ledgerModel = True
   }
 
 -- | Whether the read the shipped change owes is answered after its audit.
@@ -149,7 +152,7 @@ ineligibleDeclaration =
 
 -- | The state with no patchset's range readable.
 unread :: ChangeState -> ChangeState
-unread state = state { State.patchsets = [ patchset { Patchset.implementers = Nothing } | patchset <- state.patchsets ] }
+unread state = state { State.patchsets = [ patchset { Patchset.trailerImplementers = Nothing } | patchset <- state.patchsets ] }
 
 written :: DebtOutcome -> Debt
 written = \case
@@ -185,7 +188,8 @@ ineligibleDischarge =
   , expectTrue "fixture/ineligible-discharge: authors that omit an implementer leave it open" "uncovered authors must not clear" (not (answered (withAudit PickDistinct AssessmentAuthorsOmitted)))
   , expectTrue "fixture/ineligible-discharge: authors with no implementer to cover clear it" "an empty range asks nothing of the authors" (answered (withAudit PickDistinct AssessmentAuthorsOmitted) { Scenario.implementers = False })
   , expectTrue "fixture/ineligible-discharge: a contributor's audit leaves it open" "the auditor must be independent" (not (answered (withAudit PickDistinct AssessmentBound) { Scenario.audit = Just (Approved, False) }))
-  , expectTrue "fixture/ineligible-discharge: an audit under the implementer's model leaves it open" "the auditor's model must not be an implementer's" (not (answered (withAudit PickImplementer AssessmentBound)))
+  , expectTrue "fixture/ineligible-discharge: an audit under the ledger implementer's model leaves it open" "the auditor's model must not be an implementer's" (not (answered (withAudit PickImplementer AssessmentBound)))
+  , expectTrue "fixture/ineligible-discharge: a commit trailer is no implementer model" "the trailer projection must not refuse the read" (answered ((withAudit PickImplementer AssessmentBound) { Scenario.ledgerModel = False }))
   , expectTrue "fixture/ineligible-discharge: another kind ignores the assessment" "an independent-review debt is answered without one" (answered (withAudit PickDistinct AssessmentNone) { Scenario.debts = [(1, Just IndependentReview)] })
   ]
 
@@ -206,7 +210,7 @@ assessmentBindings =
     bindingOf model mode = bindingFor (withAudit model mode) { Scenario.implementers = False } id
     bindingOf' model mode = bindingFor (withAudit model mode) id
     unreadBinding model mode = bindingFor (withAudit model mode) unreadRange
-    unreadRange state = (unread state) { State.debts = [ debt { trailerImplementers = Nothing } | debt <- state.debts ] }
+    unreadRange state = (unread state) { State.debts = [ debt { Debt.trailerImplementers = Nothing } | debt <- state.debts ] }
 
 -- | The binding an audit of the scenario records against its ineligible
 -- debt, with the history optionally altered before the audit is read.
@@ -231,26 +235,27 @@ authorsFromTheRecord =
   [ expectEq "fixture/authors: the production record answers when the range does not read" (Just Bound)
       (bindingFor (withAudit PickDistinct AssessmentBound) (\state -> (unread state)))
   , expectEq "fixture/authors: the range answers when the record kept none" (Just (AuthorsUncovered (Set.singleton (ModelSlug "impl-model"))))
-      (bindingFor (withAudit PickDistinct AssessmentAuthorsOmitted) (\state -> state { State.debts = [ debt { trailerImplementers = Nothing } | debt <- state.debts ] }))
+      (bindingFor (withAudit PickDistinct AssessmentAuthorsOmitted) (\state -> state { State.debts = [ debt { Debt.trailerImplementers = Nothing } | debt <- state.debts ] }))
   , expectEq "fixture/authors: an empty record asks nothing even where the range is unread" (Just Bound)
-      (bindingFor (withAudit PickDistinct AssessmentAuthorsOmitted) (\state -> (unread state) { State.debts = [ debt { trailerImplementers = Just Set.empty } | debt <- state.debts ] }))
+      (bindingFor (withAudit PickDistinct AssessmentAuthorsOmitted) (\state -> (unread state) { State.debts = [ debt { Debt.trailerImplementers = Just Set.empty } | debt <- state.debts ] }))
   ]
 
 -- C4
 reviewingModelOfVerdicts :: [Check]
 reviewingModelOfVerdicts =
-  [ expectRefusedWith "fixture/model: an approval under an implementer's model is a self-approval" "self-approval" (decisionOf dangerScenario)
+  [ expectRefusedWith "fixture/model: an approval under the ledger implementer's model is a self-approval" "self-approval" (decisionOf dangerScenario)
   , expectRefusedWith "fixture/model: the effort is dropped" "self-approval" (decisionOf dangerScenario { Scenario.reviewerModel = PickImplementerOtherEffort })
   , expectPermittedWith "fixture/model: another model is independent" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.reviewerModel = PickDistinct })
   , expectPermittedWith "fixture/model: no recorded model names nobody" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.reviewerModel = PickUnrecorded })
-  , expectPermittedWith "fixture/model: no implementer names nobody" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.implementers = False })
+  , expectPermittedWith "fixture/model: no recorded implementer names nobody" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.ledgerModel = False })
+  , expectPermittedWith "fixture/model: a commit trailer supplies no model" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.ledgerModel = False, Scenario.implementers = True })
   , expectPermittedWith "fixture/model: where self-approval is not forbidden it counts" (AuthorizedByVerdict (EventId 2)) (decisionOf dangerScenario { Scenario.policy = dangerPermittingSelfPolicy })
   , expectPermittedWith "fixture/model: a waiver rescues the rejected approval" (AuthorizedByVerdictUnderWaiver (EventId 3) (DebtId 1)) (decisionOf dangerScenario { Scenario.debts = [(1, Nothing)] })
-  , expectPermittedWith "fixture/model: a range that cannot be read names nobody" (AuthorizedByVerdict (EventId 2)) unreadDecision
+  , expectRefusedWith "fixture/model: an unread trailer range does not erase the ledger's model" "self-approval" unreadDecision
   , expectTrue "fixture/model: a refusal is never refused for its model" "a changes-requested verdict stands as a refusal" (case decisionOf dangerScenario { Scenario.verdict = ChangesRequested } of Refused refusal -> refusalTag refusal == "verdict-stands"; _ -> False)
   ]
   where
-    dangerScenario = defaultScenario { Scenario.implementers = True, Scenario.reviewerModel = PickImplementer }
+    dangerScenario = defaultScenario { Scenario.ledgerModel = True, Scenario.reviewerModel = PickImplementer }
     decisionOf scenario = (build scenario).decision
     unreadDecision = let built = build dangerScenario in decide built.observation (unread built.state)
 
@@ -265,10 +270,14 @@ reviewingModelOfAudits =
   , expectEq "fixture/audit-model: an audit that recorded no model is recorded" (Right ()) (admitAudit dangerPolicy closed (auditBy Nothing Approved))
   , expectTrue "fixture/audit-model: it is no independent read" "an audit under an implementer's model must not count as a read" (not (auditIsIndependent closed (auditBy (Just implementerCoordinate) Approved)))
   , expectTrue "fixture/audit-model: another model is an independent read" "an audit under another model counts" (auditIsIndependent closed (auditBy (Just (modelCoordinate "other-model#high")) Approved))
-  , expectTrue "fixture/audit-model: a range that cannot be read names nobody" "an unreadable range must not match" (auditIsIndependent (unread closed) (auditBy (Just implementerCoordinate) Approved))
+  , expectTrue "fixture/audit-model: an unread trailer range does not erase the ledger's model" "the ledger's model must still refuse the read" (not (auditIsIndependent (unread closed) (auditBy (Just implementerCoordinate) Approved)))
+  , expectTrue "fixture/audit-model: a commit trailer supplies no model" "a trailer projection alone must not match" (auditIsIndependent trailerOnly (auditBy (Just implementerCoordinate) Approved))
+  , expectTrue "fixture/audit-model: planning, orchestrating and integrating never refuse" "the auditor's other roles must not refuse the read" (auditIsIndependent closed (auditBy (Just (modelCoordinate "other-model#high")) Approved) { Audit.heldRoles = Set.fromList [Audit.Planner, Audit.Orchestrator, Audit.Integrator] })
+  , expectTrue "fixture/audit-model: held roles do not rescue an implementer's model" "the model must still refuse the read" (not (auditIsIndependent closed (auditBy (Just implementerCoordinate) Approved) { Audit.heldRoles = Set.fromList [Audit.Planner, Audit.Orchestrator, Audit.Integrator] }))
   ]
   where
-    closed = (build defaultScenario { Scenario.implementers = True, Scenario.audit = Just (Approved, True), Scenario.auditModel = PickDistinct }).finalState
+    closed = (build defaultScenario { Scenario.ledgerModel = True, Scenario.audit = Just (Approved, True), Scenario.auditModel = PickDistinct }).finalState
+    trailerOnly = (build defaultScenario { Scenario.implementers = True, Scenario.audit = Just (Approved, True), Scenario.auditModel = PickDistinct }).finalState
     implementerCoordinate = modelCoordinate "impl-model#high"
     auditBy model kind = Audit
       { event      = EventId 950
@@ -277,6 +286,7 @@ reviewingModelOfAudits =
       , actor      = otherActor
       , assumed    = False
       , findings   = []
+      , heldRoles  = Set.empty
       , model      = model
       , assessment = Nothing
       }

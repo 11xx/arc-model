@@ -91,7 +91,9 @@ coverageExternalBesideLocal =
     (PostIntegration True (Set.fromList ["verdict", "external"]) Nothing 0 False)
 
 -- | C4/C22: approval authority cannot discharge independent coverage under
--- an implementer's model, at either effort and whatever self-approval allows.
+-- the ledger's implementer model, at either effort and whatever self-approval
+-- allows. A commit trailer names no model, so a read under one leaves nothing
+-- owed.
 coverageImplementerModel :: [Check]
 coverageImplementerModel = concat
   [ [ expectTrue ("comparator/implementer model: " <> show model <> " owes the read") "the model must retain the obligation" wanted.owed
@@ -102,14 +104,29 @@ coverageImplementerModel = concat
     ]
   | model <- [Scenario.PickImplementer, Scenario.PickImplementerOtherEffort]
   , let scenario = defaultScenario
-          { Scenario.implementers = True
+          { Scenario.ledgerModel = True
           , Scenario.reviewerModel = model
           , Scenario.policy = openPolicy
           , Scenario.debts = [(1, Nothing)]
           }
         built = build scenario
         wanted = expectedCoverage (historicalAuthorization built.finalState) (coverageAfterIntegration built.finalState)
+  ] <>
+  [ expectTrue "comparator/implementer model: a commit trailer is no implementer model"
+      "a trailer projection must not retain the obligation"
+      (not trailerWanted.owed)
+  , expectEq "comparator/implementer model: the trailer history agrees with arc"
+      Agreed (compareCoverage trailerScenario trailerBuilt trailerWanted trailerWanted)
   ]
+  where
+    trailerScenario = defaultScenario
+      { Scenario.implementers = True
+      , Scenario.reviewerModel = Scenario.PickImplementer
+      , Scenario.policy = openPolicy
+      , Scenario.debts = [(1, Nothing)]
+      }
+    trailerBuilt = build trailerScenario
+    trailerWanted = expectedCoverage (historicalAuthorization trailerBuilt.finalState) (coverageAfterIntegration trailerBuilt.finalState)
 
 coverageUndeclaredReviewer :: [Check]
 coverageUndeclaredReviewer =

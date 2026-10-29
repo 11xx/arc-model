@@ -133,6 +133,7 @@ data Scenario = Scenario
   , authorityWithheld :: !Bool                   -- ^ The store lacks integration authority when it executes.
   , audit             :: !(Maybe (VerdictKind, Bool))
   , implementers      :: !Bool                   -- ^ The commits carry an @Implemented-by@ trailer naming the implementer's model.
+  , ledgerModel       :: !Bool                   -- ^ The snapshot records the model the ledger credits to the implementer; a commit trailer never supplies it.
   , reviewerModel     :: !ModelPick              -- ^ The model the scenario's own verdict records.
   , auditModel        :: !ModelPick
   , auditAssessment   :: !AssessmentMode
@@ -170,6 +171,7 @@ defaultScenario = Scenario
   , authorityWithheld = False
   , audit             = Nothing
   , implementers      = False
+  , ledgerModel       = False
   , reviewerModel     = PickUnrecorded
   , auditModel        = PickUnrecorded
   , auditAssessment   = AssessmentNone
@@ -279,6 +281,9 @@ namedScenarios =
   , ("iterating-unreviewed",       defaultScenario { reviewer = Nothing, iterating = True })
   , ("iterating-gate-failed",      defaultScenario { reviewer = Nothing, iterating = True, gateMode = EvidenceFailing })
   , ("iterating-refusing-verdict", defaultScenario { verdict = ChangesRequested, iterating = True })
+  , ("implementer-model-trailer",   defaultScenario { implementers = True, reviewerModel = PickImplementer })
+  , ("implementer-model-ledger",    defaultScenario { ledgerModel = True, reviewerModel = PickImplementer })
+  , ("implementer-model-ledger-other-effort", defaultScenario { ledgerModel = True, reviewerModel = PickImplementerOtherEffort })
   ]
 
 -- | Histories that move something between the decision and the
@@ -320,6 +325,11 @@ namedCoverageScenarios =
   , ("cover-implementer-model-audit",     defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (Approved, True), auditModel = PickImplementer })
   , ("cover-implementer-model-audit-negative", defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (ChangesRequested, True), auditModel = PickImplementer })
   , ("cover-distinct-model-audit",        defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], implementers = True, audit = Just (Approved, True), auditModel = PickDistinct })
+  , ("cover-ledger-model-waived",         defaultScenario { ledgerModel = True, reviewerModel = PickImplementer, debts = [(1, Nothing)] })
+  , ("cover-ledger-model-permitted",      defaultScenario { ledgerModel = True, reviewerModel = PickImplementer, policy = dangerPermittingSelfPolicy })
+  , ("cover-ledger-model-audit",          defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], ledgerModel = True, audit = Just (Approved, True), auditModel = PickImplementer })
+  , ("cover-ledger-model-audit-negative", defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], ledgerModel = True, audit = Just (ChangesRequested, True), auditModel = PickImplementer })
+  , ("cover-ledger-model-audit-distinct", defaultScenario { reviewer = Nothing, debts = [(1, Nothing)], ledgerModel = True, audit = Just (Approved, True), auditModel = PickDistinct })
   , ("cover-approved",                   defaultScenario)
   , ("cover-approved-negative-audit",    defaultScenario { audit = Just (ChangesRequested, True) })
   , ("cover-approved-approving-audit",   defaultScenario { audit = Just (Approved, True) })
@@ -428,6 +438,7 @@ genCheckTime scenario = do
   auditAssessment  <- frequency ((2, pure AssessmentNone) : (3, pure AssessmentBound) : [ (1, pure mode) | mode <- [AssessmentIneligible ..] ])
   ineligibleMode   <- elements [minBound .. maxBound]
   ineligibleDebt   <- frequency [(3, pure False), (1, pure True)]
+  ledgerModel      <- frequency [(3, pure False), (1, pure True)]
   pure scenario
     { worktree         = worktree
     , targetMode       = targetMode
@@ -440,6 +451,7 @@ genCheckTime scenario = do
     , auditAssessment  = auditAssessment
     , ineligibleMode   = ineligibleMode
     , debts            = if ineligibleDebt then asIneligible scenario.debts else scenario.debts
+    , ledgerModel      = ledgerModel
     }
 
 -- | The scenario's first debt declared as @ineligible-review@, where it has
@@ -590,6 +602,7 @@ shrinkScenario scenario =
       , [ scenario { branchMissing = False }     | scenario.branchMissing ]
       , [ scenario { conflictingGates = False }  | scenario.conflictingGates ]
       , [ scenario { implementers = False }      | scenario.implementers ]
+      , [ scenario { ledgerModel = False }       | scenario.ledgerModel ]
       , [ scenario { reviewerModel = pick }      | pick <- [minBound .. scenario.reviewerModel], pick /= scenario.reviewerModel ]
       , [ scenario { auditModel = pick }         | pick <- [minBound .. scenario.auditModel], pick /= scenario.auditModel ]
       , [ scenario { auditAssessment = mode }    | mode <- [minBound .. scenario.auditAssessment], mode /= scenario.auditAssessment ]

@@ -58,6 +58,6 @@ data Debt = Debt
   , reason              :: !String
   , actor               :: !ActorId
   , ineligible          :: !(Maybe IneligibleRead)
-  , trailerImplementers :: !(Maybe (Set ModelSlug))  -- ^ The @Implemented-by@ models of the patchset's range, read when the debt was declared; absent where the range was not read.
+  , trailerImplementers :: !(Maybe (Set ModelSlug))  -- ^ The @Implemented-by@ models of the patchset's range, read when the debt was declared, kept as a projection for comparison; absent where the range was not read.
   }
   deriving stock (Eq, Ord, Show)

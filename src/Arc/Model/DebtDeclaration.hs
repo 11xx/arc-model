@@ -78,7 +78,7 @@ declareDebt state request = do
         , reason              = request.reason
         , actor               = request.actor
         , ineligible          = ineligibleRead
-        , trailerImplementers = request.patchset >>= patchsetById state >>= (.implementers)
+        , trailerImplementers = request.patchset >>= patchsetById state >>= (.trailerImplementers)
         }
   pure $ case [ held | held <- state.debts, same held candidate ] of
     held : _ -> DebtReused held

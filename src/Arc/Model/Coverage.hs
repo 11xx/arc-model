@@ -166,9 +166,9 @@ verdictIsIndependent state verdict = do
 -- C4, C22
 {- | A read recorded after integration is independent when its identity was
 declared, it is not one of the shipped patchset's contributors, and the
-model it recorded is none of the shipped range's implementers. The same
-predicate the audit gate consults, so a projection and a refusal cannot
-disagree about independence.
+model it recorded is none the ledger records for the shipped patchset's
+implementer. The same predicate the audit gate consults, so a projection and
+a refusal cannot disagree about independence.
 -}
 auditIsIndependent :: ChangeState -> Audit -> Bool
 auditIsIndependent state audit =
@@ -203,7 +203,7 @@ assessmentBinding state debt audit assessment = case audit.model of
     effortsDiffer model = case (model.effort, assessment.reviewerEffort) of
       (Just recorded, Just assessed) -> recorded /= assessed
       _unnamed                       -> False
-    implementers = debt.trailerImplementers <|> (latestIntegration state >>= patchsetById state . (.patchset) >>= (.implementers))
+    implementers = debt.trailerImplementers <|> (latestIntegration state >>= patchsetById state . (.patchset) >>= (.trailerImplementers))
     answered     = Set.unions assessment.authors
 
 -- C22

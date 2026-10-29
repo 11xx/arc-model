@@ -700,8 +700,8 @@ auditRefusals =
     openState   = (build defaultScenario { Scenario.verdict = ChangesRequested }).state
     closedState = (build defaultScenario { Scenario.audit = Just (Approved, True) }).finalState
     refusedAudit = build defaultScenario { Scenario.reviewer = Nothing, Scenario.debts = [(1, Nothing)], Scenario.audit = Just (Approved, False) }
-    openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False [] Nothing Nothing
-    approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False [] Nothing Nothing
+    openAudit   = Audit (EventId 950) (Revision "rev1") ChangesRequested otherActor False [] Nothing Set.empty Nothing
+    approving   = Audit (EventId 951) (Revision "rev1") Approved otherActor False [] Nothing Set.empty Nothing
     independentDischarges = case auditDischarges closedState debt approving of
       Right discharge -> discharge.approves && discharge.read == ReadByAudit approving.event
       Left _          -> False
