@@ -1,0 +1,274 @@
+--- evidence/repin/8d93a6e/guide.txt	2026-10-28 21:11:25.201201810 -0300
++++ /home/lobo/.cache/arc-lanes-20261028/arc-model-review-roles/out-6e7f9dfb/guide.txt	2026-10-28 21:14:07.249758910 -0300
+@@ -794,7 +794,10 @@
+                                      A rewrite that invalidated approval
+                                      requires a fresh patchset even when the
+                                      mapped head already matches the branch.
+-                                     A snapshot grants no approval.
++                                     A snapshot grants no approval. Only a
++                                     clean `arc rebase` keeps the replayed
++                                     patchset's recorded contributor
++                                     coordinates.
+     --verify [--gate <name>...]      Run required gates, reusing the newest
+                                      green evidence at the same tree. Selected
+                                      --gate names rerun explicitly and must be unique and declared;
+@@ -1086,10 +1089,32 @@
+   edge whitespace, is left as a placeholder the line names.
+ 
+   `arc rebase` is what `check` names when the selected integration shape
+-  requires replay onto the target. A conflict stops it and leaves the rebase in progress — the partial
++  requires replay onto the target. Where Git can, arc performs the replay
++  itself with `git replay`, which runs no hooks and leaves the worktree alone.
++  The replay runs in a temporary bare repository that shares the project's
++  object store and inherits none of its configuration, so a merge driver or
++  filter the project configures has no definition to run. arc reads the result
++  from the ref Git itself updated there, moves the branch by a compare-and-swap
++  against the old head, and brings the worktree to it without discarding a
++  local change. The commits it creates carry no signature, whatever the
++  repository configures for commits it makes; `arc rewrite sign` signs a
++  replayed range. Such a replay is recorded as a mechanical replay of the
++  patchset whose head it replayed, carrying every contributor the patchset
++  carries at the coordinate the ledger recorded for it, model included; the
++  replaying session is not its implementer, and the patchset names exactly
++  the tip that replay wrote. A `post-rewrite` hook, a reflog entry, a merge
++  driver, or an inherited `GIT_REFLOG_ACTION` cannot make ordinary work look
++  replayed.
++  `--contributors` and `--solo` decide the replayed patchset's contributor
++  set; a declared member the replay carries over keeps its recorded
++  coordinate, and one it does not carry is credited as declared. Where Git
++  cannot replay — a Git without the command, a refusal, or a conflict — the
++  replay falls back to `git rebase`, whose result is recorded as ordinary
++  work. A conflict stops it and leaves the rebase in progress — the partial
+   resolution is yours, and aborting would throw it away — with the conflicting
+-  files and the commands that finish the replay. Resolve, `git rebase
+-  --continue`, then `arc snapshot --verify`. Over another actor's live claim
++  files and the commands that finish the replay. Resolve,
++  `git rebase --continue`, then `arc snapshot --verify`, which records the
++  resolved head as the snapshot taker's work. Over another actor's live claim
+   an unattributed rebase refuses before the branch moves, and the change stays
+   locked from that check until the replayed head is recorded. The gates the
+   replayed head owes are named after it is recorded; a failure to evaluate
+@@ -2103,26 +2128,55 @@
+   against whatever is newest. Otherwise a later snapshot by somebody else
+   would retroactively turn a self-review into an independent one.
+ 
+-  It is also a relation between declared identities. An approval is refused
+-  when its effective author matches a contributor on the patchset it approves,
+-  or when arc assumed the reviewing identity from git config or the harness
+-  session, which is nobody's claim and so cannot be the second party. An assumed authoring identity
+-  refuses nothing on its own: a reviewer that declared a different name is
+-  independent of it, before the merge and in an audit after it alike. Two
+-  assumed identities are refused, since neither side claimed anything. The
+-  reviewing model is a second identity: a verdict or audit recorded under the
+-  model, at any effort, of an `Implemented-by` line in the range it judges
+-  warns that it shows a review happened and not that it was independent of
+-  whoever wrote the work. Where self-approval is forbidden the gate rejects
+-  the approval as it rejects a contributor match, and `arc audit` refuses to
+-  record it; `--verdict changes-requested` is open to anyone. Models compare
+-  as strings once the effort is dropped: arc holds no alias table, so a model
+-  the trailers spell another way is not matched. A range that cannot be read
+-  names nobody for this comparison: arc says it could not read the trailers,
+-  and neither the gate nor `arc audit` refuses on what it could not see. A
+-  reviewer arc cannot place that way is reported as unknown attribution
+-  rather than counted as independent or as self-review, whether it cast a
+-  verdict or only filed findings.
++  It is also a relation between declared identities. The ledger, never commit
++  trailers, says who held which role. A patchset's recorded contributor set,
++  when one was declared, is its authorship; otherwise its implementer is its
++  effective author: its `--on-behalf-of` subject when one was named, else its
++  recorder. Its planner is the plan's recorded planners, else an asserted
++  `Planned-by`, else the brief's recorder; its orchestrator is the invoker
++  recorded beside an `--on-behalf-of` subject, and its integrator the actor of
++  `arc integrate`, never the subject that command was invoked on behalf of.
++  Planning, orchestrating and integrating somebody else's work are not
++  authorship. A clean `arc rebase` that arc performs itself — `git replay`,
++  run in a repository without the project's configuration, whose ref arc
++  reads — records a mechanical replay of the patchset whose head it replayed,
++  carrying every contributor's recorded coordinate, model included, even when
++  context or hunk positions moved. Only that replay's result, applied in the
++  same invocation, is the replay: a snapshot of any other head, and any replay
++  that fell back to `git rebase` or stopped for a person to resolve, is
++  ordinary work. Reflog text, hooks, merge drivers, and inherited
++  `GIT_REFLOG_ACTION` are not evidence for this and do not enter it. The
++  replaying session is the replayer, never the author. A record supplies an
++  actor's coordinate only when it credits that actor as an author; a session
++  that merely replays or records somebody else's work supplies none. An
++  explicit `--contributors` or `--solo` decides the replayed patchset's
++  contributor set; members the replay carries over keep their recorded
++  coordinates. Any other snapshot records the head as ordinary work: its
++  recorder, or its explicit `--on-behalf-of` or contributor declaration, is
++  the author.
++
++  An approval is refused when its effective author matches the ledger's
++  authorship, or when arc assumed the reviewing identity from git config or the
++  harness session, which is nobody's claim and so cannot be the second party.
++  An assumed authoring identity refuses nothing on its own: a reviewer that
++  declared a different name is independent of it, before the merge and in an
++  audit after it alike. Two assumed identities are refused, since neither side
++  claimed anything. Authorship is also a model identity: a read under the model,
++  at any effort, of the ledger's implementer is a self-review. Where
++  self-approval is forbidden the gate rejects the approval as it rejects a
++  contributor match, and `arc audit` refuses to record it;
++  `--verdict changes-requested` is open to anyone. Models compare as strings
++  once the effort is dropped: arc holds no alias table. `Planned-by` and
++  `Orchestrated-by` never refuse a read; an audit records which of those roles
++  its auditor held as dirty context for routing, and computes no score.
++
++  Commit trailers are a projection arc writes from the ledger. A range whose
++  trailers disagree with the ledger is reported. For commits with no ledger
++  record, such as imported ones, trailers are declared, unverified evidence:
++  alone they neither discharge nor refuse, and the read says so. A reviewer arc
++  cannot place is reported as unknown attribution rather than counted as
++  independent or as self-review, whether it cast a verdict or only filed
++  findings.
+ 
+   Which changes need one is declared in `[danger] paths` in
+   `.arc/policy.toml` or the operator policy at
+@@ -2294,25 +2348,32 @@
+   was assessed or declared, the route version, and the later reads that
+   left it open.
+ 
++  Production names who set the contract, who implemented it, and the
++  orchestrator and integrator when the ledger records them. The planner is the
++  plan the work was opened from, else an asserted `Planned-by`, else the
++  brief's recorder. The implementer is the identity of the patchset's declared
++  contributor set when one was recorded, else its effective author; the
++  orchestrator is the invoker recorded beside an `--on-behalf-of` subject, and
++  the integrator is the actor of `arc integrate`.
++
+   Production also names the `Implemented-by` values of the commits in the
+   patchset's range, read when the debt is declared and kept verbatim, without
+-  repeats, as `trailer_implementers`: a lead who snapshots and integrates an
+-  executor's commits is the recorded implementer, and the trailers say who
+-  did the work. A range whose commits carry none records an empty list,
++  repeats, as `trailer_implementers`: a projection kept for comparison, never
++  the source of a role. A range whose commits carry none records an empty list,
+   which readers show as "no Implemented-by trailers"; a record kept before
+   the range was read, or whose range could not be read then, has no list and
+   says nothing of it: the two read alike, and an audit reads the range again.
+   `arc catchup`, the
+   workspace backlog, `arc explain` and `arc show` show the list wherever it
+-  is empty or names a harness and model other than the recorder's.
++  is empty or disagrees with the ledger's implementer.
+ 
+   Coverage names each verdict's reviewer, the model string it was cast under
+   kept whole, the effort that string's trailing `#suffix` names, and the
+   routing version `arc review --route-version` or `arc audit --route-version`
+-  declared. Production names who recorded the brief version the shipped work
+-  answered and who recorded the patchset. Arc records coordinates and holds
+-  no opinion: no score, no roster to join them against, and no ordering
+-  between two models.
++  declared. Production names who set the contract, who implemented it, and
++  the orchestrator and integrator the ledger records. Arc records coordinates
++  and holds no opinion: no score, no roster to join them against, and no
++  ordering between two models.
+ 
+   A verdict can also be owed corroboration rather than absent. `arc review
+   --verdict approved --provisional "<why>"` records one that gates like any
+@@ -2369,14 +2430,23 @@
+   the merge or `arc audit` after. The debt records that no verdict existed,
+   not that one command must supply it. What the verdict concluded lives in
+   the verdict and its findings; discharging the debt does not mean approval.
+-  The `ineligible-review` kind is the exception stated above: only an audit
++  A debt that carries no production record still has its shipped patchset's
++  recorded authorship to compare against, so a legacy obligation discharges as
++  it did before production summaries existed. An integrated closure that
++  recorded no source patchset recovers it from the ledger: the patchset whose
++  head is its integrated commit, else the latest one recorded before the
++  closure. Only a range with no patchset at all has nothing to compare: its
++  read is recorded, and declared trailers alone neither discharge nor refuse
++  it. The `ineligible-review` kind is the exception stated above: only an audit
+   with an eligible assessment clears it.
+ 
+   An audit is a separate event from the verdict that shipped, so attaching one
+   never rewrites what shipped with what review. An approving audit must come
+-  from an identity other than the author — otherwise the obligation would
+-  discharge itself — though anyone may audit into `changes-requested`, since
+-  raising problems needs no independence.
++  from an identity the ledger does not credit with authorship — otherwise the
++  obligation would discharge itself — though anyone may audit into
++  `changes-requested`, since raising problems needs no independence. Planning
++  and orchestrating are recorded as the auditor's held roles and never refuse;
++  integrating somebody else's work is not contributing to it.
+ 
+   A review finding the change shipped unresolved, whether open, still-open,
+   disputed, or contested, stays that way in what shipped. `arc resolve` on
+@@ -2400,10 +2470,12 @@
+   identity wrote, and whether arc assumed the identity rather than anyone
+   declaring it. Such a
+   verdict is a review that happened, not an independent one, and it leaves an
+-  independent-review debt owed. A read under a model named by an
+-  `Implemented-by` trailer in the debt's production record, at any effort,
+-  also leaves the debt owed, regardless of `forbid_self_approval`. That
+-  policy governs approval authority, not independent coverage.
++  independent-review debt owed. A read under a model the ledger credits as
++  implementer leaves the debt owed at any effort, regardless of
++  `forbid_self_approval`. Where the ledger records no model for the implementer,
++  the read is judged by the actor, session and harness it records; commit
++  trailers are declared text and never supply the missing model.
++  That policy governs approval authority, not independent coverage.
+ 
+ REVIEW ASSURANCE
+   Every integrated change carries a dated assurance record: the reads it
+@@ -4259,9 +4331,9 @@
+     timeout = "30s"
+ 
+   Preparation runs after begin, fork, acceptance and replay checkout
+-  population. Its working directory and `ARC_WORKTREE_BUILD` name an
+-  Arc-owned directory specific to that checkout and source tree. Gates and
+-  probes use prepared output only with a matching successful receipt;
++  population. The default `source-bound` mode gives its working directory
++  and `ARC_WORKTREE_BUILD` a checkout-specific source-tree directory. Gates
++  and probes use prepared output only with a matching successful receipt;
+   otherwise they receive fresh cold storage.
+   `ARC_WORKTREE_PATH`, `ARC_WORKTREE_REVISION` and `ARC_WORKTREE_TREE` identify
+   the source; `ARC_WORKTREE_CACHE` names a shared cache protected by a lease.
+@@ -4275,6 +4347,48 @@
+   `CARGO_TARGET_DIR="$ARC_WORKTREE_BUILD/target"`. An administrative receipt
+   reuses preparation at unchanged source; changed source prepares again.
+ 
++  A project whose compiler workspace depends on absolute paths can select
++  persistent storage:
++
++    [prepare]
++    mode = "path-stable"
++    directory = "../build"
++    command = "<project incremental preparation command>"
++    timeout = "30s"
++
++  `directory` is a literal absolute path or a path relative to the source
++  checkout. Without it, storage under the Git common directory is keyed by
++  the canonical checkout path, independently of its tree or administrative
++  allocation. Stable storage survives `integrate --cleanup`. Project slot
++  drivers can recreate a fixed `--worktree` source path beside `../build`;
++  Arc does not allocate a source-slot pool or relocate compiler outputs.
++  The slot driver owns source allocation and drains its external writers
++  before checkout cleanup.
++  Keeping only the build path fixed cannot stabilize changing source paths.
++
++  A stable directory is available without a per-tree preparation receipt.
++  `command` is optional in this mode: project hooks or gates establish
++  compiler, header, dependency and source-metadata freshness. Their ordinary
++  checks remain authoritative. Arc never copies or clears the directory.
++  Control files live beside it, so a compiler clean can remove its outputs
++  without removing the active lease. The parent directory must remain
++  writable and control files must be preserved while writers are active.
++  A foreign owner, busy lease or failed preparation refuses stable use.
++  Failed or interrupted hooks retain an incomplete marker until successful
++  preparation retries; readiness probes do not run preparation or compile.
++  A busy or incomplete directory makes its probe identity unavailable.
++
++  Arc holds the exclusive build lease through each owned hook, probe and
++  gate. `ARC_WORKTREE_BUILD_LEASE` names it and
++  `ARC_WORKTREE_BUILD_LEASE_FD` identifies the inherited held descriptor.
++  Cooperating project commands keep that descriptor open through their
++  writers and reuse it rather than flocking the file again; external builds
++  acquire the same lease. Parent death does not close the child's inherited
++  descriptor. Source/index/HEAD mutation checks and gate evidence rules
++  apply in both modes; build storage and preparation grant no verification.
++  Index checks compare indexed content and flags, permitting harmless stat
++  refreshes when a project restores timestamps for byte-identical sources.
++
+   A timeout bounds the process and its output-pipe cleanup. A descendant
+   holding a pipe after the leader exits still times out; arc kills the
+   process group and returns without waiting on an escaped descendant. An
