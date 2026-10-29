@@ -57,10 +57,24 @@ out of this package".
 
 **Rule.** A patchset is an immutable snapshot of a change's branch: a base,
 a head revision, the head's tree, the contributors whose work it carries,
-and the brief in force when it was recorded. Verdicts, waivers, and probe
-evidence bind to a patchset, never to a branch name. The latest recorded
-patchset is the one an integration would ship. A change with no patchset has
-nothing to authorize and is refused.
+and the brief in force when it was recorded. Each contributor is carried at
+the coordinate the ledger recorded for it, model included. Verdicts,
+waivers, and probe evidence bind to a patchset, never to a branch name. The
+latest recorded patchset is the one an integration would ship. A change
+with no patchset has nothing to authorize and is refused.
+
+A clean `arc rebase` — the mechanical replay arc performs itself, in a
+repository without the project's configuration, reading the ref Git
+updated — records a fresh patchset of the patchset whose head it replayed,
+carrying every contributor the earlier patchset carries at its recorded
+coordinate, model included, and naming exactly the tip that replay wrote.
+The replaying session is not the replayed patchset's implementer. A replay
+that falls back to `git rebase`, or stops for a person to resolve, records
+ordinary work, whose author is its recorder unless `--on-behalf-of` or
+`--contributors` declares another; `--contributors` and `--solo` decide any
+replayed patchset's contributor set, a member the replay carries over
+keeping its recorded coordinate and one it does not carry credited as
+declared.
 
 **Status.** Settled. The refusal of a change with no patchset is a decision
 the contract makes: approvals bind to patchsets, so without one nothing can
@@ -75,11 +89,25 @@ the authorization boundary without the mapped-head recording protocol.
 Recording a patchset while another actor holds a live claim on the change
 requires declared contributors or `--solo`; that is a condition on
 recording a patchset, not on authorizing one, and the model's ledger holds
-only patchsets that were recorded.
+only patchsets that were recorded. The contributor coordinates a patchset
+carries are recorded facts, like its revision; the model states a replay's
+inheritance by reading the replayed patchset's recorded coordinates, and
+the replay protocol itself is outside it.
 
 **Source.** `arc snapshot --help` (`--base`, `--brief-version`,
 `--contributors`: "Recording a patchset while another actor holds a live
-claim on the change requires this or --solo", `--amend`); the guide, "Rules that change what you do" (a
+claim on the change requires this or --solo", `--amend`; "Only the replay
+`arc rebase` performs itself records an inherited author: it carries the
+author coordinates of the patchset whose head it replayed, every
+contributor at its recorded model, and the replaying session is not its
+implementer"); `arc rebase --help` ("recorded as a mechanical replay of the
+patchset whose head it replayed, carrying every contributor's recorded
+coordinate, model included"; "`--contributors` and `--solo` decide the
+replayed patchset's contributor set; a declared member the replay carries
+over keeps its recorded coordinate, and one it does not carry is credited
+as declared"); the guide, "Run a change" ("Only a clean `arc rebase` keeps
+the replayed patchset's recorded contributor coordinates"; the replay
+paragraphs) and "Rules that change what you do" (a
 verdict binds to the exact approved patchset head) and "Review coverage and
 debt" (coverage is measured against the final patchset;
 attribution is repaired only before any verdict); `README.md`, "One change,
@@ -171,9 +199,17 @@ under `ff-only`, where no merge ships, a change behind its target still lists
 
 ### C4. Contributors and reviewer independence
 
-**Rule.** The effective author of an event is the subject it was recorded
-on behalf of, otherwise its actor. A patchset's contributor set is the set
-declared for it when nonempty, otherwise its effective author alone.
+**Rule.** The ledger, never commit trailers, says who held which role. The
+effective author of an event is the subject it was recorded on behalf of,
+otherwise its actor. A patchset's contributor set is the set declared for it
+when nonempty, otherwise its effective author alone; that set is its
+authorship, and the patchset's implementer is the identity of that
+authorship. Its planner is the plan's recorded planners, else an asserted
+`Planned-by`, else the brief's recorder; its orchestrator is the invoker
+recorded beside an `--on-behalf-of` subject; its integrator is the actor of
+`arc integrate`, never the subject that command was invoked on behalf of.
+Planning, orchestrating, and integrating somebody else's work are not
+authorship.
 
 A change has one danger scope. It is *inside* the danger gate when it
 touches a path either policy file declares dangerous, was raised with
@@ -186,16 +222,28 @@ inside it.
 Where independent review is required, an approval is rejected when its
 effective author is a contributor to the patchset it approves, when arc
 assumed the reviewing identity rather than anyone declaring it, or when the
-model its verdict recorded, effort dropped, equals the model of an
-`Implemented-by` line in the range the patchset carries. A model compares as
-a string: arc holds no alias table, so a model the trailers spell another way
-is not matched. A verdict that recorded no model, or a range that cannot be
-read, names nobody for this comparison. Independence is judged against the
+model its verdict recorded, effort dropped, equals the model the ledger
+records for that patchset's implementer. A read under that model is a
+self-review at any effort. A model compares as a string: arc holds no alias
+table, so a model spelled another way is not matched. Where the ledger
+records no model for the implementer, the read is judged by the actor,
+session, and harness it records, and commit trailers never supply the
+missing model. A verdict that recorded no model names nobody for this
+comparison. Independence is judged against the
 patchset the verdict binds to, never against a later one. A rejected self-approval is no approval (C5), and a
 waiver bound to the same patchset can rescue it (C6).
 
+Commit trailers are a projection arc writes from the ledger. A range whose
+trailers disagree with the ledger is reported. For commits with no ledger
+record, such as imported ones, trailers are declared, unverified evidence:
+alone they neither discharge nor refuse, and the read says so.
+
 **Status.** Settled on the effective author, the contributor fallback, the
-danger scopes, and the reviewing model as a second identity. Unsettled on
+ledger as the source of authorship, the ledger's implementer model as the
+second identity, the danger scopes, and the inertness of the planning,
+orchestrating, and integrating roles. The model records the audit's held
+roles and reads none of them: a planner, orchestrator, or integrator is
+never authorship, so no rule consults one. Unsettled on
 when independent review is required.
 
 - *When independent review is required.*
@@ -218,30 +266,57 @@ when independent review is required.
   where policy requires one, or when someone asks for one", names policy
   as what requires one without saying which policy, so it decides neither.
 
-The reviewing model is a second identity. Where self-approval is forbidden
-the gate rejects such an approval "as it rejects a contributor match"; where
-it is not, the verdict is recorded and counts under C4's reading (ii) and
-shows only "that a review happened and not that it was independent", so it
-is not an independent read for coverage (C22). A read under an
-`Implemented-by` model in the debt's production record, at any effort, leaves
-the debt owed regardless of `forbid_self_approval`; that policy governs
-approval authority rather than independent coverage. A `changes-requested` verdict
-is never refused for its model.
+The reviewing model is a second identity, read from the ledger. Where
+self-approval is forbidden the gate rejects such an approval "as it rejects
+a contributor match"; where it is not, the verdict is recorded and counts
+under C4's reading (ii) and shows only "that a review happened and not that
+it was independent", so it is not an independent read for coverage (C22). A
+read under the model the ledger records for the implementer, at any effort,
+leaves the debt owed regardless of `forbid_self_approval`; that policy
+governs approval authority rather than independent coverage. `Planned-by`
+and `Orchestrated-by` never refuse a read: planning and orchestrating are
+recorded as the auditor's dirty context for routing, and arc computes no
+score. Integrating somebody else's work is not contributing to it. A
+`changes-requested` verdict is never refused for its model.
 
-**Source.** The guide, "Review coverage and debt" (the independence passage:
-"The reviewing model is a second identity: a verdict or audit recorded under
-the model, at any effort, of an `Implemented-by` line in the range it judges
-warns that it shows a review happened and not that it was independent of
-whoever wrote the work. Where self-approval is forbidden the gate rejects the
-approval as it rejects a contributor match, and `arc audit` refuses to record
-it; `--verdict changes-requested` is open to anyone. Models compare as
-strings once the effort is dropped: arc holds no alias table, so a model the
-trailers spell another way is not matched. A range that cannot be read names
-nobody for this comparison: arc says it could not read the trailers, and
-neither the gate nor `arc audit` refuses on what it could not see.");
-`arc review --help` ("Where `forbid_self_approval` applies, the gate rejects
-it as a self-approval, exactly as it rejects a reviewer matching a
-contributor"); the guide, "Review coverage and debt":
+**Source.** The guide, "Review coverage and debt" (the authorship passage:
+"The ledger, never commit trailers, says who held which role. A patchset's
+recorded contributor set, when one was declared, is its authorship;
+otherwise its implementer is its effective author: its `--on-behalf-of`
+subject when one was named, else its recorder. Its planner is the plan's
+recorded planners, else an asserted `Planned-by`, else the brief's recorder;
+its orchestrator is the invoker recorded beside an `--on-behalf-of` subject,
+and its integrator the actor of `arc integrate`, never the subject that
+command was invoked on behalf of. Planning, orchestrating and integrating
+somebody else's work are not authorship": "An approval is refused when its
+effective author matches the ledger's authorship, or when arc assumed the
+reviewing identity from git config or the harness session"; "Authorship is
+also a model identity: a read under the model, at any effort, of the
+ledger's implementer is a self-review"; "Models compare as strings once the
+effort is dropped: arc holds no alias table"; "`Planned-by` and
+`Orchestrated-by` never refuse a read; an audit records which of those roles
+its auditor held as dirty context for routing, and computes no score";
+"Commit trailers are a projection arc writes from the ledger. A range whose
+trailers disagree with the ledger is reported. For commits with no ledger
+record, such as imported ones, trailers are declared, unverified evidence:
+alone they neither discharge nor refuse, and the read says so"; and, under
+coverage, "Where the ledger records no model for the implementer, the read
+is judged by the actor, session and harness it records; commit trailers are
+declared text and never supply the missing model"); `arc review --help`
+("Authorship is read from the ledger, not from commit trailers: the
+patchset's declared contributors, else its effective author, and its
+production record's implementer. An approval recorded under that
+implementer's model, at any effort, warns that it shows a review happened
+and not that it was independent of whoever wrote the work"; "Planning and
+orchestrating never refuse"); `arc audit --help` ("An audit discharges a
+debt when its auditor is independent of the work's ledger authorship";
+"Planning and orchestrating never refuse; the audit records those roles
+beside the verdict"); `arc trailers --help` ("`Implemented-by` from declared
+patchset contributors, or the snapshot subject when none are listed"; "The
+recorder's harness and model apply only to the recorder's own work");
+`arc roles --help` ("Record explicit planning and orchestration assertions
+on an open change... ancestry grants no credit"); the guide, "Review
+coverage and debt":
 "An event's effective author is its `--on-behalf-of` subject when set,
 otherwise its actor. A patchset's effective contributors are its recorded
 set when nonempty, otherwise its effective author alone." The same section
@@ -901,11 +976,14 @@ read, or carries an assessment whose independence is `eligible`, since "there
 is no debt to record". Arc keeps no tier, family or floor: the kind is a
 record of routing's word.
 
-Every debt's production record also keeps the `Implemented-by` values of the
+Every debt's production record names the ledger's planner, implementer,
+orchestrator, and integrator, and keeps the `Implemented-by` values of the
 commits in the patchset's range, read when the debt is declared, without
-repeats. A range whose commits carry none records an empty list; a record
-kept before the range was read, or whose range could not be read then, has no
-list, and says nothing of it.
+repeats, as `trailer_implementers`. Those values are a projection kept for
+comparison, never the source of a role. A range whose commits carry none
+records an empty list; a record kept before the range was read, or whose
+range could not be read then, has no list, and says nothing of it; an audit
+reads the range again.
 
 **Status.** Settled, except for a patchset with no verdict of its own when
 earlier patchsets of the change carry verdicts and none of them is an
@@ -932,10 +1010,16 @@ repair and a merge resolution the same way"; "`ineligible-review` is
 declared, never derived: arc holds no family, tier or floor, so only
 routing's reading can say a read does not count"; the record's `read`,
 `qualifiers`, `assessment` and `route_version`; "An `eligible` assessment is
-refused on this kind, because there is no debt to record"; "Production also
+refused on this kind, because there is no debt to record"; "Production names
+who set the contract, who implemented it, and the orchestrator and
+integrator when the ledger records them"; "Production also
 names the `Implemented-by` values of the commits in the patchset's range,
 read when the debt is declared and kept verbatim, without repeats, as
-`trailer_implementers`"; `review_options`); `arc debt --help`, `--kind`,
+`trailer_implementers`: a projection kept for comparison, never the source
+of a role"; `review_options`); `arc debt --help` ("The production record
+names the ledger's planner, implementer, orchestrator and integrator. It
+also keeps the `Implemented-by` values of the commits in the range verbatim
+as a projection for comparison [...] Trailers never decide a role"), `--kind`,
 `--read`, `--assessment`, `--qualifier`, `--route-version` (`--read`:
 "Omitted, the latest verdict on the patchset the debt covers. Refused when
 the patchset has no verdict, or the event is not one of its verdicts").
@@ -951,14 +1035,27 @@ rewrites the answer to what shipped on what review: the recorded
 authorization of an integration is fixed when the integration is recorded.
 Audit findings are a separate set from the shipped findings. Auditing into
 changes-requested is open to anyone. An approving audit discharges an
-obligation only when it comes from a declared identity that is not a
-contributor to the shipped patchset, and whose recorded model, effort
-dropped, is none of the `Implemented-by` models of the shipped range (C4).
+obligation only when it comes from a declared identity the ledger does not
+credit with authorship of the shipped patchset: not a contributor, and
+whose recorded model, effort dropped, is not the model the ledger records
+for the implementer (C4). Planning and orchestrating are the auditor's
+recorded held roles, dirty context for routing, and never refuse;
+integrating somebody else's work is not contributing to it. Where the ledger
+records no model for the implementer, the read is judged by the actor,
+session, and harness it records; commit trailers never supply the missing
+model.
 Any independent verdict on the shipped revision, recorded after the debt,
 fulfils the owed read, whether it came before the merge or in an audit after
 it. A fulfilled read is not an approval: a negative audit can fulfil the read
 and leave its findings open, and what the reader concluded stays in its
 verdict and findings.
+
+A debt that carries no production record reads the shipped patchset's
+recorded authorship. An integrated closure that recorded no source patchset
+recovers it from the ledger: the patchset whose head is its integrated
+commit, else the latest one recorded before the closure. Only a range with
+no patchset at all has nothing to compare: its read is recorded, and
+declared trailers alone neither discharge nor refuse it.
 
 A debt of kind `ineligible-review` is the exception: no verdict fulfils it,
 before the merge or after, and an audit fulfils it only when routing's
@@ -969,7 +1066,8 @@ auditor when the model the audit recorded is among the reviewer's
 `identities` and, where both name an effort, the effort equals the
 reviewer's. It covers the work when its `authors`, through their `identities`,
 answer to the model of every `Implemented-by` line in the integrated range,
-read from the debt's production record, else from the range itself. A range
+read from the debt's production record, else from the range itself — the
+range's declared trailers, a projection, not the ledger's implementer. A range
 read and found to have no `Implemented-by` line asks nothing of the authors;
 a range whose lines cannot be established is not an empty one. The audit
 records the outcome of the binding: `bound`, `model-mismatch`,
@@ -981,7 +1079,11 @@ an assessment, with an `ineligible` one, or whose binding is not `bound`, is
 recorded, says why, and leaves the debt open. Other kinds ignore the
 assessment.
 
-**Status.** Settled, except:
+**Status.** Settled on the ledger as the source of the shipped authors and
+their model; the trailer projection is C21's record and answers only the
+assessment binding. The model's integrations always name the patchset they
+shipped, so the closure's recovery of a missing source patchset is outside
+it. Settled, except:
 
 - *The binding where several parts fail.* An assessment can fail to describe
   the auditor and fail to cover the authors at once, and the documentation
@@ -996,8 +1098,8 @@ assessment.
   elsewhere (the guide: "Where `forbid_self_approval` is off, an approving
   verdict from the identity that wrote the work is recorded rather than
   refused, and `arc review` and `arc audit` both name the match"). (ii) It
-  is always refused (the guide: "An approving audit must come from an
-  identity other than the author"). (iii) An assumed auditor is refused
+  is always refused (the guide: "An approving audit must come
+  from an identity the ledger does not credit with authorship"). (iii) An assumed auditor is refused
   whatever the policy, and a declared contributor is recorded without
   effect (the guide: an assumed reviewing identity "cannot be the second
   party"). The model reads (i).
@@ -1027,14 +1129,34 @@ audit event recorded is among the reviewer's `identities` [...] and, where
 both name an effort, the effort equals the reviewer's `effort`"; "a verdict
 recorded since carries no assessment and does not clear it"; "The
 `ineligible-review` kind is the exception stated above: only an audit with an
-eligible assessment clears it") and "The history model" ("a discharge is
+eligible assessment clears it"; and, after it, "A debt that carries no
+production record still has its shipped patchset's recorded authorship to
+compare against, so a legacy obligation discharges as it did before
+production summaries existed. An integrated closure that recorded no source
+patchset recovers it from the ledger: the patchset whose head is its
+integrated commit, else the latest one recorded before the closure. Only a
+range with no patchset at all has nothing to compare"; "An approving audit
+must come
+from an identity the ledger does not credit with authorship — otherwise the
+obligation would discharge itself — though anyone may audit into
+`changes-requested` [...] Planning
+and orchestrating are recorded as the auditor's held roles and never refuse;
+integrating somebody else's work is not contributing to it"; and, under
+coverage, "Where the ledger records no model for the implementer, the read is
+judged by the actor, session and harness it records; commit trailers are
+declared text and never supply the missing model") and "The history model" ("a discharge is
 fulfilment, never approval, and never rewrites the basis the integration was
 accepted on"); `arc audit --help` ("An approving audit recorded under the
-model of an `Implemented-by` line in the audited range, at any effort, warns
+model of the ledger's implementer of the audited range, at any effort, warns
 that it shows a review happened and not that it was independent of whoever
-wrote the work. Where `forbid_self_approval` is on it is refused, with the
+wrote the work. Where the ledger records no implementer model, the audit
+says so and is judged by the actor, session and harness; `Implemented-by`
+trailers are reported as declared text only [...] Where `forbid_self_approval`
+is on it is refused, with the
 remedy a contributor match gets. `--verdict changes-requested` is open to
-anyone"; "A debt of kind `ineligible-review` is discharged only by an audit
+anyone"; "An audit discharges a debt when its auditor is independent of the
+work's ledger authorship"; "A debt of kind `ineligible-review` is discharged
+only by an audit
 whose assessment says `eligible` and is `bound`").
 
 **Realized by.** `admitAudit`, `auditDischarges`, `auditIsIndependent`,
