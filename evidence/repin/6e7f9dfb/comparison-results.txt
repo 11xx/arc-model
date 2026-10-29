@@ -1,0 +1,5 @@
+channel decision: 181 cases: 162 agreed, 6 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel execution: 187 cases: 158 agreed, 16 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+
+Seed: 20260907; the default 60 generated cases per channel and 60 check-time cases for decision, execution and coverage. All named histories are retained.

@@ -1045,6 +1045,95 @@ named `--read`, and an unreadable range.
   before it would exit 14"). The `ff-only` fixtures pin both grounds and the
   decision channel's `ff-only-behind` scenarios agree with arc at `3e020e5`.
 
+### Results at arc `6e7f9dfb`
+
+Captured `arc 2026.9.29`, clean build and source revision
+`6e7f9dfbba9f9c2f3430272986e388b43b776a7b`, executable SHA-256
+`f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc`.
+Seed `20260907`, and each channel at its defaults (60 generated and 60
+check-time histories). Each channel selected that executable on `PATH`, ran
+under its compiled-in heap cap, and replayed through `Differential.Sandbox`
+with roots under the scratch directory. All three commands exited 0.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed to replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 181 | 162 | 6 | 13 | 0 | 0 |
+| execution | 187 | 158 | 16 | 13 | 0 | 0 |
+| coverage | 222 | 204 | 5 | 13 | 0 | 0 |
+
+The last recorded run, at `3e020e5`, drew 200 generated and 200 check-time
+histories per channel, so the generated counts are not comparable one for
+one. The named scenarios are: 61 shared decision scenarios against 58, 67
+execution cases against 64, and 102 coverage cases against 94.
+[Retained summaries](evidence/repin/6e7f9dfb/comparison-results.txt) record
+the counts.
+
+Every adjudicated row and its exact compared answers and diagnosis is
+retained in [classified-rows.txt](evidence/repin/6e7f9dfb/classified-rows.txt).
+Neither the model nor arc was edited in response to these mismatches.
+
+| mismatch | diagnosis | decision | execution | coverage |
+| --- | --- | --- | --- | --- |
+| declaration/policy committed on target moves the target too, absent from original scenario | model defect in replay representation (comparator: encoding; C12/C3) | 6 | 13 | 0 |
+| external approval beside a witnessed approval | unsettled contract (C9: authorization consumption) | 0 | 3 | 4 |
+| undeclared reviewer cannot record the model ledger's verdict | model defect in replay representation (comparator: encoding; C18) | 0 | 0 | 1 |
+
+No row shows arc behaving against its own documentation, so nothing was
+filed in arc's journal.
+
+Six named coverage rows that disagreed before the clauses were re-derived
+now agree: the two `cover-implementer-model-approval` histories,
+`cover-implementer-model-waived`, both `cover-implementer-model-audit`
+histories, and `cover-ineligible-audit-implementer-model`. The model read an
+`Implemented-by` trailer as the implementer's model. arc reads the ledger: a
+commit trailer supplies no coordinate, so a read under the trailer's model
+is independent, and a debt it answers is discharged. The decision channel
+had agreed: no history it drew paired the trailer with a read under its
+model. The one generated coverage history that did, `check-time-43`,
+disagreed the same way and now agrees, the seventh row.
+
+The 13 skips on each channel are the same 6 unreadable evidence, 6 findings
+without a verdict, and 1 dirty run against a merge evaluated in a clean
+checkout. The comparison excludes the protocols listed under "Known
+unsupported semantics"; a quiet run grants no claim about them. The captured
+texts and identities remain in the repository; no arc source or build
+directory was used or retained.
+
+#### The rules arc `6e7f9dfb` changed
+
+The guide's authorship passage and the `review`, `audit`, `debt`,
+`integrate`, `snapshot` and `rebase` help moved the rules from commit
+trailers to the ledger, and the new named histories agree with arc on all of
+them:
+
+- Authorship is the ledger's: a patchset's recorded contributor set when one
+  was declared, else its effective author. The planner, orchestrator and
+  integrator are recorded roles and are not authorship. A read under the
+  model the ledger records for the implementer is a self-review at any
+  effort; when the ledger records no model, the read is judged by the actor,
+  session and harness it names. A commit trailer supplies no model
+  (`implementer-model-trailer`, `implementer-model-ledger`,
+  `implementer-model-ledger-other-effort`).
+- A clean `arc rebase` records a mechanical replay carrying every
+  contributor at the recorded coordinate. A fallback `git rebase`, or a
+  stopped resolution, records ordinary work, and a snapshot after it records
+  the head as the snapshot taker's work.
+- Coverage follows the same ledger: `cover-ledger-model-waived` leaves the
+  debt owed beside the rescue, `cover-ledger-model-permitted` records the
+  approval where policy permits self-approval and still owes the read, and
+  `cover-ledger-model-audit` and `cover-ledger-model-audit-negative` leave
+  it owed while `cover-ledger-model-audit-distinct` discharges it. The
+  assessment binding for `ineligible-review` still answers to the range's
+  `Implemented-by` projection, which is why the trailer histories keep
+  their `authors-uncovered` readings.
+
+What no channel reaches: rebase inheritance, an audit's planning and
+orchestration roles, and the recovery of a shipped patchset a closure did
+not record. The first is a Git effect the differential never runs; the
+second is recorded by the model and read by no rule; the third cannot arise
+because the model's integrations name the patchset they shipped. They are
+fixtures only, listed under "Known unsupported semantics".
+
 ### Actor admission at arc `73bff20`
 
 `evidence/repin/actor-replay.sh`, run through `arc-model-sandbox` against
@@ -1095,14 +1184,18 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 `comparisonRevision` names source revision
-`8d93a6e58d780090f3f83d99ac855316d7185c08`. The captured `arc 2026.9.29`
-executable has build revision `8d93a6e58d780090f3f83d99ac855316d7185c08`;
+`6e7f9dfbba9f9c2f3430272986e388b43b776a7b`. The captured `arc 2026.9.29`
+executable has build revision `6e7f9dfbba9f9c2f3430272986e388b43b776a7b`;
 its `arc env` reported the build clean. Its SHA-256 is
-`d522d621aa3e5d15d9de60bff582d4823f16c275b3bc42ca7cf84a0608cb7e49`.
+`f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc`.
 Executable identity is independent of whether the source revision has been
 integrated into a particular checkout; this pin asserts the clean public
 build being compared.
 The previous comparison capture, source revision
+`8d93a6e58d780090f3f83d99ac855316d7185c08`, has build revision
+`8d93a6e58d780090f3f83d99ac855316d7185c08`, reported clean, and SHA-256
+`d522d621aa3e5d15d9de60bff582d4823f16c275b3bc42ca7cf84a0608cb7e49`.
+The capture before it, source revision
 `3e020e5df520818d8ce21154b549877d4dea0d26`, has the same build revision,
 reported clean, and SHA-256
 `1429db2ca8544fff5accbf9a00059da3ac857b9cf7ea0bef766fe366ec744a36`.
@@ -1119,7 +1212,9 @@ was `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199e
 
 The sources are the captured guides, command `--help`, the public README,
 and the two retained operator rulings where they read the guide. No Rust
-source informs the model. The `3e020e5` build is a fresh clone of the arc
+source informs the model. The `6e7f9dfb` binary is the installed clean build
+of that revision; its identity is the captured one above. The `3e020e5`
+build is a fresh clone of the arc
 repository outside its checkout, at the pinned revision, built with
 `cargo build --release --locked`, `CARGO_BUILD_JOBS=4`; its `arc env` reports
 the pinned revision clean. The earlier builds used isolated source exports
@@ -1128,6 +1223,40 @@ checkout, with `CARGO_BUILD_JOBS=4 RUST_TEST_THREADS=4`. Initial builds that
 picked up the containing repository's build identity were discarded and
 rebuilt; only binaries reporting the comparison source's clean identity were
 used.
+
+### Captured documentation at `6e7f9dfb`
+
+The clean public build `6e7f9dfbba9f9c2f3430272986e388b43b776a7b`,
+SHA-256 `f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc`,
+is captured under [6e7f9dfb](evidence/repin/6e7f9dfb): guide, 205 recursive
+help surfaces, command inventory, README and executable identity. The
+command inventory and the README are byte-identical to the `8d93a6e`
+capture. The capture uses `arc-model-sandbox`; its binary is copied before
+capture and has the same digest as the named public build. Integration is
+reported separately from executable identity. The
+retained `*.from-8d93a6e.diff` files compare both public captures.
+
+Every changed guide hunk is indexed by its new line.
+
+| guide line | passage | classification |
+| --- | --- | --- |
+| 794 | snapshot grants no approval; only a clean `arc rebase` keeps the replayed patchset's recorded contributor coordinates | C1: recorded contributor coordinates |
+| 1089 | `git replay` performs the replay itself; it records a mechanical replay carrying every contributor at the recorded coordinate, falls back to `git rebase` as ordinary work, and a resolved snapshot records the taker's work | C1; C5's snapshot boundary unchanged |
+| 2128 | the ledger, never commit trailers, says who held which role; authorship, planner, orchestrator and integrator; the implementer's model identity; `Planned-by` and `Orchestrated-by` never refuse; trailers are a projection | C4 settled |
+| 2348 | production names the ledger's planner, implementer, orchestrator and integrator; `trailer_implementers` is a projection kept for comparison, never the source of a role | C21 settled |
+| 2430 | a debt without a production record reads the shipped patchset's authorship; a closure recovers its shipped patchset; an approving audit needs an identity the ledger does not credit with authorship; planning and orchestrating are held roles, never refusing | C22 settled |
+| 2470 | a read under the ledger implementer's model leaves the debt owed at any effort; where no model is recorded, the read is judged by the actor, session and harness; trailers never supply it | C4, C22 settled |
+| 4331, 4347 | path-stable build storage, its lease and its freshness rules | outside: build preparation never supplies a gate result (C13 unchanged) |
+
+The changed command surfaces index the same rules.
+
+| command | classification |
+| --- | --- |
+| `accept`, `begin`, `publication`, `verify` | outside: worktree preparation and build leases; storage reuse never supplies a passing gate result |
+| `rebase`, `snapshot` | C1: mechanical replay, inherited contributor coordinates, ordinary work after a fallback or stopped resolution |
+| `review` | C4: ledger authorship and the ledger implementer's model; planning and orchestrating never refuse |
+| `audit`, `debt`, `integrate --debt` | C21, C22: production roles, the `trailer_implementers` projection, the ledger implementer's model |
+| `arc --help` command summaries | the same surfaces' one-line summaries |
 
 ### Captured documentation at `8d93a6e`
 
@@ -1708,14 +1837,18 @@ names the reading the model takes, and nothing is listed here.
 ## Adjudicated
 
 - **An implementer's model as an independent read (C4, C22): settled documentation.**
-  "Review coverage and debt" states that a read under an `Implemented-by`
-  model in a debt's production record, at any effort, leaves that debt owed,
-  regardless of `forbid_self_approval`. Approval authority and independent
-  coverage are separate. The pure model already enforces that reading; the
-  coverage comparator rejects an improper discharge instead of adjudicating
-  it. The results at `3e020e5` retain the historical disagreement. Two model
-  efforts have comparator fixtures requiring agreement on the retained debt
-  and disagreement on its improper discharge.
+  "Review coverage and debt" states that a read under the model the ledger
+  records for an implementer, at any effort, leaves that debt owed,
+  regardless of `forbid_self_approval`, and that commit trailers are a
+  projection that never supplies a model. Approval authority and independent
+  coverage are separate. The model enforces that reading against the ledger's
+  coordinate: `implementerModelMatch` reads `Patchset.implementerModels`, and
+  the trailer projection answers only C22's assessment binding. The results
+  at `3e020e5` and `8d93a6e` retain the historical rows where the model read
+  an `Implemented-by` trailer as the implementer's model; the run at
+  `6e7f9dfb` agrees. Comparator fixtures require agreement on the retained
+  debt, disagreement on its improper discharge, and no obligation where only
+  a trailer names the model.
 - **Publication selector scope (C29): model defect.** The public "Files"
   passage restricts delta selection to integration and requires every
   publication gate on a changed tree. A `Publication` call to `planGate`
@@ -2070,6 +2203,14 @@ not a proof of equivalence.
 - **Review-map advisories.** `reviewer-behind-final-patchset`,
   `no-independent-reviewer`, and the other advisories are not modelled; they
   never block, and the model's job is the blocking decision.
+- **Rebase inheritance, an audit's held roles, and a closure's recovered
+  patchset.** C1 and C22 state them; no channel generates them. A mechanical
+  replay's inheritance is a recording, and the model reads the recorded
+  contributor coordinates rather than replaying Git; the audit's planning
+  and orchestration roles are recorded and read by no rule, and the
+  differential passes no role assertions; the model's integrations always
+  name the shipped patchset, so the closure's recovery of one that recorded
+  none cannot arise. They are fixtures and documentation only.
 - **Dependency status.** `Observations.prerequisites` names each prerequisite
   and the closure that integrated it; how a chain's readiness is computed is
   not modelled.

@@ -52,4 +52,4 @@ rather than a moving branch. Historical executable build revisions and
 digests are recorded separately in @REPORT.md@.
 -}
 comparisonRevision :: String
-comparisonRevision = "8d93a6e58d780090f3f83d99ac855316d7185c08"
+comparisonRevision = "6e7f9dfbba9f9c2f3430272986e388b43b776a7b"
