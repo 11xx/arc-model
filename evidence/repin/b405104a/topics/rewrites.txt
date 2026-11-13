@@ -1,0 +1,3 @@
+History rewrites and their evidence
+  arc guide rewrites-operations            Signing, trailer edits and tags
+  arc guide rewrites-evidence              Recorded revisions and atomic rewrite maps

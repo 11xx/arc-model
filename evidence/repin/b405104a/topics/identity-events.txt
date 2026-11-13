@@ -1,0 +1,79 @@
+Event ordering, cursors and read-only commands
+
+  Local change, repository and replica IDs are totally ordered by issuance
+  across processes sharing one ledger. Ordinary issuance and publication use
+  one ledger-wide lock and a durable newest-issued-ID marker. Appends read constant-size
+  bookkeeping; missing or lagging bookkeeping is recovered by scanning the
+  event namespaces once. Observation timestamps retain the recording clock.
+  Issuance refuses an exhausted or noncanonical ULID floor rather than writing
+  an event that sorts below held history.
+  Non-event identifiers and scratch names use an independent random ULID generator.
+
+  A provisional intent durably reserves its exact event ID before binding Git
+  refs. Later local IDs sort after the reservation and may publish before it.
+  ID cursors wait below the oldest reservation that is neither published nor
+  abandoned by recovery. Recovery releases an unapplied reservation when its
+  change is abandoned and the saved refs still prove no transition occurred;
+  its intent remains evidence. The ledger ID lock never spans Git, hooks or network.
+
+  Imported change and replica events keep their origin IDs. They may arrive
+  below IDs already read. State, rewrite, relation, candidate, pass, log and replica
+  views replay the held history, so an import can revise a previous projection;
+  ID order across origins does not promise arrival or causal order. Historical
+  `explain --at` views likewise describe the history held when read.
+
+  `events --since ID` applies an ID boundary to its initial replay. Replay and
+  follow withhold events at or above an unresolved reservation without marking
+  them seen. A supplied cursor at or above that reservation refuses and names
+  the boundary; resume below it or replay without --since. Follow
+  emits every subsequently discovered matching event, including imports below
+  that cursor, sorted within each read. A restart with --since excludes older
+  imports already present; recover them by replaying without --since and
+  deduplicating by event ID. A delta export's --since checksum binds an exact
+  history prefix. Change exports stop below unresolved reservations, so a
+  prefix cannot cross an event awaiting publication. An import that changes
+  that prefix requires a full export.
+  `messages --since` filters recording timestamps, which imports preserve;
+  recover older imported messages by reading without that filter. Other
+  timestamp views describe recorded clocks rather than local arrival order.
+
+  Every event records who wrote it. Most writes accept an undeclared
+  identity. In that case arc records an actor nobody claimed:
+  `<harness>:<session>` when both are known, else `git config user.name`.
+  Either is assumed rather than declared, so it cannot be the independent
+  party to an approval. When neither exists no actor is established: a write
+  refuses, naming `--actor` and `ARC_ACTOR`, and a read proceeds. A harness
+  or session nobody established is left off a journal event, never recorded
+  as a word standing in for it.
+  The ledger's append guard reads `require_declared_actor` from the invoking
+  checkout when opening a store for a command that can record, including for
+  repository-wide events with no change target. Queue integration opens it
+  afresh before each member's preparation and landing. An unparseable append
+  policy refuses the command. Read-only command paths:
+    guide  forge show  status  trailers  show  check  explain  findings  log
+    list  query  blocker-status  is-blocked  messages  inbox  catchup  stats
+    gates  gates measure  gates paths  gates over  gates init
+    workspace gates  diff  chain  events  watch  export  replica id
+    replica export  replica status  env  completions  mangen  resume  prompt
+    fork list  slots status  fork thread  history resolve  candidate show
+    candidate list  pass list  receipt template  checkpoint show
+    checkpoint list  run list  cost show  cost evidence  cost note
+    policy show  review-ladder show  policy path  config  sandbox diff
+    doctor  hooks status  instructions git  workspace list  workspace inbox
+    workspace inventory  workspace backlog  workspace report
+    workspace watch  workspace pins  restack  journal dir  journal doctor
+    journal source  journal filed  journal scaffolds  journal questions
+    journal events  journal catchup  journal memories  journal pins
+    journal render  journal open  journal list  journal inventory
+    journal show  journal latest  journal discussion  journal stamp
+    journal lane list  journal export
+  `gates measure --concurrent` writes local acceptance under `arc guide gates-together`.
+  Read-only invocations read the ledger through a handle that never parses that policy,
+  refuses any append, and leaves ledger files byte-identical. Entries name complete leaf paths. Output files,
+  generated manuals, hook commands and writability probes retain their
+  declared effects. Policy inspection parses the policy it reports.
+  `config` parses its style inputs, including repository policy.
+  A derived handoff reads its change facts the same way. The debt advisory
+  reads the same file for its thresholds, and an unreadable one sets none. Integration also checks the change target's
+  policy before merging.
+

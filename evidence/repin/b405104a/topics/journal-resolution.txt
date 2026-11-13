@@ -1,0 +1,19 @@
+Journal directory resolution and anchors
+
+JOURNAL DIRECTORY RESOLUTION
+  Read a known artifact with `arc journal show <file.md>`; use `arc journal
+  dir` only when a filesystem path is required. `arc journal dir --explain`
+  reports the source and stable anchor; `--archive` selects the cold sibling.
+
+  Resolution takes the first source that answers:
+  1. ARC_JOURNAL_DIR, an explicit directory override.
+  2. The longest [journals.dirs] path-prefix matching the repository root,
+     or the current directory outside a repository.
+  3. <ai-home>/journals/<repo-path-slug> for a Git repository.
+  4. A default-root journal whose bindings.jsonl records this directory,
+     or the journal named by this directory's slug.
+  A prefix covering repositories shadows their Git journals.
+
+  `arc journal rebind <journal-dir>` adopts an existing journal and records
+  the move to this project's anchor. It refuses when both journals hold
+  content. Read `arc journal rebind --help` for its input contract.

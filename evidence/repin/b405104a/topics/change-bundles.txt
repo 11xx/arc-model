@@ -1,0 +1,115 @@
+History export, objects and custody
+
+  Change history checksums hash compact JSON with recursively sorted object
+  keys and a newline after each event. The checksum names the same prefix
+  regardless of stored event field order.
+
+  Availability checks never fetch from a promisor remote. A dry run writes
+  no files, Git objects, events, or refs. The --objects-json file is an
+  envelope with `schema: "arc-bundle-objects/1"` and an `objects` array.
+  The bundle's `objects` array contains `{oid, role}` pairs, deduplicated by
+  pair and sorted by OID then role. It covers exactly the exported change
+  events (only the suffix under --since) and bundled repository events.
+  Roles are `patchset-base`, `patchset-head`, `evaluated-tree`,
+  `retention-commit` (objects held by refs/arc/tree for exported evidence,
+  including direct tree pins, and the commits a rewrite retained under
+  refs/arc/retained for the exported change or in repository scope),
+  `synthesized-merge` (verify --against),
+  `disposition-commit`, `integration-commit`, `target-commit`, `content-tree`,
+  `cited-blob`, `cited-commit`, `rewrite-source`, `rewrite-successor`, and
+  `observed-commit` (a commit a forge fact records as the provider's own,
+  listed only where the exporter holds it, so a commit never fetched here
+  obliges no receiver). Unknown event payloads remain opaque. A transport
+  publishes the listed objects and their Git reachability closure through scoped refs or a Git
+  bundle before announcing the result. Bundles without the objects field
+  retain advisory patchset-commit checks; /6 accepts that absent field.
+  A bundle's rewrite events carry the retention refs the exporter created; an
+  import holds each one it names for the imported change or in repository
+  scope, where a checkpoint's are, under `refs/arc/retained/` when the commit
+  is here, and refuses a name that is no retention ref. Bundles whose rewrite
+  events name none import unchanged. An import holds each `observed-commit`
+  of the imported change that is here the same way, under the event that
+  recorded it. Once its events are published, an import also holds every
+  commit the ledger cites that the bundle's object list delivered, that is
+  here, and that no ref reaches, under the name rewrite retention gives it
+  (`arc guide rewrites-evidence`): once per commit, leaving every name that
+  already stands, and printing `retained: <ref> <commit>` for each. A
+  rebase's retention refs, which no event names, are held again this way. A
+  dry run creates none, and a bundle without an object list delivers
+  nothing to hold.
+
+  Retained forge content, and the receipt file each read ingested from one
+  cites by digest and length, travel beside the bundle as an optional sidecar,
+  never inside it. `arc export --custody-dir <dir>` writes
+  `arc-custody-bundle/1` into a new or empty directory: one `sha256/<digest>`
+  file per available digest, copied once however many references share it, and
+  `manifest.json` listing every digest the exported events reference as
+  `available` (with its path) or `unavailable` (with the reason `absent` or
+  `corrupt`). `complete` is true only when nothing is unavailable. Content
+  that fails verification is never shipped. The bundle's `custody` member
+  holds the manifest's SHA-256, and the export summary prints the entry
+  counts and `complete` or `incomplete`. `arc import --custody-dir <dir>`
+  refuses, before any event, ref or file is written, a sidecar when the bundle
+  binds none or another manifest; when the manifest names another change,
+  lists other content than the bundled events reference, claims completeness
+  over an unavailable entry or names a path other than `sha256/<digest>`; or
+  when its content is a symlink, is not a regular file or differs in length
+  or SHA-256 from its entry, or when the ledger's `custody/` or
+  `custody/sha256` directory is a symlink. The events are published first;
+  verified files are then copied into ledger custody unless already held,
+  each verified again as it is copied, and the summary counts installed, held
+  and unavailable content. Custody is reported installed only after that, so
+  a failure installing it says the events are published, and repeating the
+  import finishes the installation without recording events, as does
+  importing with a repaired sidecar. Unavailable entries stay unavailable and
+  the import says incomplete. Importing a bundle that binds a sidecar without
+  one says how many references stay unavailable, which manifest digest the
+  bundle binds and that --custody-dir installs it; `arc accept` says the
+  same. An
+  export refuses, before writing anything, `--output`, `--objects-json` and
+  `--custody-dir` destinations that name one location or lie inside one
+  another, and a file destination that is a directory. It finishes every
+  artifact beside its destination, publishes the sidecar first and then the
+  object list and the bundle, and on any failure removes what it published
+  and restores what it replaced: a previous file keeps its bytes and an empty
+  directory that was to hold the sidecar is empty again, so no bundle names a
+  missing sidecar. Neither export nor import initializes a replica.
+  Full and delta histories use active, uncontradicted rewrites admitted with
+  rewrite authority to prove a falsification's failure identity. A publisher
+  lacking rewrite authority is refused; legacy transport without an
+  authorization receipt supplies no such proof. Absent, withdrawn, unrelated
+  maps and revisions that merely converge on one successor prove nothing. A
+  reference only a withdrawn map carried imports set aside, as the replica
+  that withdrew the map reads it; the others refuse the import.
+  Claim-contest replay uses the same admitted proof, or strict identity when
+  there is none. Doctor uses the store's admitted proof while leaving recorded
+  revisions unresolved for dangling-object diagnostics.
+
+  arc replica id --json              Read this store's repository ID for pairing.
+  arc replica init <name>             Start a logical project and hold authority.
+  arc replica pair <name> --repository-id <id>
+                                     Record a peer for explicit file exchange.
+  arc replica export --output <file>  Export known replica events.
+  arc replica import <file> [--dry-run]
+                                     Import pairing, offer, or authority events.
+  arc replica authority offer --to <name>
+                                     Relinquish authority to a paired recipient.
+  arc replica authority reclaim --because <reason>
+                                     Request return without acquiring authority.
+  arc replica authority confirm-return
+                                     Relinquish authority to a requesting origin.
+  arc journal export <file>... --output <file>
+                                     Export selected journal artifacts with
+                                     the events recorded about them.
+  arc journal import <file> [--dry-run]
+                                     Admit understood artifacts; report and
+                                     retry artifacts with unsupported events.
+  arc audit <change> --verdict <v>   Review an already-integrated revision.
+  arc close                          Terminal outcome arc did not merge itself.
+  arc changelog [<c>] --category <k> --body-file <f>
+                                     Record the change's release copy; <c> is
+                                     inferred from the branch or worktree.
+  arc changelog [<c>] --none --reason <why>
+                                     Record that the change needs no entry.
+  arc changelog [--json | --write]   Render unreleased copy, or write the target.
+

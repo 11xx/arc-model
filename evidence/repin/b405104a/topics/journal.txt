@@ -1,0 +1,5 @@
+Journal lookup, records, references and resolution
+  arc guide journal-lookup                 Artifact lookup, archival and project queues
+  arc guide journal-records                Keeping facts during work
+  arc guide journal-references             Pinned references, living documents and published pages
+  arc guide journal-resolution             Journal directory resolution and anchors

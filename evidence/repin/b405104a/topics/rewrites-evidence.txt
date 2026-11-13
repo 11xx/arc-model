@@ -1,0 +1,124 @@
+Recorded revisions and atomic rewrite maps
+
+  A commit that any recorded verdict or audit read, that a patchset recorded
+  as its head, that a forge fact records as the provider's own (a full
+  object ID, from an observation, link, checks or lifecycle fact), that a
+  candidate's received source, tested or report evidence names, that a
+  disclosure selects as Git support, or that a checkpoint names as its
+  revision or an open change's head is cited, and stays reachable after any
+  rewrite or rebase arc performs or records. Each such commit a
+  rewrite replaces is held by
+  `refs/arc/retained/<change>/<subject>/<commit>`: the subject is the
+  patchset the commit was the head of, the candidate, or the event that
+  recorded a verdict, forge fact or disclosure on it, and a change holds a
+  commit once. A checkpoint's
+  commits are held in the `repository` scope under its event, when nothing
+  else cites them. A
+  `refs/arc/keep/<change>/<patchset>` pin the rewrite moves is held the same way, whether or not a verdict cites
+  its commit. The pin follows the successor, which is what projections and
+  signature-only approvals stand on; a retention ref holds the commit that
+  was read and never follows a rewrite, so it never makes a replaced commit
+  look like the head of anything. The refs are created in the transaction
+  that moves the others, restored with them when publication fails, finished
+  with them on resume, and named by the event's `retained` map; `--dry-run`
+  lists them. `arc history rewrite --map` moves no refs: it holds each cited
+  commit the map replaces that this repository still has, and names each it
+  cannot. Old revisions may abbreviate cited SHA-1 or SHA-256 commits from
+  seven characters up to their full width; retention holds the full commit.
+  On an append error, retention refs created by the attempt are
+  withdrawn only when publication is confirmed absent; published or uncertain
+  events keep them, and the error names that state. `arc doctor` reports a
+  retention ref whose object is gone as the problem `retained-object-missing`,
+  and a cited commit no ref reaches, a checkpoint's among them, as the advice
+  `unretained-commit`, naming the `git update-ref` that holds it.
+  If Git cannot complete the reachability walk, the report retains collected
+  findings and names the problem `retention-reachability-failed` with the error.
+
+  `arc rebase` records no map and moves no pin, and a pin holds its
+  patchset's head with every commit below it. Before replaying, by `git
+  replay` or by `git rebase`, a rebase holds each cited commit of the range
+  it replays that none of the change's pins reaches, under the same names,
+  and prints each ref it creates. A rebase stopped on a conflict has
+  already held them when it is finished by hand. These refs are named by no
+  event; an import holds their commits again on the receiving side (`arc
+  guide change-bundles`).
+
+  Every ref moves in one Git transaction, so a rewrite leaves the branch and
+  arc's evidence refs on one history or leaves them all alone. The map and
+  the ref moves are written to `repository/rewrite-intent.json` before any of
+  it is applied. Map consistency, successor validity, signature-only
+  classification and append policy are checked under the repository-event
+  lock before any ref moves. A contradictory map records no intent and moves
+  no refs. The file is removed once the map is recorded and the checkout
+  index is refreshed, so an interrupted rewrite is finished by running it
+  again rather than repeated —
+  repeating it would sign the same commits afresh and record a second
+  successor for each. A ref moved by something else in the meantime stops the
+  rewrite, named.
+  If publication fails before an event exists, the attempt restores its ref
+  moves in one transaction and retains its intent for retry with the same
+  computed commits. A concurrent ref change can prevent that rollback;
+  the error names the retained intent for recovery. An event already published,
+  or one whose publication cannot be determined, keeps the applied refs and
+  intent and reports that state for recovery rather than claiming nothing moved.
+  On resume, refs already applied by a previous attempt stay applied when
+  publication fails. Diagnostics distinguish those refs from moves restored
+  by the current attempt and name the command that finishes the saved intent.
+
+  Recorded revisions keep saying what they said; every derived reading follows
+  them forward. `arc doctor` inspects the recorded revisions, a checkpoint's
+  revision and recorded change heads among them, and reports
+  `dangling-revision` for missing objects without a recorded rewrite, or
+  `unresolved-revision` when a recorded successor is missing.
+  Admitted rewrite proof can recover falsification identity without
+  advancing those revisions. A recorded revision resolves on an exact match, or on an
+  abbreviation of seven hex digits or more that exactly one recorded revision
+  answers; an ambiguous one is refused naming the candidates. Rewrite records
+  that contradict each other make the map unreadable, which every projection
+  refuses rather than reading as no rewrite at all — `arc doctor` reports it
+  as `invalid-rewrite-mapping`. A branch with commits of its own on top of the rewritten
+  range shares no commit with the branch it was cut from — the rewrite names
+  each one and the `git rebase --onto` that replays it, and until then no
+  comparison between the two has an answer. An approval follows a recorded
+  rewrite in two cases, judged per commit over every commit the rewrite
+  recreated:
+
+  - signature-only: the successor differs in nothing but its signature —
+    same tree, author, committer, message and every other header, with
+    parents the map translates — which is what `arc rewrite sign` produces;
+  - role-addition: the successor's message is the old one with complete
+    `Planned-by`, `Implemented-by`, `Reviewed-by` or `Orchestrated-by`
+    entries (a line with a value and its continuation lines) appended to its
+    final trailer block, or to a new block after one blank line when it had
+    none; tree and every other header byte-identical, the signature aside,
+    and parents reached only through rewrites of either kind. This is what
+    `arc rewrite trailers --append` with role lines produces.
+
+  Any other successor leaves the approval stale in `arc status` and `arc
+  check`: a replaced, removed or reordered role entry, `Assisted-by` or any
+  other key, a body edit, a changed committer or extra header, or a commit
+  beneath the head whose content or message changed. Added role text is
+  declared, not reread: it is no verdict, and the ledger's contributor,
+  production and debt records stay what they recorded. Admitting a pending
+  signing (`arc accept`) still requires signature-only. To re-approve after
+  any other trailer edit, or a map naming different content, run `arc
+  snapshot` and record a verdict on the fresh patchset, or use `arc review
+  --snapshot --verdict approved` with the work's contributor attribution.
+  Snapshot records a new patchset whenever
+  the latest patchset's approved head differs from the current branch head,
+  even when its mapped head matches. Earlier verdicts remain bound to their
+  own patchsets and stay stale for the rewritten head; a snapshot or rewrite
+  grants no approval. While the mapped and approved heads differ, status and
+  check direct the caller to snapshot, and an implicit verdict on the latest
+  patchset refuses before recording anything. An explicit --patchset judgment
+  may record historical work, retaining that patchset's review head and its
+  stale coverage. Whether a successor is signature-only or a role addition is
+  judged when the map is recorded, and again by the receiver when imported
+  (the sender's judgement is dropped), never when a change is read. Incoming
+  rewrite events are judged together until receiver-derived parent carry is
+  stable. Their approval carry matches dependency-ordered single-event imports,
+  regardless of event-ID or bundle order; only held judgments and judgments
+  established against local objects supply that carry. A cycle of changed
+  judgment states refuses before any import events or refs are written:
+  `rewrite judgments do not stabilize; nothing was imported`.
+

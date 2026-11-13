@@ -1,0 +1,113 @@
+--- 6e7f9dfb/commands.txt
++++ b405104a/commands.txt
+@@ -8,6 +8,7 @@
+ show
+ explain
+ log
++gates
+ stats
+ diff
+ findings
+@@ -41,6 +42,7 @@
+ reply
+ resolve
+ review
++receipt
+ external
+ publication
+ verify
+@@ -52,10 +54,12 @@
+ resume
+ rescue
+ prompt
++slots
+ fork
+ hold
+ release-hold
+ integrate
++land
+ debt
+ audit
+ close
+@@ -64,8 +68,10 @@
+ candidate
+ context
+ pass
++checkpoint
+ run
+ cost
++review-ladder
+ policy
+ forge
+ config
+@@ -78,6 +84,11 @@
+ catchup
+ fr
+ journal
++gates raise
++gates paths
++gates init
++gates over
++gates measure
+ replica provisional
+ replica id
+ replica init
+@@ -86,7 +97,12 @@
+ replica import
+ replica status
+ replica authority
++receipt template
+ external verdict
++slots status
++slots release
++slots warm
++slots recover
+ fork begin
+ fork adopt
+ fork retire
+@@ -112,6 +128,9 @@
+ pass complete
+ pass abandon
+ pass list
++checkpoint record
++checkpoint show
++checkpoint list
+ run dispatch
+ run bind
+ run end
+@@ -120,6 +139,8 @@
+ cost evidence
+ cost retain
+ cost note
++review-ladder import
++review-ladder show
+ policy show
+ policy path
+ policy write
+@@ -136,11 +157,14 @@
+ hooks uninstall
+ hooks status
+ instructions git
++workspace gates
+ workspace list
+ workspace inbox
++workspace pins
+ workspace inventory
+ workspace backlog
+ workspace report
++workspace watch
+ workspace retire
+ workspace restore
+ journal dir
+@@ -164,6 +188,11 @@
+ journal position
+ journal evidence
+ journal verified
++journal pin
++journal unpin
++journal pins
++journal render
++journal published
+ journal question
+ journal checkpoint
+ journal scaffolds

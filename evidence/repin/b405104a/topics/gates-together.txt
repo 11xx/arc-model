@@ -1,0 +1,78 @@
+Measured concurrent batches and host-local acceptance
+
+GATES TOGETHER
+  A gate declaring concurrent = true may share a batch with other consenting
+  gates. Required-set executions run standalone gates first in name order,
+  then the concurrent set. This includes verify --all, snapshot --verify,
+  done, acceptance, merged-tree verification and both landing forms. Every merged
+  declaration must consent; a stricter standalone declaration wins.
+  Duplicate exclusive lock names among concurrent gates are a declaration
+  error, even before measurement. Locks and admission remain per gate.
+  Landing members sharing a gate must require compatible locks; a lock named
+  by either member and their shortest admission bound apply to its execution.
+
+  `arc gates measure --concurrent` executes every declared concurrent gate
+  together five times on a clean tree, without recording verification evidence.
+  This invocation writes local acceptance and requires a writing identity.
+  At least two gates are required; --runs must be five and --gate is refused.
+  Every command must pass every round, with observed command time, and the
+  worktree and head must remain unchanged. It reports per-command wall, CPU,
+  wait and load, per-command spread, batch wall and physical/logical cores.
+  Budgets judge later verification receipts; measurement acceptance establishes
+  coexistence, not compliance with a budget. Measurement replaces the previous
+  local acceptance before running; a failed measurement leaves no acceptance.
+
+  Acceptance binds every member's complete structural declaration identity and
+  the exact concurrent membership, this store and this host's machine identity.
+  Budget, exclusive and admission values do not change structural identity.
+  Changing a structural identity or membership requires measurement again.
+  The private file under <ledger>/concurrent is local administration, excluded
+  from export and replica exchange. An unavailable host identity or unreadable
+  acceptance disables batching. `arc gates` shows consent, acceptance, date,
+  host and member identities. Acceptance is a measurement, not isolation:
+  ignored state and dependencies omitted from declarations remain assumptions.
+
+  Without exact current acceptance the concurrent gates execute alone in name
+  order and explain the missing measurement. A batch of one is standalone.
+  --gate NAME always runs alone. Reuse and paths selection happen first; if
+  they remove members, only an exactly accepted remaining set may run together.
+  Otherwise the remaining gates run alone. If their standalone budgets exceed
+  the total, execution refuses; --rerun can run the full accepted batch.
+  Verification runs name this scheduler as mode declared; individual batch
+  receipts identify actual concurrent execution. --rerun disables reuse but
+  never bypasses measurement. --parallel remains
+  the separate unqualified preflight probe with unknown cleanliness.
+
+  A batch pass is green only with a retained tested tree, a worktree observed
+  clean before the batch, unchanged worktree and head afterward, and current
+  local acceptance of the batch's identities. Dirty waivers cannot excuse a
+  batch. All members share those boundaries; each retains its own result,
+  command time, CPU, load, timeout, budget judgement, lock and admission wait.
+  Receipts name the acquired exclusive lock and its admission_ms limit.
+  Batch receipts retain batch id, acceptance id, producing store, host and
+  member declaration identities. Authorization entries retain the same
+  acceptance reference. The batch id binds the receipt's compact coordinates.
+  Full declarations, measurement date and five rounds remain in the host-local
+  acceptance record. Replay validates frozen references without loading that
+  record; `arc gates` reports its date and identities.
+  One member's failure does not turn another's result into a failure.
+  status, check, show and explain identify the producing batch.
+
+  A direct clean batch execution may justify a gate raise under the usual
+  newest-execution rule. An eligible batch member may seed a base pass; its
+  witness retains the batch and acceptance identity. Current acceptance is checked
+  before using that witness. Imported batch evidence stays factual and cannot
+  be green on a different store, even after that receiver measures its own
+  batch. A local standalone run or a new local accepted batch supplies evidence.
+  Publication and candidate verification execute their checks alone; publication
+  retains its full checks for gates participating in base passes.
+
+  Per integration profile, total adds standalone budgets and the maximum
+  concurrent budget only when that profile's complete concurrent set exactly
+  matches this store's current acceptance. Otherwise all budgets add. Total
+  raises' declaration_sum_ms uses this same cost across profiles. Authorization
+  snapshots bind consent and the local acceptance identity, so a changed or
+  removed measurement cannot inherit an earlier authorization. Historical
+  replay validates frozen receipts without consulting local measurements.
+  Store format 11 fences readers and writers without these batch semantics.
+

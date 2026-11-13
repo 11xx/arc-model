@@ -1,0 +1,139 @@
+Lineage, participants, liveness and child families
+
+    Lineage relatives are plain session ids. A non-id reference makes
+    identity unknown with a fixed reason; arc does not parse a recording path
+    to infer an id. Lineage is read from the whole recording, as usage is,
+    so a large recording with no fork, copy or child evidence keeps its
+    identity established. Lineage notes and failed reads make identity
+    unknown, using fixed categories and note counts.
+    Every direct, inclusive, and union figure groups recorded parent, child,
+    and fork relations transitively, including a binding's declared
+    `--forked-from`.
+    An origin outside the figure contributes no consumption and does not
+    make the figure's identity incomplete by itself. Binding relations are
+    durable alongside retained usage facts, so source rotation preserves
+    these groups. Unknown lineage may overlap any other session.
+    Overlapping groups make identity incomplete and withhold exact
+    totals; each group's consumption is bounded by its largest member and
+    the sum of its members, a list price in doubt counting its least toward
+    the first and its most toward the second. Disjoint group bounds add.
+    Missing or incomplete measurements qualify the bounds as covering only
+    known recorded amounts.
+    Per-session figures remain available. The top-level identity status
+    summarizes the figures. A participant is a session no dispatch binds
+    whose ledger events act on the selected work; a session a dispatch binds
+    is an executor and never a participant. One rule gives every session
+    its roles: those its bindings name (an executor's `--executor-role`),
+    and those the kinds of its events name. A snapshot or a verdict makes
+    the session a reviewer, an integration, a debt or a closure an
+    integrator, and a dispatch an orchestrator; any other kind names no
+    role and makes no participant, and prose and trailers name none. A
+    bound session's snapshot is the work its binding gave it and names no
+    role, while its own verdicts, integrations and dispatches give it those
+    roles beside its binding's. An event recorded `--on-behalf-of` a
+    `harness:<id>` subject that names a session is the subject's event too:
+    it gives the subject the kind's role and membership while the invoker
+    keeps its own roles for the event it ran. A subject
+    `harness:<id>:<model>[#effort]`, followed by a parenthesized label or
+    not, names the session `<id>` and declares `<model>` as that session's
+    model on the event. It counts as `--model` does, including for a verdict's
+    or audit's independence check, and `--model` outranks it. Without either,
+    the event's model is the one observed for session `<id>`, or none: neither
+    `ARC_MODEL` nor the invoker's session speaks for a `harness:<id>` subject.
+    The subject names a session
+    when the tapes reader of its harness locates the id as one of that
+    harness's recordings, each harness shaping its own ids (an OpenCode
+    `ses_…`, a Pi id as its recording names it, a Claude or Codex UUID),
+    when that harness's store cannot answer, when the ledger retains facts
+    for it, or when the id is shaped as that harness shapes a session id (a
+    UUID, a Claude cloud session's `cse_…`, an OpenCode `ses_…`) though
+    nothing on this machine locates it:
+    such a session is a participant without a figure, `not located on this
+    machine`, so the figures it would join say they are incomplete. A
+    subject naming a person, a label, a `harness:model`, or any other id no
+    reader locates and no retained facts name, names no session. A participant is measured through the same
+    reader as an executor, or from retained facts when its source no longer
+    answers, and divided by its span on each work item. Its membership is
+    every change in this ledger with an event of any kind that names it, as
+    its session or its subject, read in one pass; `--footprint` selects by
+    the same rule.
+    Undivided, it counts whole where the item holds every member. Divided,
+    its share joins each item's total, and a union takes the selected items'
+    shares. It is listed in `participants` with its whole figure, roles,
+    span count, the number of members, `counted` and `share`. A recording cannot show
+    whether its session is still running, so the view asks `agent-status`
+    once, bounded to two seconds (`ARC_AGENT_STATUS` names another program).
+    A session it lists, in any state, is live: its figure is as of its read
+    frontier and incomplete. A claude, codex or pi session absent from a
+    snapshot its registry owner answered has ended: a fresh read of it is
+    complete as of its final frontier. Every other answer is unknown and
+    incomplete with a fixed reason: no program, a failure, no answer in
+    time, unreadable output, a snapshot no registry owner answered, or a
+    harness agent-status does not report on. Facts retained after the
+    session ended stay complete unless it is listed again; facts retained
+    while it was live or unknown stay incomplete even once it has ended,
+    since it may have gone on past their frontier. Each participant row
+    shows the answer under `liveness`. An executor's run ends are the
+    stronger evidence: one whose every bound dispatch has a recorded `run
+    end` has ended, and one with a dispatch that has none is still running
+    and incomplete as of its frontier, naming the open dispatch. An
+    agent-status listing makes an executor live either way. When unreadable
+    ledger records could hold the missing end, only a listing qualifies it.
+    An executor's facts retained before its last run ended stay incomplete;
+    facts retained after it, or while agent-status answered ended, are
+    final. arc works fully without agent-status. A session may
+    also act in other repositories' ledgers, which this ledger cannot see.
+    An unreadable ledger record leaves a participant's membership incomplete,
+    so it is never counted as the work's alone. Acting events with no
+    harness or session, or one that is not a plain id, are counted under
+    `unattributed_events` and make assignment incomplete. A participant
+    that is not measured, such as one the store cannot resolve or a subject
+    not located on this machine, is still a session row and a participant
+    without a figure: every total it would
+    join is absent or withheld beside its known subtotal, never complete,
+    measurement coverage lists it, and it is named outside assignment
+    coverage with its event count and reason, which makes assignment
+    incomplete. A bound executor whose read fails with nothing retained
+    likewise leaves its totals without an amount. An unmeasured session has
+    no accounting basis, so it qualifies every partition it could belong
+    to. Another session with events on the selected work but no acting
+    kind is named outside assignment coverage with its event count, never
+    zero. A Claude session's recorded total is
+    reconciled per counter with the requests its recording family
+    identifies. The residual is the signed difference, never clamped, with
+    tapes' status (`reconciled`, `conflict`, `discrepancy` or `withheld`) and
+    fixed reasons; a conflict, a recorded total below its requests, qualifies
+    the counter it understates, a withheld counter has no residual, and a
+    family that cannot be read leaves only the residual unavailable.
+    A native child a binding names is an executor row measured from its own
+    recording by its own requests, with `parent` naming the session that
+    spawned it, roles from its bindings' `--executor-role`, and its agent
+    from the model its recording says served it, else its dispatches'
+    routes. A Claude session whose recording names native children with
+    consumption of their own is measured by its own requests, in the
+    summed-requests basis, because its recorded total covers those children
+    too; a session whose only figure is held in the recorded-total basis is
+    unmeasured (`recorded total covers its native children`) rather than
+    counted beside its children. A spawn a binding identified is a parent
+    and a child with recordings of their own, so it groups no overlap,
+    except that a Claude child's recording can hold a request its parent's
+    holds too: unless the parent's family reconciliation is `conserved`, a
+    measured parent and its bound child are one overlap group, and a total
+    holding both is withheld between its largest member and their sum,
+    with identity incomplete, never a complete double count. A
+    bound child whose recording is gone is unmeasured (`child recording
+    missing`). Each parent row carries `family`: `bound`, its bound child
+    rows; `children`, every child its recording names, `bound` when any
+    dispatch binds it, to this view's work or to work it does not select,
+    with the recording `present` or `missing` and, for one no binding names,
+    its figure, from
+    tapes' family reconciliation for a Claude subagent and a fresh read for
+    a child with its own session; and `unassigned`, those children's figure,
+    listed and never in a total. An unassigned child without a figure
+    leaves that figure absent beside its known subtotal, naming the child. A mirror row is never listed. A Claude
+    parent's `family.reconciliation` says whether its own requests and each
+    child's add up to the family's identified union per counter
+    (`conserved`, `not-conserved` naming each counter under `differs`, as a
+    request two recordings both hold leaves it, or `unestablished`), and
+    carries the residual, the recorded total less that union: the parent's,
+    no child's, and in no total.

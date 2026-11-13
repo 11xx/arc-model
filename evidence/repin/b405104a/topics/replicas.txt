@@ -1,0 +1,228 @@
+Replica pairing, authority and publication
+
+PAIR REPLICA STORES
+  A change built on a paired worker moves in four steps: `arc snapshot` then
+  `arc export` on the worker; carry the bundle and its Git objects with your own
+  transport; `arc accept` on the authority (`arc guide delivery`); then review
+  and `arc integrate` there.
+
+  A rebase on the worker requires a patchset before export. On the publishing
+  replica, record the branch head with
+  `arc snapshot <change> --contributors <the implementing actor>` when the
+  publisher only rebased, keeping the implementer as the contributor. For
+  multiple implementers, supply their comma-separated actors. Export again,
+  then accept the new bundle on the receiver. Acceptance requires the branch
+  head to match the delivered latest patchset head or its recorded
+  signature-only successor.
+
+  Import reads received bytes once and checks a supplied --received-sha256
+  before parsing. Object availability and publishing authorization are checked
+  before publication. Either refusal leaves events, receipts, configuration,
+  format stamps and refs unchanged. --provenance-only permits missing listed
+  Git objects; publishing authorization still applies. Git checks do not fetch
+  from promisor remotes. A candidate's optional original evidence-request
+  digest binds its received document and declarant before publication. Records
+  without that intent remain readable and importable without establishing a
+  registration retry.
+  Pairing grants project membership, never publishing capabilities. A paired
+  receiver requires --publisher PRINCIPAL and --received-sha256 SHA256 on both
+  import commands. Enroll publishing principals only in operator-policy.toml:
+
+    [replica]
+    trusted_review_replicas = []
+    [[replica.publishers]]
+    principal = "worker-channel"
+    source_replica_id = "worker-store-id"
+    [[replica.publishers.origins]]
+    replica_id = "worker-store-id"
+    roles = ["facts", "review-input", "debt-input", "rewrite", "provisional-integration"]
+    actors = []
+
+  The receiving caller obtains the principal from authenticated transport and
+  computes the exact received file's SHA256 independently of bundle contents.
+  Arc checks the assertion against local enrollment and binds the exact bytes
+  to the supplied digest. Arc does not authenticate a flag or actor string;
+  integrity against a supplied checksum establishes no identity or independence.
+  A caller able to edit policy or assert arbitrary principals controls admission.
+
+  source_replica_id identifies the exporting store; repository_id identifies
+  each event's recording origin and the change's original store. Relay export
+  preserves all recorded identities. A publisher needs explicit per-origin
+  capabilities to introduce relayed events. Identical held events need no grant.
+  Enrollment and review trust are operator-only; project policy cannot grant
+  them. Unpaired receivers without enrollment retain legacy file imports.
+  Admission receipts bind each permission to its scope, recorded origin and
+  full canonical event content digest. An event ID cannot transfer permission
+  to another record. Conflicting event identities refuse the entire import.
+  Operator policy replacement and admission share a publication lock. Admission
+  revalidates enrollment after acquiring the format and publication locks;
+  revocation before that boundary refuses without publishing or changing format.
+  A published batch advances store format 7. An unpublished failure leaves its
+  format stamp unchanged. A failure after publication reports publication state.
+  Finding release, waiver, debt discharge and provisional corroboration use
+  eligible graphs. Provisional obligations use the same local-first verdict
+  history as approval: an eligible foreign claim creates no obligation beside
+  an authoritative local judgment. Debt discharge retains its exact witness
+  event for explain and every receiver projection.
+  No foreign replica supplies review authority by default. A foreign verdict
+  needs both admitted review-authority and current trusted_review_replicas
+  membership to gate. Contributor and assumed-identity checks still apply.
+  Recorded supersession history remains visible; foreign edges cannot replace
+  a local refusal or settle a contested local graph. Review-input audits cannot
+  discharge debt or corroborate provisional approval; debt-input cannot waive
+  approval. A landing completion needs integration, and debt-input or waiver
+  as well when it carries a member's debt; it never grants rewrite, so a
+  replayed member's commits map to nothing without a rewrite event of their
+  own. Status and check separate head coverage from gating permission.
+  Historical closures remain facts; legacy events have legacy-unknown admission
+  provenance, with no transport authentication invented for their claims.
+
+  A store keeps its own repository ID as event provenance. `replica init`
+  records the first replica and logical project ID. `replica pair` records an
+  operator-named peer by its repository ID; that peer adopts the project only
+  by importing the exported pairing event. Replica files contain identities
+  and authority events, while checkout paths remain local to their store.
+
+  The first replica holds integration authority. `authority offer` relinquishes
+  it when the offer is recorded; the named replica acquires it when it imports
+  the offer file. Export the recipient's replica events back to the offering
+  store to report the acquisition there. Reclaim requests return from the
+  recipient and leaves the origin blocked. The recipient imports the request,
+  records `authority confirm-return`, and exports that confirmation. The
+  origin reacquires authority only after importing it. A recipient that has
+  forwarded authority cannot confirm its return.
+  arc integrate CHANGE --provisional [--into STAGING-BRANCH]
+      [--for-replica NAME | --for-forge REFERENCE] [--message TEXT]
+      [--debt REASON [--kind KIND]] [--dry-run] [--json] [--expect-basis FILE]
+  arc check CHANGE --provisional [--into STAGING-BRANCH] [--explain | --json]
+  arc replica provisional resolve CHANGE --integration EVENT-ID
+      [--provisional EVENT-ID ...] --because REASON
+
+  Explicit provisional preparation is available on paired replicas without
+  authority. Plain integrate refuses there with exit 17. Preparation creates
+  an unsigned no-ff merge through plumbing and updates only an unchecked
+  staging ref and refs/arc/provisional/<change>/<event>. The default staging
+  ref is refs/heads/arc/provisional/<local-replica>/<recorded-target>. Supplied
+  destinations stay in that namespace; canonical targets, source branches,
+  the primary checkout branch and replica.protected_targets are protected.
+  Queues, --tag, --shape ff-only and --cleanup conflict with provisional mode.
+  Publication history shape constraints apply to canonical publication;
+  canonical review, actor and gate rules and additional staging/head gates
+  still govern preparation. A staging policy cannot weaken them.
+
+  [replica] provisional_enabled defaults to enabled for paired workers;
+  an explicit project or operator false disables it. protected_targets is
+  the union of explicit project/operator declarations and protected branches.
+  Recipient routing defaults to the known authority holder. An authority
+  offer in flight requires --for-replica or --for-forge.
+  Check reports an executable `integrate --provisional --dry-run` command with
+  explicit recipient routing and the selected staging destination when authority
+  is in flight.
+  A forge reference is opaque: preparation performs no transport and grants no authority.
+  An intent binds the exact event and guarded ref transition before visibility;
+  publication failure reports the merge, observed staging and retention refs,
+  event state, retained intent and exact recovery command. Execution --json
+  emits `arc-provisional-transition/2`. Execution JSON includes the debt
+  declared before any subsequent refusal, including a failed ledger reread,
+  naming its written or reused event,
+  bound patchset, reason and declaration details. Its `publication` states what
+  was observed of the event: `durable` once the file and its directory entry
+  are synced; `visible-unconfirmed` when the event is readable but the sync
+  failed, so a retry that answers with it confirms it; `absent`; or `unknown`
+  when the ledger could not be read. A declaration that fails after the
+  attempt still reports the debt, with disposition `attempted`, beside
+  `transition: null` and the error, and `publication_error` naming the failure.
+  Text output ends a refusal after a declaration with `debt event <id>
+  <written|reused> publication=<state>`; a declaration that failed to publish
+  names the same event and state in its error.
+  Doctor, status and workspace report expose unfinished intents separately
+  from published obligations and review debt.
+  Recovery of an applied transition precedes new-preparation eligibility checks,
+  including changed authority or provisional_enabled declarations, and retains
+  its exact event and authorization. Later preparations may advance the same
+  staging branch: the exact retention pin and containment in its staging history
+  prove the applied transition, whose recovery publishes its event without
+  resetting the later staging head. Divergent refs preserve the intent and refuse.
+  An unapplied retry rereads lifecycle and every readiness guard under its
+  transition lock. A refusal retains the saved event and authorization; an
+  eligible retry must still match that basis and ref transition exactly.
+  Explicit destination or recipient changes refuse before any mutation and
+  name the exact saved retry parameters.
+  A retry finishes that transition or preserves competing refs, and a completed
+  matching preparation reuses its merge and event. Its dry-run plan names
+  reuse_event_id and reuse_commit and declares that it creates no merge.
+
+  Authority verdicts retain their observed grant and holder. A verified refusal
+  remains attached across authority transfer until an explicit superseding
+  judgment disposes of it or an accepting integration settles the delivery.
+  An approval disposes of a refusal through a recorded supersession relation
+  on the delivered patchset, with its publication grant verified. Event-ID order
+  and wall clock never establish that observation; a late earlier-grant approval
+  without the relation leaves the refusal attached.
+  Review eligibility follows the shared admission, trust and independence rules.
+
+  Every delivery is retained across snapshots and closure. Status lists its
+  recipient, recording replica, merge and disposition. Catchup and workspace
+  report list unresolved deliveries in separate provisional-integration
+  sections, including age and refusal/reconciliation evidence. They are not
+  review debt; query --provisional selects provisional review approvals.
+  Changes requested, abandonment and supersession leave publication owed.
+  Local preparation may consume an applicable local provisional prerequisite
+  held in the selected staging history without an authority rejection; its
+  authorization records provisional_prerequisites apart from canonical closures.
+  Imported preparation never satisfies a canonical dependency.
+
+  arc begin dependent --target MAIN --base STAGING-BRANCH --blocked-by PREREQUISITE
+
+  Publish prerequisites canonically before dependents. A dependent containing
+  provisional ancestry requires replay onto accepted authority history,
+  a new patchset and fresh review or explicit debt. Substituting an authority
+  merge for a provisional merge is a content rewrite, not signature-only.
+  Authority integration atomically records closure and accepted deliveries,
+  distinguishing same-head from revised-head acceptance. Review eligibility
+  is the shared admission/trust policy, including independence requirements.
+  Worker debt imported without waiver authority remains an obligation input.
+  Late delivery requires explicit authority-owned reconciliation naming the
+  valid accepting integration and reason. Forge settlement requires asserted
+  integration with matching external-reference evidence and is labeled
+  resolved by assertion. Conflicting or missing references refuse.
+
+  Imports have a dry-run preview, are idempotent, and record a receipt with the
+  source replica and bundle digest. A paired replica without authority is
+  refused by `integrate`.
+
+  Journal artifacts travel between paired replicas as a versioned bundle:
+  each body, the events recorded about it, its digest, the exporting replica,
+  and every artifact the selection references by filename. An import is
+  all-or-nothing within each artifact: bundle integrity is validated before
+  anything is written. Journal bundle checksums retain event field order and
+  opaque payload tokens, excluding formatting whitespace.
+  An artifact with an unsupported event is held back in full, naming the event
+  kind and its journal-events schema. Artifacts that
+  reference a held-back artifact are held back too, retaining the reference
+  closure. Other artifacts are admitted. A receipt covers only admitted
+  artifacts; every import retries the held-back artifacts.
+  Deduplication includes understood physical log records rejected by state
+  replay.
+  Storage tiers must agree for a held artifact. Appended sections are keyed
+  by their recorded event identities. Each answer append has its own identity,
+  including answers to reopened questions that repeat a choice. A prefix
+  revision retains the longer body; concurrent appends merge as a union ordered
+  by event timestamp, then
+  event ID. The base and shared blocks must match byte for byte; divergence
+  refuses the whole bundle, naming both digests and the first differing block.
+  An absent artifact lands in the storage the bundle records. Events and
+  appended blocks keep their recorded provenance. A live claim arriving on
+  an artifact a live local claim holds is reported as a contest naming both
+  replicas, and nothing on either claim's behalf is recorded. Importing the
+  same completely admitted bundle twice changes nothing; the receipt names
+  the source replica and bundle digest. An interrupted write retains a prepared transaction with
+  the bodies, event log, and receipt. Every journal write, including provenance
+  repair and spool promotion, refuses a pending import and names its bundle
+  digest and the remedy: `arc journal import <bundle>`, or `arc journal
+  --global import <bundle>` when the global journal holds it, including a
+  global write or promotion run from a project checkout. Reads stay allowed.
+  Import completes the transaction before comparing revisions. Recovery refuses
+  to overwrite unexpected body or event-log changes after preparation.
+  A dry-run requires the pending exchange to be completed first.
+

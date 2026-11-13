@@ -8,11 +8,20 @@ def capture(args, name, persist=True):
     value = re.sub(r'\[env: ARC_SANDBOX=[^\n]*\]', '[env: ARC_SANDBOX=<sandbox>]', p.stdout)
     if persist: (out / name).write_text(value)
     return value
-capture([], 'guide.txt')
+overview = capture([], 'guide.txt')
+guide_help = capture(['guide', '--help'], '', persist=False)
+if '--all' in guide_help:
+    (out / 'overview.txt').write_text(overview)
+    capture(['guide', '--all'], 'guide.txt')
+    topics = capture(['guide'], 'topics.txt')
+    (out / 'topics').mkdir(exist_ok=True)
+    for topic in dict.fromkeys(re.findall(r'^\s+arc guide ([a-z][a-z0-9-]*)\s', topics, re.M)):
+        capture(['guide', topic], 'topics/' + topic + '.txt')
 capture(['--version'], 'version.txt')
 env = subprocess.run([binary, 'env'], capture_output=True, text=True).stdout
 (out / 'build.txt').write_text(next(line for line in env.splitlines() if line.startswith('# arc build:')) + '\n')
-(out / 'README.md').write_bytes((source / 'README.md').read_bytes())
+if sys.argv[2] != '-':
+    (out / 'README.md').write_bytes((source / 'README.md').read_bytes())
 queue = [[]]; seen = []; blocks = []
 while queue:
     args = queue.pop(0)

@@ -1,0 +1,156 @@
+Observations, custody and evidence origins
+
+  forge observe CHANGE --file frontier.json [--json] admits an adapter's
+  arc-forge-observation/1 document. Admission never changes readiness. A valid
+  failed or truncated read succeeds; invalid schemas, digests, references and
+  generation relationships refuse before append. Identical read_id retries
+  return the original event with already-recorded; conflicting content refuses.
+  Import validates introduced facts before publication in their supplying
+  history, each against the state it was recorded in: a read against the reads
+  before it; a projection against the read it names and, for checks and
+  lifecycle, the link it was bound to, and for a link, any earlier declaration
+  that admits its tuple; a delivery or disclosure source against the original
+  read event it names. A link, declaration or conflict that merged history
+  makes current later never refuses what was recorded without it. A local
+  write is still judged against the reads usable now.
+  Independent replicas can supply different events for the same read.
+  Replay coalesces identical documents and retains their event IDs as aliases.
+  Conflicting documents mark every member of that read_id as conflict; invalid
+  documents carry the validation reason in invalid. Both remain readable and
+  are excluded from source selection and generation dependencies. Projections
+  naming unusable observations carry unresolved_binding and cannot establish
+  head matches, applicable checks or lifecycle. Forge diagnostics in show and
+  status identify observation conflicts, invalid documents and unresolved
+  projections. Stored facts are retained without making replay an admission
+  gate; historical bindings are read against their recorded links.
+  arc-forge-receipt/1 carries command, change, event/observation/read IDs,
+  generation IDs, coverage, outcome and, for each reference, the claim it
+  supports and its availability (available, unavailable or corrupt).
+
+  Observations carry adapter identity, a provider/host/repository/PR snapshot,
+  nullable full observed head/base SHAs, adapter read_at, optional provider
+  update/event coordinates, responses, items, generations and an optional
+  previous_observation. Arc's created_at and collector identity are independent.
+  Missing revisions on failed reads stay absent. Each response and item names
+  its SHA-256, byte length and RetainedContentRef: provider, opaque handle,
+  sha256, byte_length, media_type and reported capture (pinned or unpinned).
+
+  A reference is a claim until ledger custody holds its bytes. Custody keeps
+  content under `custody/sha256/<digest>` in the ledger directory
+  (`<git-common-dir>/arc/` unless configured otherwise), writes each file
+  atomically, and re-verifies the recorded length and sha256 on every read. It
+  never follows a symlink: a `custody/` or `custody/sha256` directory that is
+  one is refused by every read and write, so nothing is created, replaced or
+  read outside the ledger, and a symlink in place of a digest's file reads as
+  corrupt and is replaced rather than followed. A
+  reference reads as available; unavailable, when no bytes are held; or
+  corrupt, when held bytes fail verification. Absent bytes are never empty
+  content, and missing content degrades only the generations and responses
+  that reference it, never a retained fact or judgment. A provider's reported
+  capture and arc's verification are separate facts. Arc never resolves a
+  provider handle: bytes arrive as files an adapter materialized or as an
+  export's custody sidecar.
+
+  `forge observe --custody-dir DIR` copies materialized files. For each
+  digest the document references, DIR/sha256/<digest> (lowercase hex) is the
+  adapter's file: a regular file inside DIR, directly or through a symlink that
+  stays inside it, with exactly the reference's length and sha256. Every file
+  is verified before the first event or custody file is written, and each is
+  verified again as it is copied. A mismatch, a non-regular file, a symlink
+  leaving DIR or a DIR without a sha256/ directory refuses. Files the document
+  does not reference are never read, and a reference with no file stays
+  unavailable. Repeating a read with --custody-dir publishes bytes that are
+  missing or damaged. Receipts name each reference's claim: a response with
+  its response_id, or an item with its item_kind, node_id and generation_id.
+  Provider-observed commits (observed head and base, merge commits, link,
+  checks and lifecycle heads) are held by retention refs when this
+  repository has them, and `arc export` lists them as `observed-commit`.
+  Custody travels beside an export (see export and import above). `arc doctor`
+  advises `custody-content-mismatch` for a custody file whose bytes do not hash
+  to its name, which arc reads as corrupt, and `custody-temp-orphaned` for a
+  hidden temporary file an interrupted write left more than an hour ago. It
+  removes and rewrites nothing, and neither finding fails the command. A
+  custody directory that cannot be read, or is a symlink, is the problem
+  `custody-unreadable`.
+
+  coverage has overall and collections entries. Each has state (complete,
+  truncated or failed), scope, optional frontier and failure_reason (required
+  on failure). Complete describes a finite read. Absence and zero checks
+  require complete coverage of their collection. A passed rollup requires
+  positive count and complete checks coverage. Other collections may be
+  truncated or failed independently. Item facts are comment,
+  pull-request (state and merge_sha), checks (state and count), or absence
+  (collection). Raw bodies belong to referenced content, not typed facts.
+
+  A PR's identity is its provider, host, repository and PR coordinates. Each
+  coordinate is the native identifier (repository_id, native_id) when the read
+  reports one, otherwise the name or number. A coordinate reported by only one
+  of two reads makes them different PRs, so typed and legacy links never share
+  an identity. URLs, base and head repositories and refs, and names or numbers
+  that a native identifier supersedes are snapshots; they may change without
+  changing the PR. Retargeting a native PR keeps its item generations:
+  unchanged bytes reuse a generation and edits name their predecessor. An
+  item's identity adds its kind and node_id. A typed link exposes its
+  observation's provider_identity; checks, lifecycle facts and the legacy
+  ambiguity test compare it, so a replacement PR cannot inherit another's
+  facts through a matching URL, number or ref.
+
+  Every item names a generation_id; generations carry kind, node_id, sha256
+  and optional predecessor. Unchanged bytes reuse that generation in a distinct
+  read. Changed bytes name a recorded predecessor on the same provider item.
+  Reversion creates another generation; concurrent predecessor branches remain
+  visible. Arrival order establishes no provider causality. show/status JSON
+  exposes every observation, including historical generations and digests.
+  export/import preserves observation event documents.
+
+  link/checks/pr-state accept --observation EVENT-OR-READ-ID and --json.
+  Values come from that fact; explicit flags must agree. --detail is valid
+  only on legacy check assertions; typed reads retain prose through references.
+  checks and pr-state
+  accept --link and require the current PR identity and raw observed head.
+  link still requires a matching declaration and policy. Legacy flag forms
+  render as unretained assertions with unknown acquisition time. Checks with
+  no link have unknown PR identity. Observed heads never come from rewrites.
+
+  Evidence origins stay apart. A local gate evaluation is a result arc itself
+  ran at a tree (`verify`, `candidate verify`); the gates of integration and
+  selection read evaluations. Hosted checks are a provider's rollup for one PR
+  identity and observed head, read through the forge observations above.
+  Received execution evidence is an external run's claim about its own
+  commits, recorded on a candidate (see CANDIDATES), with its provenance and
+  receipts, labelled external wherever it is shown. None stands in for
+  another: a green hosted check or a received pass is no local evaluation, a
+  local pass says nothing of a provider's checks, and a Git or forge identity
+  is never an agent role.
+
+  Arc records provider assertions through forge declare/link/checks/pr-state;
+  it never contacts a provider. Link head, checks PR head, lifecycle PR head
+  and merge SHA retain their provider-observed values. Views pair each
+  observed value with its resolved local rewrite successor; a dropped
+  revision has a null successor. Stored event fields are raw observations.
+
+  show and status expose observed_head_match and resolved_head_match against
+  the patchset's approval anchor, which follows signature-only and
+  role-addition rewrites (`arc guide rewrites-evidence`). Any other content
+  or trailer rewrite keeps the open patchset's approval anchor;
+  a fresh snapshot binds the successor. A local rewrite correspondence does not supply
+  provider evidence at its successor. checks_record preserves the rollup's
+  observed_pr_head, resolved_pr_head and the link persisted when recorded.
+  Checks persist whether a binding was recorded, including an absent link.
+  Import order never supplies an explicit binding. Unbound older checks and
+  lifecycle facts can use an earlier link from their recording repository
+  only while the complete history contains one distinct link. A foreign
+  link or ambiguous history leaves the legacy binding unknown.
+  Without a recorded link its PR identity is unknown. Hosted checks apply
+  only to that PR identity and observed head; checks_applicable also requires
+  that observed head to equal the approved head. A different PR or head
+  renders the rollup stale. Repeating an identical link retains its binding.
+
+  pr-state binds to the current link's provider-observed head; --merge-sha
+  is the provider-reported merge revision. Local lifecycle correspondence,
+  hosted checks and local integration authorization are separate facts.
+  Forge readiness requires an observed approved head, applicable passed or
+  not-configured checks, and an observed open PR. Zero checks retains its
+  not-configured caveat. Integration authorization uses local gates and
+  judgments independently of forge readiness.
+

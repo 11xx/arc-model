@@ -1,0 +1,246 @@
+Review authority, independence and policy
+
+REVIEW COVERAGE AND DEBT
+  For ordinary work the review of record is the lead's own read of the diff,
+  recorded as the verdict — or, where the lead contributed to the patchset or
+  policy refuses its approval, a declared debt naming what was read and what
+  is still owed. Neither waits on a reviewer: record it, then integrate. An
+  independent reviewer is asked for only where policy requires one, or when
+  someone asks for one. A deeper pass is bought later, over a batch, on the
+  operator's call; the inbox and catchup hold what it covers.
+
+  Review coverage is measured against the final patchset, not participation:
+  `arc check` warns when a reviewer's last look predates what is about to ship,
+  or when nobody distinguishable from the author covers it. Warnings, never
+  blockers — one reviewer is a legitimate way to ship.
+
+  `arc status --json` carries the exact identities the independence check
+  compares as `review_subject`: invoker, effective author, the effective
+  contributor set, and whether a recorded set or author fallback supplies it. For a closed
+  integrated change, it names the patchset recorded as shipped while
+  `latest_patchset` remains the later history. `arc show` and `arc check` name
+  them beside an approval rejection, and `arc catchup` repeats the subject
+  beneath each open change and each integrated debt item.
+
+  An event's effective author is its `--on-behalf-of` subject when set,
+  otherwise its actor. A patchset's effective contributors are its recorded
+  set when nonempty, otherwise its effective author alone.
+  Contributor declarations follow the actor rules in `arc guide identity-basics`.
+
+  `arc status` and `arc review <change>` print the rule as `review_options`:
+  for ordinary scope, `declare_debt` then `request_review`, with
+  `next_action` `declare_debt`; a required-review or undetermined-danger
+  change lists `request_review` alone. The list is what arc advises, not what
+  integration permits: `arc integrate --debt` still lands a required-review
+  change, on the lead's own judgement and with its review owed. Reading the
+  list writes nothing — the lead runs `arc debt` or `arc integrate --debt`
+  itself. A current
+  `changes-requested` or `comment-only` verdict is its own next action and
+  offers no debt route: a waiver records a missing review, not a way past a
+  refusal.
+
+  Repairing a patchset's attribution happens only before any verdict:
+  `snapshot --amend <ps> --contributors ...` replaces the whole set, and the
+  refusal after a verdict or closure names the blocker. Run evidence affects
+  attribution only when a patchset is recorded; it repairs no existing patchset.
+
+  Independence is judged against the patchset a reviewer actually read, not
+  against whatever is newest. Otherwise a later snapshot by somebody else
+  would retroactively turn a self-review into an independent one.
+
+  It is also a relation between declared identities. The ledger, never commit
+  trailers, says who held which role. A patchset's recorded contributor set,
+  when nonempty, is its authorship; otherwise its implementer is its
+  effective author: its `--on-behalf-of` subject when one was named, else its
+  recorder. Its planner is the plan's recorded planners, else an asserted
+  `Planned-by`, else the brief's recorder; its orchestrator is the invoker
+  recorded beside an `--on-behalf-of` subject, and its integrator the actor of
+  `arc integrate`, never the subject that command was invoked on behalf of.
+  Planning, orchestrating and integrating somebody else's work are not
+  authorship. A clean `arc rebase` that arc performs itself with `git replay`,
+  run in a repository without the project's configuration, whose ref arc
+  reads, carries the matching patchset's authorship, or completed bound-run
+  attribution established before replay under `arc guide change-integration`,
+  retaining every contributor's coordinate and model even when context or
+  hunk positions moved. Only that replay's result, applied in the
+  same invocation, is the replay: a snapshot of any other head, and any replay
+  that fell back to `git rebase` or stopped for a person to resolve, is
+  ordinary work. Reflog text, hooks, merge drivers, and inherited
+  `GIT_REFLOG_ACTION` are not evidence for this and do not enter it. The
+  replaying session is the replayer, never the author. A record supplies an
+  actor's coordinate only when it credits that actor as an author; a session
+  that merely replays or records somebody else's work supplies none. An
+  explicit `--contributors` or `--solo` decides the replayed patchset's
+  contributor set; members the replay carries over keep their recorded
+  coordinates. Ordinary snapshots use their explicit `--contributors`, `--solo`
+  or `--on-behalf-of` declaration when supplied, including an environment
+  subject. With none supplied, completed bound runs can establish authorship
+  under the following rule.
+
+  Snapshot examines commits since the previous patchset's mapped head, or
+  the first patchset's resolved base. That boundary must remain an
+  ancestor of the head. Maps require recorded proof of complete role
+  appends (`arc guide rewrites-evidence`) or signature-only changes for every
+  recreated commit, readable objects, unchanged `Implemented-by` sets and a
+  recorder outside covering executor bindings. Other rewrites refuse if
+  their old side names the boundary or an added commit, or their new side
+  names either and they were recorded at or after a covering dispatch
+  began.
+  For each delegated commit, a local dispatch naming this
+  change must have a nonconflicting local implementation binding and a local
+  end.
+  Its dispatch-to-end interval must include the commit's committer timestamp
+  exactly as Git records it, in whole seconds; fractional event times are not
+  rounded. The binding may be recorded after the end but not before dispatch.
+  The dispatch's worktree must resolve to the checkout holding the change
+  branch. Its valid agent `--on-behalf-of` coordinate must name the bound
+  harness, and the commit's `Implemented-by` set must equal that coordinate
+  alone. Trailers corroborate the ledger's dispatch; they supply no identity
+  by themselves. Several covering dispatches must agree on the executor
+  session and model, and one executor session must retain one coordinate
+  throughout the commit range. Dispatches starting after a commit or ending
+  before it are irrelevant to that commit; a nonconflicting reviewer binding
+  supplies no implementation evidence.
+
+  Each established executor contributes its bound `harness:session`, with
+  its dispatch's represented coordinate and model retained as author evidence.
+  Several executors are all recorded. Production names the first executor
+  in commit order as implementer; every executor remains an author for
+  independence and clearance. A commit under the invoker's own binding, or
+  outside every interval with no other implementer's trailer, also includes
+  the invoker as a contributor. Without any established executor, the
+  recorder remains the author. A temporally relevant missing bind or end,
+  conflicting bindings or covering executors, mismatching worktree, coordinate
+  or trailers, an uncovered implementer's trailer, or a rewrite that fails
+  the boundary and dispatch-time checks retains recorder attribution for the
+  whole patchset. Snapshot prints one line naming that ambiguity and the explicit attribution flags to pass. Successful
+  derivation prints the executors and supporting dispatch ids. A change with
+  no dispatch retains ordinary recorder attribution without that diagnostic.
+  An unchanged patchset keeps its attribution, including after a recorded
+  signature-only rewrite or append of complete role entries. A plain `git
+  rebase` inherits no authorship; when run evidence cannot attribute its
+  result, the diagnostic names `arc rebase` as the mechanical replay remedy.
+  These rules also govern `review --snapshot`, `done`, squash and ordinary rebase snapshots; mechanical
+  replay and explicitly attributed delivery or candidate promotion retain
+  their own attribution contracts. Live-claim declaration requirements apply.
+  Arc cannot detect an unrecorded rewrite that preserves the boundary,
+  committer times and corroborating trailers.
+
+  An approval is refused when its effective author matches the ledger's
+  authorship, or when arc assumed the reviewing identity from git config or the
+  harness session, which is nobody's claim and so cannot be the second party.
+  An assumed authoring identity refuses nothing on its own: a reviewer that
+  declared a different name is independent of it, before the merge and in an
+  audit after it alike. Two assumed identities are refused, since neither side
+  claimed anything. Authorship is also a model identity: a read under the model,
+  at any effort, of the ledger's implementer is a self-review. A read is under
+  the model it records and, where its event records that the reader's session
+  store observed another, the observed model too; either one matching makes
+  it a self-review unless the dated tie-break election below applies, and
+  the rejection names the observed model. Where
+  self-approval is forbidden the gate rejects the approval as it rejects a
+  contributor match, and `arc audit` refuses to record it;
+  `--verdict changes-requested` is open to anyone. Model-match refusals compare
+  strings after dropping effort; tie-break mixed-authorship checks also resolve
+  aliases from the read's dated ladder when one is available. `Planned-by` and
+  `Orchestrated-by` never refuse a read; an audit records which of those roles
+  its auditor held as dirty context for routing, and computes no score.
+
+  `[policy] tiebreak_reviewers` elects dated `model#effort` coordinates for
+  mixed-model work. The read's recorded coordinate must exactly match an
+  entry in force at its `created_at`, and any session-store observation must
+  match that complete coordinate too. The ledger's authoring models must
+  include at least one model the reader does not name; different efforts of
+  the reader's own model alone never qualify. This waives only the model-match
+  independence test. A contributor, actor or authoring-session match, an
+  assumed reviewing identity, or a contradictory observation never qualifies.
+  A represented reader's session is the one its subject coordinate names;
+  otherwise the recorded session applies. A missing harness does not create
+  another model. Under a ladder, aliases of one model count as one model.
+  Every other approval, capability, authority and coverage bar still applies.
+
+  Elections come from the target branch's committed policy layered with the
+  operator policy, never the candidate's file. New audits of closed changes
+  use the target's current list. Effort and RFC 3339 `since` are required;
+  `since` is inclusive and `until` an optional exclusive end. Malformed entries
+  and overlapping intervals for the same model (at any effort) refuse, naming
+  the entry. Different models may be in force together. A successor model gets
+  a new entry and the predecessor an `until`. The list is append-only in meaning: every read keeps its election
+  or its absence when recorded; later date edits, additions and removals never
+  re-judge it. Reads without a recorded election have no exception. Unreadable
+  election policy grants none: reads that ordinary rules allow still record
+  and warn. A model-match audit remains refused where self-approval is forbidden. Each election
+  binds to its recorded destination; a different `--into` cannot borrow it. `show`
+  and `status` identify an elected read as `tie-break reviewer model#effort
+  (policy since ...)`. A model-match refusal on mixed work names
+  `tiebreak_reviewers` as the operator remedy.
+
+  Commit trailers are a projection arc writes from the ledger. A range whose
+  trailers disagree with the ledger is reported. For commits with no ledger
+  record, such as imported ones, trailers are declared, unverified evidence:
+  alone they neither discharge nor refuse, and the read says so. A reviewer arc
+  cannot place is reported as unknown attribution rather than counted as
+  independent or as self-review, whether it cast a verdict or only filed
+  findings.
+
+  Which changes need one is declared in `[danger] paths` in
+  `.arc/policy.toml` or the operator policy at
+  `<git-common-dir>/arc/operator-policy.toml`. Both path lists apply, so a
+  path declared dangerous by either file is dangerous. Integration reads
+  `.arc/policy.toml` from the change's target branch, wherever it is run. A change touching a declared
+  path needs a verdict from somebody other than its author; elsewhere a
+  self-recorded verdict satisfies the gate. `forbid_self_approval` refuses a
+  self-approval on those paths. `arc integrate --debt` still lands such a
+  change and leaves its review owed. Declare no danger paths and the
+  gate stays uniform. `arc begin --dangerous` raises a single change
+  whatever it turns out to touch, and nothing lowers it afterwards — a project
+  decides its own gate in advance, rather than a change deciding it under
+  pressure to ship. `arc check` names the rule that fired, and `arc doctor`
+  reports a declared literal that can never match — one that names nothing, or
+  a directory, since declared paths are matched against changed files.
+  Gate and policy declaration files can change these integration rules, so
+  changes touching `.arc/gates.toml` or `.arc/policy.toml` need independent
+  review when those paths are declared dangerous.
+
+  Required booleans apply when either policy enables them, danger and safe
+  declarations combine with danger taking priority, debt thresholds use the
+  stricter value, and `per-actor` provenance applies when either file selects
+  it. Project and operator gates combine by name: profiles combine and the
+  shorter timeout applies when the command and environment probe agree. The
+  same name with a different command or probe is a conflict: `arc doctor`
+  names both declarations, while `arc
+  check` and gate execution refuse it. `arc status`, `arc show`, and `arc policy
+  show` name the file that declared each rule. The operator file is outside
+  the work tree, so local policy does not add tracked files to a contribution.
+  `arc doctor` diagnoses the invoking checkout's declarations and tracked
+  files, including uncommitted local edits. The debt priority advisory also
+  uses that checkout's thresholds because it summarizes repository-wide debt,
+  not a particular change's readiness.
+  `arc policy show` includes each gate's command, profiles, timeout, and
+  environment probe.
+
+  Clearance requirements and the dated registry: `arc guide debt-clearance`.
+
+  Work sent to a repository you do not own is decided by its receiver.
+  `arc external verdict <change> --verdict <v> --decided-by <who>
+  --reference <ref> --revision <rev>` records that decision beside, never as,
+  a verdict arc witnessed: an approval gates only the revision it names and
+  never alone on a dangerous path. An external approval never supersedes a
+  local refusal. A change request carries findings, and a
+  rejection of the head closes the change. A `[contribution] history =
+  "squash"|"preserve"` declaration makes `integrate` record the change ready to
+  send instead of merging it, refusing merge commits and, under squash, more
+  than one commit. The event and projected state retain the effective
+  destination branch, evaluated revision and authorization. Reuse requires
+  matching patchset, destination branch and revision, contribution history
+  and authorization. `arc squash <change> -m <message>` makes that one commit as
+  a new patchset with its own gates and verdict, attributed by `--contributors`
+  or `--solo` as on `arc snapshot`. Over another actor's live claim an
+  unattributed squash refuses before the branch moves, and the change stays
+  locked from that check until the patchset is recorded. A failed squash commit, a
+  changed commit tree, or tracked edits left by a hook restore the original
+  head, index, and tracked files. Untracked files created by hooks are retained
+  for inspection. Paths obstructing restoration are moved under
+  `<git-common-dir>/arc/squash-recovery/`; the command prints the recovery
+  directory before moving them.
+

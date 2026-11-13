@@ -1,0 +1,53 @@
+Acceptance probes and brief bases
+
+  Each acceptance probe declared on the patchset's brief blocks readiness
+  until baseline evidence fails at that brief's base and final evidence passes
+  at the patchset's head. Both runs must name that brief and probe; the newest
+  run for each phase at its required revision decides. A brief with no base,
+  or with a base equal to the patchset head, cannot discharge a probe. The pair
+  proves discrimination, not relevance.
+
+  Executed baseline probes run at the brief's recorded base. If the invoking
+  checkout's HEAD differs, arc creates a detached scratch checkout under
+  the configured worktrees directory (including ARC_WORKTREES_DIR). Relative
+  directories resolve against the invoking checkout's root. Arc reports
+  free space and the absolute path, runs the probe there, and force-removes
+  it after the run. Evidence is recorded through the invoking checkout. At
+  the base, the probe runs in place. Attested baseline evidence requires
+  --tested-revision equal to the base and creates no checkout. A creation
+  refusal prints the reason and commands to create, verify in, and remove
+  a manual checkout. Failed creation removes the allocation owned by that
+  attempt and only administrative entries whose gitdir names that path.
+  Cleanup confirms that Git's worktree inventory contains no registration
+  for the attempt's path before offering the manual recreation commands.
+  Unrelated worktree registrations are preserved. Failed cleanup reports the
+  retained path and its removal command instead of a command to recreate it.
+  --waive-dirty refuses before recording when a baseline requires a scratch
+  checkout: that checkout is clean, and the waiver would name a revision the
+  probe does not test. At the base, a waiver binds to that checkout's HEAD.
+  A removal failure warns with the path and cleanup
+  command without changing the recorded result or exit code.
+
+  A brief version keeps the preceding version's base unless `--base` names
+  another revision; the first version defaults to HEAD. Recording prints the
+  selected base, also carried as `base_revision` in JSON. Probes carry forward
+  unless `--probes-json` supplies a replacement array. Repeatable
+  `--probe NAME=COMMAND` adds or updates named probes; `--withdraw-probe NAME`
+  removes named probes and keeps the others. Unknown withdrawals, duplicate
+  declarations, and declaring and withdrawing the same name are refused.
+  These flags are mutually exclusive with `--probes-json`.
+  Probe edits without `--body-file` or `--scaffold` require a preceding brief
+  and preserve its body, title, plan reference, slice, captured plan provenance,
+  and mandatory reads. Explicit title, plan, or read inputs replace those
+  fields. A body or scaffold records a replacement contract.
+
+  An undischargeable probe is recovered by a later brief version with
+  `--base` at the revision the work started from and a cause; `arc snapshot`
+  then binds the patchset to that version, declaring
+  the patchset's contributors, which a live claim held by another actor
+  requires. `check` prints both with the change, probes, and contributors
+  filled in, and only the snapshot once a later version the probe can
+  discharge at exists. Each contributor is its own `--contributors=`
+  argument; one the flag cannot spell exactly, because it holds a comma or
+  edge whitespace, is left as a placeholder the line names.
+

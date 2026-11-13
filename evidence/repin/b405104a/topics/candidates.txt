@@ -1,0 +1,196 @@
+Registration, received evidence, selection and promotion
+
+CANDIDATES
+  To choose between answers to one brief: register each, `arc candidate verify`
+  each, then `arc candidate select`, which validates your choice and promotes
+  it. `arc candidate judge` records why another lost.
+
+    arc candidate register --tree <tree-or-commit> --brief <change>[@<event>]
+                           --producer <actor>... [--parent <id>]...
+                           [--adopts <id>]... [--episode <claim>]... [--id <id>]
+                           [--evidence-file <file> [--custody-dir <dir>]]
+                       Record an alternative answer to one brief version and
+                       pin its tree at `refs/arc/candidate/<id>`.
+    arc candidate show <id> [--json]
+    arc candidate list [--brief <change>] [--json]
+    arc candidate judge <id> (--rejected | --superseded-by <id>) --reason <why>
+    arc candidate retire <id>
+    arc candidate verify <id> [--gate <gate>]
+                       Run the required gates against the candidate's tree.
+    arc candidate select --chosen <id> --into <change> --target <revision>
+                         [--evaluation <event>]... --rationale <text|@file>
+                       Validate a named choice and promote it.
+    arc candidate promote <selection>
+                       Promote a recorded selection, or finish or discard an
+                       interrupted promotion.
+
+  A registration is immutable content with a contract: a tree, the brief
+  version it answers with a `sha256:` digest of that brief's body, the
+  producers, the parent registrations it continues, the registrations it
+  adopts, and the claims it ran under on the brief's change. Registering opens
+  no change and creates no patchset. Two registrations of one tree are two
+  candidates that share storage and nothing else. A parent answers the same
+  brief version; content carried into another contract is adopted instead,
+  and the adopter's producers include every producer along the adopted
+  registration's parent chain. Every refusal names its rule and writes
+  nothing.
+
+  A judgement — rejected, or superseded by another registration — is its
+  declarant's claim. It alters no registration and selects nothing.
+
+  Received evidence is what an external execution reports of a candidate,
+  recorded beside the registration with `register --evidence-file`. The
+  document, `arc-received-evidence/1`, carries the execution's private run
+  handle; the packet or brief reference it was handed; the source, tested and
+  report heads, each a full commit with its tree; provenance entries;
+  receipt references (RetainedContentRef: provider, opaque handle, sha256,
+  byte_length, media_type, capture); commands with reported results (pass,
+  fail, error or not-run, an optional exit code, an optional receipt);
+  the environment; the head the results apply to; and omissions. The three
+  heads are three claims: a report commit that is the source's child does not
+  move the tested head, and the tested head need not descend from either.
+  Arc records original commits as reported and resolves each through recorded
+  rewrites beside them, as `resolved_commit`: itself, its successor, or null
+  when a rewrite dropped it. Registration, and an import for each evidence
+  event the bundle adds, require each held raw head object to be a commit with
+  the claimed tree. Tags are not peeled; held tags, blobs and trees refuse as
+  `evidence-head-type`, and a held commit with a different tree refuses as
+  `evidence-tree-mismatch`; an import's refusal names the evidence event.
+  Absent commits remain external claims. Evidence already held is never
+  re-judged by an import: a commit that arrives later with another tree is a
+  diagnostic on `candidate show` (`diagnostics`: code, role, commit, detail)
+  and the `held-evidence-mismatch` advice of `arc doctor`, and blocks no
+  import. Held originals have retention refs through rewrites and
+  garbage collection, including after import. One commit named twice
+  carries one tree. Omissions are explicit: provenance, receipts, commands and
+  environment each appear in `omissions`, with a reason, exactly when empty,
+  and `omissions` itself is required.
+
+  Each provenance entry is one agent role (producer, collector or reviewer)
+  with the observations of it: the native producer and the model, each with
+  its source coordinates (a kind and a reference), the forge account, the
+  review sender, the Git author and the Git committer. They are separate
+  facts and none implies another: one forge account behind three roles is
+  three entries, and account equality establishes no equality of roles,
+  models or Git identities. A coordinate or an identity is a value or is left
+  out: registration, and an import for each evidence event the bundle adds,
+  refuse a placeholder (unknown, none, n/a, ...) anywhere in a provenance
+  entry or the environment identity, and a session id as a model, effort or
+  source coordinate. A candidate's `producers`, a promoted patchset's
+  contributors and `--on-behalf-of` keep their own roles and are never
+  derived from, or merged with, a provenance entry. `registered_by` and the
+  evidence's `recorded_by` are the declarant of the write.
+
+  Received evidence is the sender's claim, written once and never altered, and
+  never an evaluation. It records no `candidate-verified` or
+  `verification-recorded` event and eligibility for selection is unchanged:
+  each required gate still needs an evaluation `candidate verify` ran at the
+  shipped tree, whatever the evidence reports of any tree. `candidate show`
+  and `list` render it as `received_evidence` with `origin: external` and
+  `tested_tree_is_registered_tree`, which says only whether the tree the
+  execution reports having tested is the registered one. Each receipt reads
+  from custody as available, unavailable or corrupt, and a missing receipt
+  leaves every recorded claim as it was. `--custody-dir DIR` copies each
+  receipt's file from `DIR/sha256/<digest>` into custody after verifying its
+  length and sha256, as `forge observe --custody-dir` does; a mismatch
+  refuses and records nothing. `arc export` lists the commits and trees the
+  evidence names that the exporter holds as `received-commit` and
+  `received-tree`, and the receipts ride the custody sidecar; an exporter that
+  never held a head leaves it as an external claim, subject to the receiver's
+  held-object checks before any event, ref or custody publication.
+
+  Registration records `requested_evidence_sha256` only when --evidence-file
+  requests received evidence: the SHA256 of the typed document serialized as
+  JSON with sorted object keys. The request is immutable and shares the
+  registration event's publication boundary. An active registration with
+  explicit --id and --evidence-file permits recovery only when its original
+  request digest, tree, brief, producers, parents, adoptions, episodes and
+  declarant match. A retry can finish missing evidence or publish supplied
+  receipt bytes. Held evidence must match the requested document and declarant
+  exactly. Each fact is recorded once; conflicting retries refuse. Registration
+  without evidence establishes no request: --evidence-file cannot attach one
+  later (`evidence-not-requested`). Older records without this optional intent
+  remain readable but grant no registration retry. Already-held evidence
+  without an intent reads as `request_binding: unbound`, never producer
+  consent. A newly admitted attachment requires an original request digest
+  and matching declarant; an unrequested attachment refuses before any import
+  publication, naming its event. Registrations without attachments remain
+  importable. An evidence publication failure names the durable
+  registration event. Without a custody directory, absent receipt bytes remain
+  unavailable and do not block registration.
+
+  Retirement deletes a candidate's pin and records that it did, and only when
+  no root reaches the candidate: a selection or a promotion, reaching what its
+  candidate's parents and adoptions carry. The registration and its
+  judgements stand. arc never retires a candidate on its own.
+
+  An evaluation runs the required gates of the brief's change, as its target
+  declares them, in a scratch checkout of the candidate's tree, removed
+  afterwards. It records `candidate-verified` keyed by the tree, with the
+  gate's command, timeout, and environment probe as consumed, the identity the
+  probe yielded there, the result, and command timing. Required declarations
+  include the candidate tree's additions and tightened budgets. Execution and
+  selection judge timing against the effective budgets in `arc guide gates`.
+
+  Selection is validation, never choice. The caller names the registration,
+  the destination (the change whose brief it answers), the target head it
+  decided against, and the evaluations it relies on; arc checks every ground
+  and reports every failing one by code, recording nothing unless all hold.
+  `[candidates] evaluation_reuse` must be declared, and the target must not
+  have moved. Each required gate needs a named, passing evaluation at the
+  shipped tree, the chosen registration's, under the declaration in force and
+  in the environment observed now at that tree; under `never` only the chosen
+  registration's evaluations count, under `matching-coordinates` any
+  registration's whose tree, declaration, and environment match, even after
+  that supplier retires. Reuse roots neither the supplier nor its ancestry;
+  its registration and evaluation remain evidence and the chosen pin holds
+  the evaluated tree. A supplier reached independently by a selection,
+  promotion, parent or adoption still cannot retire. A retired chosen
+  registration remains refused. Each
+  `--must-read` of the registration's brief version needs a tool read on the
+  registration or one along its parent chain, by an episode one of them cites,
+  at the required version and covering the required extent. A declaration,
+  the contract's own plan or opening artifact, a partial read, and a read of
+  unknown coverage are each refused by name; reads through an adoption never
+  count. An artifact requirement is met by digest equality with the text a
+  tool returned, so a tool that decorates it, like a line-numbered `Read`,
+  cannot meet one until its recorder digests the content itself.
+
+  A permitted selection records `candidate-selected` with its basis: the
+  chosen registration, the destination head and target it was validated at,
+  the evaluation and read meeting each requirement, the reuse policy, the
+  contributors (the producers along the parent chain; an adopted
+  registration's producers only as the adopter's), the selector, and the
+  rationale. A repair is a child registration, so whoever repairs is a
+  contributor and never only the selector. No review belongs to a candidate:
+  the promoted patchset is reviewed, waived, and integrated as any other.
+
+  Permission is not effect. The promotion holds the destination's transition
+  lock and the repository-events lock, never the target's, and in order:
+  refuses `basis-moved`, recording nothing, when the destination head or the
+  target differs from the basis; rejudges the selected evaluations against
+  current budgets, refusing over-budget or unmeasured evidence; refuses a checkout of the destination with
+  tracked modifications or untracked paths in the way; commits the shipped
+  tree onto the destination head with the selector as committer and keeps it
+  at `refs/arc/candidate-promotion/<candidate>/<selection>`; moves the branch
+  from the head it read, so a concurrent move stops it there; updates the
+  checkout; records a patchset carrying the selection's contributors and a
+  candidate link; and records `candidate-promoted`. A basis is never reused:
+  after a move, select again, and the new selection names the stranded one as
+  superseded. `arc doctor` and `candidate show` report a promotion ref no
+  `candidate-promoted` event records; `candidate promote` completes it when the
+  branch points at its commit and deletes it otherwise, and says which.
+  Siblings stay registered and unjudged until somebody judges them; `arc
+  workspace report` flags a promoted brief with unjudged siblings, and `arc
+  explain` lists them under rejected alternatives.
+
+  Candidate events, received evidence, evaluations, selections, and promotions
+  among them, are repository events, so every `arc export` carries them
+  and `arc import` judges them with the ledger they join before writing
+  anything. Every imported candidate event stamps store format 7, including
+  an evaluation, selection, or promotion without its registration.
+  An imported registration whose tree this object store lacks stays
+  unpinned. `arc doctor` advises on a pin with no registration and on
+  undeclared `[candidates] evaluation_reuse`, and reports a registration a
+  root reaches whose pin is gone.
+

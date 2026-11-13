@@ -1,0 +1,159 @@
+Change lifecycle commands
+
+RUN A CHANGE
+  arc begin <slug> --profile <p>     Open a change: branch + checkout + record.
+    --planned-by [<value>]           Assert planning credit (repeatable).
+    --orchestrated-by [<value>]      Assert orchestration credit (repeatable).
+                                     With no value, use the invoking identity
+                                     as `arc roles` does; unresolved
+                                     coordinates refuse.
+    --from-journal <file>            Open it from a journal item, consuming it.
+    --blocked-by <change> --tag <t>  Declare a chain up front, at planning time.
+    --worktree [<path>]              Force a worktree, at the path or under worktrees_dir.
+    --no-worktree                    Switch this checkout, carrying local work.
+    Checkout follows [change] checkout (built-in in-place), independent of profile.
+    Without --branch, append the slug to [change] branch_prefix (built-in arc/).
+    --base <rev>                     Start from <rev>, not the target head.
+                                     Without it, a target behind its upstream
+                                     (as the last fetch left it) is a warning
+                                     naming both revisions and the fix.
+    If commits landed on the target by mistake: keep a branch at the work with
+    `git branch <work-branch>`, then `arc begin <slug> --adopt <work-branch>
+    --base <intended-base> --target <target>`. Repair the target deliberately;
+    do not reset it.
+  arc brief --body-file <f>          Record the next contract version.
+    --planned-by [<value>]           Assert planning credit on the change;
+                                     with no value, as on `arc begin`.
+    --caused-by <kind:ref>           Why it changed. v1 refuses a cause; every
+    --cause-note <text>              later version requires one of these.
+  arc claim / stage / release-claim  Advisory liveness while implementing.
+    --takeover                       Displace a claim that may be taken over:
+                                     a stale one on a change, an expired one
+                                     on an artifact.
+    --because <reason>               Displace one that may not be, stating why
+                                     its holder is gone. `agent-status-absent`
+                                     and `delegate-exit:<handle>` are the
+                                     expected evidence; any text is accepted.
+  arc accept INPUT --branch LOCAL-BRANCH --publisher PRINCIPAL
+      --received-sha256 SHA256 [--worktree PATH] [--key KEY]
+      [--contributors ACTOR,... | --solo] [--custody-dir DIR] [--dry-run]
+      [--json]
+                                     Prepare a fetched delivery on its paired
+                                     authority, as lead; return readiness and
+                                     the local judgment still owed.
+  arc snapshot                       Record the current head as a patchset.
+                                     A rewrite that invalidated approval
+                                     requires a fresh patchset even when the
+                                     mapped head already matches the branch.
+                                     A snapshot grants no approval. A
+                                     clean `arc rebase` keeps the replayed
+                                     patchset's recorded contributor
+                                     coordinates.
+                                     Default executor attribution:
+                                     `arc guide debt-review`.
+    --verify [--gate <name>...]      Run required gates, or the named ones,
+                                     reusing the newest green evidence at the
+                                     same tree; --rerun runs them anyway.
+                                     Names must be unique and declared;
+                                     invalid names refuse before any write.
+    --contributors <a,b> | --solo    Declare who wrote it; required while
+                                     another actor holds a live claim.
+    --journal-ref <file>             Name a journal artifact that framed the
+                                     work; recorded with the digest read now.
+    --thread <scheme:id>             Name the external thread it belongs to.
+                                     Identifiers only, never transcript text.
+  arc verify --gate <name>           Run a declared gate; record the evidence.
+  arc verify --command <cmd>         Same, for an ad hoc probe.
+  arc verify --against <branch>      Run every required gate on the merge with
+                                     that branch, not on this head. Gates
+                                     are declared by that destination.
+                                     A textual conflict refuses before any
+                                     gate runs or evidence is recorded;
+                                     rebase first.
+    --rerun                          Run declared gates even where a pass
+                                     would be reused. Without it, --all,
+                                     --gate and --against reuse passing
+                                     evidence at the head's tree, or at the
+                                     merged tree, whichever commit it ran
+                                     on, under the same declaration and
+                                     environment. Only the newest evidence
+                                     readiness counts there is a candidate:
+                                     a gate reruns when it failed, was not
+                                     admitted, or carries neither tree nor
+                                     tested_tree, and when its probe yields
+                                     no identity. The reuse records its
+                                     tree. Replays of reuse events without
+                                     a tree require matching revisions.
+                                     `--skip-green` is accepted and ignored.
+    --attest --environment <id>      Record a run arc did not perform, naming
+                                     the environment it applies to.
+    --attest --after-integration     Retain a check run on an integrated
+                                     change's shipped tree as a receipt,
+                                     never gate evidence.
+    --falsified-by <id> --predicted <why>
+                                     Name the failure this pass answers,
+                                     storing its original event revision.
+  arc done                           Snapshot, verify every gate with green-tree
+                                     reuse, print check state.
+    --contributors <a,b> | --solo    As on `arc snapshot`.
+  arc rebase [--verify]              Replay the branch onto its target, snapshot
+                                     the new head, name the gates it owes.
+    --contributors <a,b> | --solo    As on `arc snapshot`; while another actor
+                                     holds a live claim, refused without one
+                                     before the branch moves.
+  arc policy show                    Show effective project and operator rules,
+                                     with the file that declared each rule.
+  arc policy path                    Print the operator policy path for this repo.
+  arc policy write --body-file FILE  Replace that local policy from TOML.
+  arc review --verdict <v>           Record a verdict (+ --findings-json -).
+                                     An implicit verdict is refused when a
+                                     rewrite invalidated the latest patchset's
+                                     review head; snapshot that head first.
+                                     Explicit --patchset judgments may record
+                                     historical work and stay stale.
+    --snapshot                       Snapshot the clean worktree first;
+      --contributors <a,b> | --solo  attribute that patchset, as on
+                                     `arc snapshot`.
+                                     After a rewrite that invalidated approval,
+                                     the verdict names a fresh patchset.
+    --cause <c>                      Required with changes-requested, refused
+                                     otherwise: brief, executor, or
+                                     integration-staleness.
+    --findings-json <file|->         A JSON array; each finding needs a
+                                     severity (critical, major, minor, note)
+                                     and a summary. `--help` has the rest.
+    --provisional <why>              It gates, and owes a second judgment.
+    --relation corroborates          Support the standing verdict, not replace it.
+  arc resolve                        Dispose of a finding; after integration,
+                                     one left open when the change shipped.
+                                     `arc findings` lists findings, and no
+                                     command reads a single one.
+    --evidence-event <id>            Cite the verification run that justifies it.
+  Nothing submits or marks a change ready: `arc snapshot` records a patchset
+  and `arc check` computes readiness. `arc close <change> --abandoned` abandons.
+  arc check                          Integration preflight; exit code names the blocker.
+  arc integrate <c>...               Guarded integration once the gates are green.
+    --shape ff-only|no-ff            Resolved style; built-in ff-only.
+    <c> <c> <c>, or --tag <t>        Land a queue, in dependency order.
+  arc export <change> --output <file|-> [--since <sha256>]
+                                     Export a versioned event bundle and its
+                                     Git objects, with a count by role.
+    --objects-json <file>            Write an arc-bundle-objects/1 transport file.
+    --json                          Print arc-export/1 summary JSON, including
+                                     custody counts; requires --output <file>.
+    --custody-dir <dir>              Also write an arc-custody-bundle/1 sidecar
+                                     of the retained forge content.
+  arc import <file|-> [--dry-run]     Require every listed object locally before
+                                     writing any events or refs. Missing OIDs and
+                                     roles are reported; transport the objects first.
+    --provenance-only                Import events despite missing objects,
+                                     reporting the unavailable evidence.
+    --custody-dir <dir>              Install a sidecar the bundle binds.
+    --json                          Print arc-import/1 summary JSON, including
+                                     diagnostics and structured custody counts.
+                                     Custody phase is planned, installed or
+                                     not-supplied; installed counts in a planned
+                                     summary describe the prospective effect.
+                                     arc accept --json carries the same custody
+                                     summary from its latest import step.
+

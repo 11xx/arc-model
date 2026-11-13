@@ -1,0 +1,320 @@
+Workflow topics:
+  arc guide overview               Arc and Git ownership
+  arc guide identity               Identity, attribution and sessions
+    arc guide identity-basics      Attribution and model evidence
+    arc guide identity-events      Event ordering, cursors and read-only commands
+    arc guide identity-sessions    Harness and session detection
+    arc guide identity-options     Global options
+  arc guide workspace              Workspace orientation
+  arc guide orient                 Project orientation and plans
+  arc guide journal                Journal lookup, records, references and resolution
+    arc guide journal-lookup       Artifact lookup, archival and project queues
+    arc guide journal-records      Keeping facts during work
+    arc guide journal-references   Pinned references, living documents and published pages
+    arc guide journal-resolution   Journal directory resolution and anchors
+  arc guide sandbox                Destructive rehearsals
+  arc guide questions              Discussions, questions and decisions
+  arc guide change                 Running a change, from gates to retention
+    arc guide change-commands      Change lifecycle commands
+    arc guide change-bundles       History export, objects and custody
+    arc guide change-gates         Gate execution and atomic review input
+    arc guide change-integration   Replay, integration shapes and shipped evidence
+    arc guide change-landing       Landings and must-land-together relations
+    arc guide change-finalization  Retention, checkouts and release copy
+  arc guide probes                 Acceptance probes and brief bases
+  arc guide cleanup                Integration cleanup and retained checkouts
+  arc guide delivery               Preparing delivered changes
+  arc guide replicas               Replica pairing, authority and publication
+  arc guide ending                 Session endings and global memory
+  arc guide profiles               Change profiles
+  arc guide forge                  Forge delivery and observations
+    arc guide forge-delivery       Forge identity, delivery and disclosure
+    arc guide forge-observations   Observations, custody and evidence origins
+  arc guide debt                   Review authority, debt and recovery
+    arc guide debt-review          Review authority, independence and policy
+    arc guide debt-obligations     Debt declarations, coverage and corroboration
+    arc guide debt-recovery        Owed work, audits and findings after integration
+    arc guide debt-clearance       Dated ladder capability and clearance
+  arc guide assurance              Review assurance and staleness
+  arc guide repair                 Finding repair and bounded rounds
+  arc guide contributions          Contribution roles and canonical Git trailers
+  arc guide rewrites               History rewrites and their evidence
+    arc guide rewrites-operations  Signing, trailer edits and tags
+    arc guide rewrites-evidence    Recorded revisions and atomic rewrite maps
+  arc guide history                The history model
+  arc guide candidates             Registration, received evidence, selection and promotion
+  arc guide context                Reads, declarations and provenance
+  arc guide rules                  Claims, evidence, journal, run and round rules
+    arc guide rules-claims         Concurrent claims, lanes and recovery
+    arc guide rules-evidence       Trees, attribution and acceptance evidence
+    arc guide rules-journal        Journal ownership, events and spool safety
+    arc guide rules-runs           Dispatches, executor bindings and native children
+    arc guide rules-rounds         Round endings and execution roles
+  arc guide cost                   Work cost measurement and accounting
+    arc guide cost-measurement     Selection, measurement and pricing
+    arc guide cost-accounting      Counters, coverage and accounting bases
+    arc guide cost-spans           Session spans, allocation and estimates
+    arc guide cost-identity        Lineage, participants, liveness and child families
+    arc guide cost-selection       Range and footprint selection
+    arc guide cost-retention       Retained usage facts
+    arc guide cost-commits         Commit accounting and Git notes
+    arc guide cost-evidence        Portable attribution evidence
+  arc guide exit-codes             Exit codes and blocker precedence
+  arc guide files                  Configuration, build storage and retention
+  arc guide gates                  Gate declarations and selection
+  arc guide gate-costs             Cost diagnosis, check timings and the order of work
+  arc guide gate-raises            Budget raises and trusted growth counting
+  arc guide gates-together         Measured concurrent batches and host-local acceptance
+  arc guide base-passes            Project adoption, baseline proofs and publication audits
+  arc guide slots                  Leased fixed-path checkouts kept across changes
+  arc guide schemas                Versioned surfaces
+  arc guide boundaries             Authority and effect boundaries
+
+By task:
+  Record a patchset       arc snapshot --help
+  Preflight integration   arc check --help
+  Claim work              arc claim --help
+  Project records         arc journal --help
+  Review owed             arc debt --help, arc audit --help, arc query --help
+  Read findings           arc findings --help
+  Contribution rules      arc instructions git
+
+Everything at once: arc guide --all
+Literal search:     arc guide --search TEXT
+
+Command contracts:
+  arc --help
+  arc guide --help
+  arc begin --help
+  arc roles --help
+  arc trailers --help
+  arc list --help
+  arc query --help
+  arc show --help
+  arc explain --help
+  arc log --help
+  arc gates --help
+  arc gates raise --help
+  arc gates paths --help
+  arc gates init --help
+  arc gates over --help
+  arc gates measure --help
+  arc stats --help
+  arc diff --help
+  arc findings --help
+  arc brief --help
+  arc changelog --help
+  arc message --help
+  arc messages --help
+  arc inbox --help
+  arc chain --help
+  arc take --help
+  arc metadata --help
+  arc iterating --help
+  arc status --help
+  arc blocker-status --help
+  arc is-blocked --help
+  arc events --help
+  arc watch --help
+  arc export --help
+  arc import --help
+  arc accept --help
+  arc replica --help
+  arc replica provisional --help
+  arc replica provisional resolve --help
+  arc replica id --help
+  arc replica init --help
+  arc replica pair --help
+  arc replica export --help
+  arc replica import --help
+  arc replica status --help
+  arc replica authority --help
+  arc replica authority offer --help
+  arc replica authority reclaim --help
+  arc replica authority confirm-return --help
+  arc check --help
+  arc claim --help
+  arc release-claim --help
+  arc stage --help
+  arc squash --help
+  arc snapshot --help
+  arc keep --help
+  arc comment --help
+  arc finding --help
+  arc reply --help
+  arc resolve --help
+  arc review --help
+  arc receipt --help
+  arc receipt template --help
+  arc external --help
+  arc external verdict --help
+  arc publication --help
+  arc verify --help
+  arc done --help
+  arc rebase --help
+  arc env --help
+  arc completions --help
+  arc mangen --help
+  arc resume --help
+  arc rescue --help
+  arc prompt --help
+  arc slots --help
+  arc slots status --help
+  arc slots release --help
+  arc slots warm --help
+  arc slots recover --help
+  arc fork --help
+  arc fork begin --help
+  arc fork adopt --help
+  arc fork retire --help
+  arc fork list --help
+  arc fork thread --help
+  arc hold --help
+  arc release-hold --help
+  arc integrate --help
+  arc land --help
+  arc debt --help
+  arc audit --help
+  arc close --help
+  arc history --help
+  arc history withdraw --help
+  arc history rewrite --help
+  arc history resolve --help
+  arc rewrite --help
+  arc rewrite sign --help
+  arc rewrite trailers --help
+  arc candidate --help
+  arc candidate register --help
+  arc candidate show --help
+  arc candidate list --help
+  arc candidate judge --help
+  arc candidate retire --help
+  arc candidate verify --help
+  arc candidate select --help
+  arc candidate promote --help
+  arc context --help
+  arc context read --help
+  arc context declare --help
+  arc context capture --help
+  arc pass --help
+  arc pass open --help
+  arc pass complete --help
+  arc pass abandon --help
+  arc pass list --help
+  arc checkpoint --help
+  arc checkpoint record --help
+  arc checkpoint show --help
+  arc checkpoint list --help
+  arc run --help
+  arc run dispatch --help
+  arc run bind --help
+  arc run end --help
+  arc run list --help
+  arc cost --help
+  arc cost show --help
+  arc cost evidence --help
+  arc cost retain --help
+  arc cost note --help
+  arc review-ladder --help
+  arc review-ladder import --help
+  arc review-ladder show --help
+  arc policy --help
+  arc policy show --help
+  arc policy path --help
+  arc policy write --help
+  arc forge --help
+  arc forge show --help
+  arc forge observe --help
+  arc forge declare --help
+  arc forge link --help
+  arc forge checks --help
+  arc forge pr-state --help
+  arc config --help
+  arc sandbox --help
+  arc sandbox clone --help
+  arc sandbox diff --help
+  arc sandbox discard --help
+  arc doctor --help
+  arc hooks --help
+  arc hooks install --help
+  arc hooks uninstall --help
+  arc hooks status --help
+  arc instructions --help
+  arc instructions git --help
+  arc workspace --help
+  arc workspace gates --help
+  arc workspace list --help
+  arc workspace inbox --help
+  arc workspace pins --help
+  arc workspace inventory --help
+  arc workspace backlog --help
+  arc workspace report --help
+  arc workspace watch --help
+  arc workspace retire --help
+  arc workspace restore --help
+  arc restack --help
+  arc hook-run --help
+  arc catchup --help
+  arc fr --help
+  arc journal --help
+  arc journal dir --help
+  arc journal doctor --help
+  arc journal spool --help
+  arc journal note --help
+  arc journal feature-request --help
+  arc journal todo --help
+  arc journal handoff --help
+  arc journal plan --help
+  arc journal conclusion --help
+  arc journal decision --help
+  arc journal incident --help
+  arc journal memory --help
+  arc journal later --help
+  arc journal review --help
+  arc journal log --help
+  arc journal source-attach --help
+  arc journal source --help
+  arc journal filed --help
+  arc journal position --help
+  arc journal evidence --help
+  arc journal verified --help
+  arc journal pin --help
+  arc journal unpin --help
+  arc journal pins --help
+  arc journal render --help
+  arc journal published --help
+  arc journal question --help
+  arc journal checkpoint --help
+  arc journal scaffolds --help
+  arc journal questions --help
+  arc journal answer --help
+  arc journal suggest --help
+  arc journal delivered --help
+  arc journal correct --help
+  arc journal retract --help
+  arc journal reattribute --help
+  arc journal events --help
+  arc journal catchup --help
+  arc journal memories --help
+  arc journal open --help
+  arc journal list --help
+  arc journal inventory --help
+  arc journal show --help
+  arc journal latest --help
+  arc journal discussion --help
+  arc journal rebind --help
+  arc journal stamp --help
+  arc journal lane --help
+  arc journal lane open --help
+  arc journal lane renew --help
+  arc journal lane close --help
+  arc journal lane list --help
+  arc journal consume --help
+  arc journal transition --help
+  arc journal promote --help
+  arc journal archive --help
+  arc journal unarchive --help
+  arc journal relocate --help
+  arc journal redact --help
+  arc journal export --help
+  arc journal import --help

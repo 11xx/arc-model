@@ -1,0 +1,228 @@
+Configuration, build storage and retention
+
+FILES
+  User config is `<ai-home>/arc/config.toml`. The AI home defaults to
+  `~/.local/ai/`; ARC_AI_HOME or AI_HOME overrides it. ARC_WORKTREES_DIR and
+  ARC_DATA_ROOT override their keys; ARC_DATA_DIR selects one repository's
+  exact ledger above both. It holds events and `custody/sha256/<digest>` forge
+  content. `arc config` prints resolved paths. Only a missing configuration
+  selects built-in settings. Other read or parse errors propagate; advisory
+  consumers name their fallback and the error on stderr.
+
+    worktrees_dir = "~/.worktrees"       where change worktrees are created
+    data_root = "<dir>"                  ledgers at <dir>/<repo-path-slug>/
+                                         rather than <git-common-dir>/arc/
+    [journals] dirs = { "<prefix>" = "<journal-dir>" }
+                                         journal by path prefix; the longest
+                                         matching prefix wins
+    [journal] auto_log = true            begin/integrate/close log to journal;
+                                         unreadable configuration disables it
+                                         and reports why on stderr
+    [identity] detect = true             an undeclared harness, session, and
+                                         model are read from the session store
+    [provenance] git_identity = "per-actor" | "shared"
+    [intake.<name>] argv = ["<cmd>", ..] open-item count; arc catchup --help
+    [change] checkout = "in-place" | "worktree", branch_prefix = "arc/"
+    [integration] shape = "ff-only" | "no-ff", cleanup = false
+
+  Policy is `.arc/policy.toml`, read from the change's target branch, and
+  the operator policy at `<git-common-dir>/arc/operator-policy.toml`, outside
+  every tree (`arc policy path|show|write`). Both apply, the stricter reading
+  winning.
+  `arc doctor` reports an unreadable or malformed policy as the problem
+  `policy-unreadable`, naming its file and error, and exits 1.
+
+    [policy] forbid_self_approval = true
+    [policy] require_declared_actor = true
+    [policy] debt_count_threshold = <n>          debt turns advisory past n
+    [policy] debt_age_threshold_seconds = <n>    or once the oldest is older
+    [policy] worktree_free_floor_bytes = <n>     `arc begin` warns below it
+    [policy] tiebreak_reviewers = [{ model = "reader#xhigh", since = "<RFC 3339>" }]
+      Dated elections: arc guide debt-review
+    [policy] review_clearance = "assessed"       what clears: arc guide debt-clearance
+    [danger] paths = ["<glob>"]                  `*` in a segment, `**` across
+    [danger] acknowledged_safe = ["<glob>"]
+    [danger] source_roots = ["<dir>/"]           every file inside is classified
+    [review] checklist = ["<item>"]              printed by `arc show`
+    [contribution] history = "squash" | "preserve"
+    [defaults.change] checkout = "worktree", branch_prefix = "arc/"
+    [defaults.integration] shape = "ff-only", cleanup = false, discard = "artifacts"
+    [integration] shapes = ["ff-only", "no-ff"], history = "preserve"
+    [candidates] evaluation_reuse = "matching-coordinates" | "never"
+                                                 no default; `never` wins
+
+  Style precedence is flag, operator defaults, target project defaults, user,
+  built-in. Project and operator shape constraints intersect; values outside
+  the intersection refuse. Style and constraint tables must be tables, and
+  known keys must have valid types and values; refusals name the file and
+  key. User configuration accepts style only.
+  `integration.cleanup` governs post-integration branch and worktree cleanup;
+  `integrate --no-cleanup` overrides it for every selected change.
+  `integration.discard` resolves through the style layers and accepts
+  `"artifacts"` (built-in) or `"ignored"`. `integrate --discard` selects the
+  scope, implies cleanup, and conflicts with `--no-cleanup`. The ignored
+  scope uses the parent checkout's Git ignore rules. A worktree containing
+  another repository is never removed under either scope. Cleanup walks the
+  whole filesystem tree independently of Git status, checking every directory
+  for `.git` entries and bare repository layouts (`HEAD`, `objects/` and
+  `refs/`). The checkout's own `.git` file at its root is the only exclusion.
+  The walk never follows symlinks. A repository, a symlinked recorded path or
+  any read error keeps the checkout; repository paths are named. Tracked edits, untracked files and
+  index entries marked
+  skip-worktree or assume-unchanged keep it. Ignored `.arc/` entries,
+  including recognized artifacts, keep it under either scope; only owned,
+  emptied outbox metadata is exempt. Ownership checks apply under either
+  scope. Cleanup uses the values selected before the merge for cleanup,
+  discard and disposable; a change's policy edits do not govern its own
+  cleanup. Ignored directories outside `.arc/` identified as build artifacts
+  by a valid CACHEDIR.TAG, a built-in recognizer, or an
+  `integration.disposable` rule's path and marker are eligible for removal
+  only if their repository scans succeed and find no repositories. Other
+  ignored content keeps the checkout with the artifacts scope. Every recognizer names a file its tool writes inside the
+  directory; a directory name alone identifies nothing.
+  A CACHEDIR.TAG must be a regular file beginning with the exact bytes
+  `Signature: 8a477f597d28d172789f06886806bc55`, which Cargo, Meson, uv,
+  pytest and other tools write. A marker shows only that a tool ran in a
+  directory, so a built-in recognizer exists only where the layout leaves the
+  tool's own workflow no place for sources. Each marker is a regular file
+  that must begin with the bytes shown:
+
+    **/dist-newstyle   cache/plan.json     `{"cabal-version":`
+                       No `src` entry, where Cabal clones dependency sources.
+    **/*.egg-info      PKG-INFO            `Metadata-Version: `
+                       Only files setuptools writes there: `PKG-INFO`,
+                       `SOURCES.txt`, `requires.txt`, `entry_points.txt`,
+                       `top_level.txt`, `dependency_links.txt`,
+                       `namespace_packages.txt`, `eager_resources.txt`,
+                       `zip-safe` and `not-zip-safe`.
+    **/__pycache__     Only `<module>.<cpython-* or pypy*>.pyc` files, each
+                       opening with a magic number whose last two bytes are a
+                       carriage return and a line feed.
+
+  CMake build directories, virtual environments without a CACHEDIR.TAG,
+  Ninja logs and `node_modules` are not recognized. CMake's FetchContent
+  and ExternalProject place dependency sources inside the build directory,
+  a virtual environment can be created over an application or hold a
+  patched package, a log can sit beside a hand-written `build.ninja`, and
+  installed packages can carry edits not yet saved as a patch. A
+  configured rule declares such a directory disposable.
+
+  CACHEDIR.TAG and the built-in recognizers always apply at any depth,
+  independently of configured rules and checkout ownership. A configured rule
+  covers an artifact they do not:
+
+    [integration]
+    disposable = [{ path = "build", marker = "CMakeCache.txt" }]
+
+  `integration.disposable` is an array of rules with required string `path`
+  and `marker`, and optional string `signature`. Operator defaults, project
+  defaults and user configuration resolve above the built-in empty array;
+  the highest layer setting it replaces the entire array. There is no flag.
+  `path` matches the worktree-relative directory path: `*` stays within a
+  component, `**` matches zero or more whole components, and other characters
+  are literal. Paths must be relative with no empty, `.` or `..` component.
+  The marker must be a regular file inside a real directory, with no symlink
+  traversal; `signature` requires its content to begin with those exact bytes.
+  Individually reported ignored files are discarded only with the ignored
+  scope. Cleanup reports each discarded entry after Git removes the worktree
+  and before reporting removal. Recognized artifacts name their recognizer;
+  other ignored entries name `integration.discard = ignored`. Cleanup
+  deletes no artifacts from a checkout it keeps.
+  Integration history folds with contribution history; squash requires at
+  most one reviewed commit above the target. Integration alone stays local.
+
+  Gate declarations in `.arc/gates.toml` and the operator policy are
+  described in `arc guide gates`.
+
+  `.arc/worktrees.toml` declares optional build preparation:
+
+    [prepare]
+    command = "<project preparation command>"
+    timeout = "30s"
+
+  Preparation runs after begin, fork, acceptance and replay checkout
+  population. The default `source-bound` mode gives its working directory
+  and `ARC_WORKTREE_BUILD` a checkout-specific source-tree directory. Gates
+  and probes use prepared output only with a matching successful receipt;
+  otherwise they receive fresh cold storage.
+  `ARC_WORKTREE_PATH`, `ARC_WORKTREE_REVISION` and `ARC_WORKTREE_TREE` identify
+  the source; `ARC_WORKTREE_CACHE` names a shared cache protected by a lease.
+  Build outputs belong in the build directory and reusable compiler data in
+  the cache. An inherited `CARGO_TARGET_DIR` is removed. A busy cache or failed
+  preparation continues cold; changed source, index, HEAD or untracked source
+  paths refuses the checkout and keeps it for inspection. Evaluation
+  checkouts are removed on other preparation errors. The timeout covers
+  output pipes and cleanup of the hook's process group. Preparation is never
+  gate evidence.
+  Gate commands and environment probes receive the same build/source/cache
+  variables. A project selects its prepared output explicitly, such as
+  `CARGO_TARGET_DIR="$ARC_WORKTREE_BUILD/target"`. An administrative receipt
+  reuses preparation at unchanged source; changed source prepares again.
+
+  A project whose compiler workspace depends on absolute paths can select
+  persistent storage:
+
+    [prepare]
+    mode = "path-stable"
+    directory = "../build"
+    command = "<project incremental preparation command>"
+    timeout = "30s"
+
+  `directory` is a literal absolute path or a path relative to the source
+  checkout. Without it, storage under the Git common directory is keyed by
+  the canonical checkout path, independently of its tree or administrative
+  allocation. Stable storage survives `integrate --cleanup`. `[slots]`
+  declares arc's pool of fixed-path checkouts (arc guide slots). A project
+  driver recreating a fixed `--worktree` path beside `../build` owns that
+  allocation and drains its external writers before checkout cleanup.
+  Keeping only the build path fixed cannot stabilize changing source paths.
+
+  A stable directory is available without a per-tree preparation receipt.
+  `command` is optional in this mode: project hooks or gates establish
+  compiler, header, dependency and source-metadata freshness. Their ordinary
+  checks remain authoritative. Arc never copies or clears the directory.
+  Control files live beside it, so a compiler clean can remove its outputs
+  without removing the active lease. The parent directory must remain
+  writable and control files must be preserved while writers are active.
+  A foreign owner, busy lease or failed preparation refuses stable use.
+  Failed or interrupted hooks retain an incomplete marker until successful
+  preparation retries; readiness probes do not run preparation or compile.
+  A busy or incomplete directory makes its probe identity unavailable.
+
+  Arc holds the exclusive build lease through each owned hook, probe and
+  gate. `ARC_WORKTREE_BUILD_LEASE` names it and
+  `ARC_WORKTREE_BUILD_LEASE_FD` identifies the inherited held descriptor.
+  Cooperating project commands keep that descriptor open through their
+  writers and reuse it rather than flocking the file again; external builds
+  acquire the same lease. Parent death does not close the child's inherited
+  descriptor. Source/index/HEAD mutation checks and gate evidence rules
+  apply in both modes; build storage and preparation grant no verification.
+  Index checks compare indexed content and flags, permitting harmless stat
+  refreshes when a project restores timestamps for byte-identical sources.
+
+  A timeout bounds the process and its output-pipe cleanup. A descendant
+  holding a pipe after the leader exits still times out; arc kills the
+  process group and returns without waiting on an escaped descendant. An
+  unfinished output reader supplies no tail or environment identity.
+  Whether a gate or probe finishes or overruns, arc kills its process group
+  before recording the result, so a background process it left behind does
+  not outlive it.
+
+  Every patchset's head is pinned by `refs/arc/keep/<change>/<patchset>`
+  so garbage collection cannot take it. Pins follow recorded rewrites onto
+  their successors. The commit a pin held, and any commit the ledger cites
+  that a rewrite, rebase or import would leave unreachable, is held under
+  `refs/arc/retained/<change>/<subject>/<commit>` (`arc guide
+  rewrites-evidence`). A pin or a retention ref is released only once
+  its commit is reachable from the integration commit, where history holds it;
+  a replaced commit is on no branch, so its ref stays while the ledger cites
+  it, and closing a change without integrating it releases nothing. Release
+  any other with `git update-ref -d`. A registered candidate's tree is pinned by
+  `refs/arc/candidate/<id>` until `arc candidate retire` releases it.
+
+  Publication receipts retain their tested commits under
+  `refs/arc/publication/<receipt-id>`, named by the receipt's `retention_ref`.
+  Export and import preserve the tested objects and pin identity. Integration cleanup keeps these refs while the
+  publication history cites them; an operator may release one deliberately
+  with `git update-ref -d`.
+
