@@ -42,6 +42,7 @@ probeRefusalText = \case
       Omitted           -> "not run"
       Observed GatePass -> "pass"
       Observed GateFail -> "fail"
+      Observed GateNotAdmitted -> "not admitted"
 
 -- C17
 -- | Every probe of the patchset's brief that is not discharged at the

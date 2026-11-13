@@ -1183,14 +1183,17 @@ under unsettled design would have to be settled first.
 
 ## Comparison revision
 
-`comparisonRevision` names source revision
-`6e7f9dfbba9f9c2f3430272986e388b43b776a7b`. The captured `arc 2026.9.29`
-executable has build revision `6e7f9dfbba9f9c2f3430272986e388b43b776a7b`;
-its `arc env` reported the build clean. Its SHA-256 is
-`f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc`.
-Executable identity is independent of whether the source revision has been
-integrated into a particular checkout; this pin asserts the clean public
-build being compared.
+comparisonRevision names source revision
+b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b. The clean installed
+executable has build revision `b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b`.
+Its SHA-256 is `1b16bfcd7e1d923e063b1928b939faad4cef0bc1e7a2aa0106778d204ff3ef42`. The public interface capture is retained under
+[evidence/repin/b405104a](evidence/repin/b405104a); no arc source or build
+checkout was used.
+
+The prior pin is source/build revision
+6e7f9dfbba9f9c2f3430272986e388b43b776a7b, clean, with SHA-256
+f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc.
+Executable identity is independent of integration into a checkout.
 The previous comparison capture, source revision
 `8d93a6e58d780090f3f83d99ac855316d7185c08`, has build revision
 `8d93a6e58d780090f3f83d99ac855316d7185c08`, reported clean, and SHA-256
@@ -2731,3 +2734,30 @@ Exact sentences refer to the captured topic/help text.
    and debt-recovery. Danger alone versus danger plus policy remains the
    existing choice; the model retains the latter. An explicit debt still
    supplies the separate permitted route and does not settle self-approval.
+
+### Modeled changes and negative controls
+
+C35/C36 add a third raw gate observation, not-admitted, and a bypass execution
+kind. A newest matching not-admitted observation prevents fallback to an old
+pass. A bypass is not an execution, answers no failure, and cannot hide a
+real pass or failure. C29 compares the typed acknowledged delta and complete
+gate inventory with the current request before offering reuse. C22 excludes
+comment-only judgments and explicitly ineligible ordinary audits from debt
+standing and coverage; auditDischarges also requires an independent later read
+of the shipped revision rather than unconditionally clearing ordinary debt.
+
+Nineteen targeted checks and five properties (300 deterministic examples each)
+name these claims. Five actual source mutants fail for their predicted
+semantic reason: admission treated as pass, bypass treated as execution,
+acknowledgment ignored, comment upgraded to judgment and ineligible assessment
+ignored. The runner restores every source in a finally block;
+[model-mutants.txt](evidence/repin/b405104a/model-mutants.txt) retains the exact
+failed assertions. These are semantic rejections, not compiler failures.
+At the restored model, both suites passed: 494 spec checks and 102 candidate
+checks. The candidate model's structural rules are unchanged.
+
+Commit binding, path/coverage identity acquisition, budget/time/total/raise
+judgments, baseline retention, host batches/locks, completed-dispatch derivation,
+observed identities, dated elections/ladders, assessment/2 and author effort
+binding, extents, receipt ingestion, role-addition byte validation and atomic
+landing remain unrepresented or external as each contract clause states.

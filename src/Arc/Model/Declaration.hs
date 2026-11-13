@@ -23,15 +23,17 @@ import Data.Set ( Set )
 import Data.Set qualified as Set
 
 
--- | Whether a gate command reported success or failure when it ran.
+-- | A command outcome, or an attempt in which no check was admitted.
 data GateResult = GatePass
                 | GateFail
+                | GateNotAdmitted
   deriving stock (Eq, Ord, Show)
 
 -- | How a record came to exist. Arc running the command itself is not the
 -- same claim as somebody attesting that it ran.
 data ExecutionKind = RanLocally
                    | Attested
+                   | Bypassed
   deriving stock (Eq, Ord, Show)
 
 data GateEvent = Integration

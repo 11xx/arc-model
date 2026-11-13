@@ -1,6 +1,7 @@
 -- | C29: a selector may justify reusing evidence, never invent a result.
 module Arc.Model.GatePlan
     ( GateDelta(..)
+    , SelectorRequest(..)
     , SelectorAnswer(..)
     , GatePlan(..)
     , ReuseReceipt(..)
@@ -28,7 +29,13 @@ data SelectorAnswer = SelectionMissing
                     | SelectionFailed
                     | SelectionMalformed
                     | SelectionIncomplete
-                    | SelectionComplete (Set GateName)
+                    | SelectionComplete SelectorRequest (Set GateName)
+  deriving stock (Eq, Ord, Show)
+
+data SelectorRequest = SelectorRequest
+  { delta        :: !GateDelta
+  , declarations :: ![(GateName, Declaration)]
+  }
   deriving stock (Eq, Ord, Show)
 
 data ReuseReceipt = ReuseReceipt
@@ -49,7 +56,8 @@ data GatePlan = RunRequired
 
 -- C29
 -- | Only a complete answer naming known gates, excluding this required gate,
--- and backed by green evidence at the source tree can avoid a run.
+-- acknowledging the exact request and backed by green source evidence can
+-- avoid a run.
 planGate
   :: GateEvent
   -> [(GateName, Declaration)]
@@ -65,7 +73,8 @@ planGate event known gate declaration delta here verifications answer
   , Just selector <- declaration.selector
   , Observed source <- delta.sourceTree
   , Observed _paths <- delta.paths
-  , SelectionComplete affected <- answer
+  , SelectionComplete acknowledged affected <- answer
+  , acknowledged == SelectorRequest delta known
   , affected `Set.isSubsetOf` Set.fromList (map fst known)
   , gate `Set.notMember` affected
   , Right reading <- gateGreenFor event gate (Just declaration) source here Nothing verifications

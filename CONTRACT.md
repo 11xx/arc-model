@@ -102,24 +102,12 @@ carries are recorded facts, like its revision; the model states a replay's
 inheritance by reading the replayed patchset's recorded coordinates, and
 the replay protocol itself is outside it.
 
-**Source.** `arc snapshot --help` (`--base`, `--brief-version`,
-`--contributors`: "Recording a patchset while another actor holds a live
-claim on the change requires this or --solo", `--amend`; "Only the replay
-`arc rebase` performs itself records an inherited author: it carries the
-author coordinates of the patchset whose head it replayed, every
-contributor at its recorded model, and the replaying session is not its
-implementer"); `arc rebase --help` ("recorded as a mechanical replay of the
-patchset whose head it replayed, carrying every contributor's recorded
-coordinate, model included"; "`--contributors` and `--solo` decide the
-replayed patchset's contributor set; a declared member the replay carries
-over keeps its recorded coordinate, and one it does not carry is credited
-as declared"); the guide, "Run a change" ("Only a clean `arc rebase` keeps
-the replayed patchset's recorded contributor coordinates"; the replay
-paragraphs) and "Rules that change what you do" (a
-verdict binds to the exact approved patchset head) and "Review coverage and
-debt" (coverage is measured against the final patchset;
-attribution is repaired only before any verdict); `README.md`, "One change,
-end to end" (`arc integrate` merges only the patchset a verdict approved).
+**Source.** The guide's "Run a change" and "Rules that change what you do",
+the README's "One change, end to end", and current
+arc guide change-integration, arc guide debt-review,
+arc snapshot --help and arc rebase --help. The current guides describe
+mechanical inheritance, ordinary bound-run attribution and the live-claim
+declaration requirement; C38 states the complete acquisition rule.
 
 **Realized by.** `effectiveContributors`, `latestPatchset`,
 `patchsetById`, `evaluateDeclared`.
@@ -290,59 +278,14 @@ recorded as the auditor's dirty context for routing, and arc computes no
 score. Integrating somebody else's work is not contributing to it. A
 `changes-requested` verdict is never refused for its model.
 
-**Source.** The guide, "Review coverage and debt" (the authorship passage:
-"The ledger, never commit trailers, says who held which role. A patchset's
-recorded contributor set, when one was declared, is its authorship;
-otherwise its implementer is its effective author: its `--on-behalf-of`
-subject when one was named, else its recorder. Its planner is the plan's
-recorded planners, else an asserted `Planned-by`, else the brief's recorder;
-its orchestrator is the invoker recorded beside an `--on-behalf-of` subject,
-and its integrator the actor of `arc integrate`, never the subject that
-command was invoked on behalf of. Planning, orchestrating and integrating
-somebody else's work are not authorship": "An approval is refused when its
-effective author matches the ledger's authorship, or when arc assumed the
-reviewing identity from git config or the harness session"; "Authorship is
-also a model identity: a read under the model, at any effort, of the
-ledger's implementer is a self-review"; "Models compare as strings once the
-effort is dropped: arc holds no alias table"; "`Planned-by` and
-`Orchestrated-by` never refuse a read; an audit records which of those roles
-its auditor held as dirty context for routing, and computes no score";
-"Commit trailers are a projection arc writes from the ledger. A range whose
-trailers disagree with the ledger is reported. For commits with no ledger
-record, such as imported ones, trailers are declared, unverified evidence:
-alone they neither discharge nor refuse, and the read says so"; and, under
-coverage, "Where the ledger records no model for the implementer, the read
-is judged by the actor, session and harness it records; commit trailers are
-declared text and never supply the missing model"); `arc review --help`
-("Authorship is read from the ledger, not from commit trailers: the
-patchset's declared contributors, else its effective author, and its
-production record's implementer. An approval recorded under that
-implementer's model, at any effort, warns that it shows a review happened
-and not that it was independent of whoever wrote the work"; "Planning and
-orchestrating never refuse"); `arc audit --help` ("An audit discharges a
-debt when its auditor is independent of the work's ledger authorship";
-"Planning and orchestrating never refuse; the audit records those roles
-beside the verdict"); `arc trailers --help` ("`Implemented-by` from declared
-patchset contributors, or the snapshot subject when none are listed"; "The
-recorder's harness and model apply only to the recorder's own work");
-`arc roles --help` ("Record explicit planning and orchestration assertions
-on an open change... ancestry grants no credit"); the guide, "Review
-coverage and debt":
-"An event's effective author is its `--on-behalf-of` subject when set,
-otherwise its actor. A patchset's effective contributors are its recorded
-set when nonempty, otherwise its effective author alone." The same section
-states that independence is judged against the patchset a reviewer read,
-and an assumed reviewing identity cannot be the second party. The scopes
-come from the same section ("Both path lists apply, so a path declared
-dangerous by either file is dangerous"; "Declare no danger paths and the
-gate stays uniform"; `arc begin --dangerous` "raises a single change
-whatever it turns out to touch"; "a required-review or undetermined-danger
-change lists `request_review` alone") and from the operator's ruling
-`authorization-rules-follow-the-guide` in arc's journal, as amended, which
-names a dangerous path "a declared, escalated (`begin --dangerous`) or
-undetermined danger scope" and reads a repository declaring no danger
-path as dangerous under the uniform gate. `arc begin --help`,
-`--dangerous`; each command's `--help`, `--on-behalf-of`.
+**Source.** arc guide debt-review states ledger authorship, contributor
+fallback, inert planning/orchestration/integration roles and ordinary
+model-match independence. arc guide debt-recovery states the policy-off
+recording rule and independent-coverage bars. arc review --help,
+arc audit --help, arc trailers --help and arc roles --help state the
+same recorded roles. C38 states completed-dispatch attribution. C40 states
+the observed-model and dated election exceptions: the ordinary string
+comparison is not a claim that assessed ladders have no alias registry.
 
 **Realized by.** `effectiveActor`, `effectiveContributors`,
 `independenceOwed`, `authorizationFor`, `implementerModelMatch`.
@@ -395,7 +338,7 @@ a verdict on the fresh patchset can.
 
 **Source.** The guide, "Review coverage and debt" (the
 verdict chain, contested verdicts, provisional verdicts, "the patchset's
-approval anchor, which follows signature-only rewrites"), "Rules that
+approval anchor, which follows signature-only and role-addition rewrites"), "Rules that
 change what you do" (staleness), and "History rewrites"; `arc snapshot
 --help` ("A head whose rewrite invalidated approval requires a fresh patchset,
 even when the latest patchset's mapped head already matches the branch.

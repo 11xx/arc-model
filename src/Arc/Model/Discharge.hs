@@ -36,8 +36,8 @@ auditRefusalText = \case
 
 {- | What an audit discharged, and what it left open. 'approves' is derived
 from the audit alone and never from the fact that the read was fulfilled.
-'clears' says whether the debt is answered: always, for a kind an
-independent read answers, and for @ineligible-review@ only when the audit's
+'clears' requires an independent judgment after the debt on what shipped,
+with no ineligible assessment, and for @ineligible-review@ only when the audit's
 assessment is eligible and bound, which 'binding' records.
 -}
 data Discharge = Discharge
@@ -74,7 +74,7 @@ admitAudit policy state audit
 auditDischarges :: ChangeState -> Debt -> Audit -> Either AuditRefusal Discharge
 auditDischarges state debt audit = case latestIntegration state of
   Nothing -> Left AuditWhileOpen
-  Just _  -> case approvingRefusal of
+  Just record -> case approvingRefusal of
     Just refusal -> Left refusal
     Nothing      -> Right Discharge
       { debt         = debt.debtId
@@ -83,7 +83,12 @@ auditDischarges state debt audit = case latestIntegration state of
       , verdict      = audit.kind
       , approves     = audit.kind == Approved
       , openFindings = openAuditFindings state
-      , clears       = debt.declaredKind /= Just IneligibleReview || auditClears state debt audit
+      , clears       = audit.kind /= CommentOnly
+          && auditIsIndependent state audit
+          && audit.revision == record.head
+          && audit.event > debt.event
+          && maybe True ((== Eligible) . (.independence)) audit.assessment
+          && (debt.declaredKind /= Just IneligibleReview || auditClears state debt audit)
       , binding      = if debt.declaredKind == Just IneligibleReview then assessmentBinding state debt audit <$> audit.assessment else Nothing
       }
   where

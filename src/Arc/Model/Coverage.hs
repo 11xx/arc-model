@@ -135,6 +135,8 @@ coverageAfterIntegration state = case latestIntegration state of
       [ a
       | a <- state.audits
       , a.revision == record.head
+      , a.kind /= CommentOnly
+      , assessmentAllows a
       , auditIsIndependent state a
       ]
     -- the debt the basis consumed, otherwise the newest bound to the
@@ -216,6 +218,7 @@ auditClears :: ChangeState -> Debt -> Audit -> Bool
 auditClears state debt audit = case audit.assessment of
   Nothing         -> False
   Just assessment -> audit.event > debt.event
+    && audit.kind /= CommentOnly
     && auditIsIndependent state audit
     && assessment.independence == Eligible
     && assessmentBinding state debt audit assessment == Bound
@@ -243,14 +246,19 @@ debtStanding state debt = case latestIntegration state of
       | otherwise = case verdictAfter record of
           Just event -> Just (ReadByVerdict event)
           Nothing    -> ReadByAudit . (.event) <$> newest
-            [ a | a <- state.audits, a.revision == record.head, a.event > debt.event, auditIsIndependent state a ]
+            [ a | a <- state.audits, a.revision == record.head, a.event > debt.event, a.kind /= CommentOnly, assessmentAllows a, auditIsIndependent state a ]
     verdictAfter record = fmap (.event) . newest $
       [ v
       | v <- state.verdicts
       , v.patchset == record.patchset
       , v.event > debt.event
+      , v.kind /= CommentOnly
       , verdictIsIndependent state v == Just ()
       ]
+
+-- C22: an explicitly ineligible assessment cannot discharge ordinary debt.
+assessmentAllows :: Audit -> Bool
+assessmentAllows audit = maybe True ((== Eligible) . (.independence)) audit.assessment
 
 -- C6
 {- | Whether an authorization actually consumed this debt. A debt recorded

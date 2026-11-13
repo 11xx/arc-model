@@ -45,7 +45,7 @@ eventChecks =
 selectorChecks :: [Check]
 selectorChecks =
   [ expectTrue "selector/receipt: reuse retains its basis" "reuse must name source, target, selector, declaration, event and evidence" $
-      case planned selected delta [integrationPass] (SelectionComplete Set.empty) of
+      case planned selected delta [integrationPass] (complete Set.empty) of
         ReusePassing receipt -> receipt.delta == delta
           && receipt.sourceEvent == integrationPass.event
           && receipt.gateEvent == Integration
@@ -55,33 +55,34 @@ selectorChecks =
           && receipt.environment == here
         RunRequired -> False
   , expectEq "selector/affected: selected gate runs" RunRequired
-      (planned selected delta [integrationPass] (SelectionComplete (Set.singleton buildGate)))
+      (planned selected delta [integrationPass] (complete (Set.singleton buildGate)))
   , expectEq "selector/unknown: unknown gate runs" RunRequired
-      (planned selected delta [integrationPass] (SelectionComplete (Set.singleton (GateName "unknown"))))
+      (planned selected delta [integrationPass] (complete (Set.singleton (GateName "unknown"))))
   , expectEq "selector/absent-command: required check runs" RunRequired
-      (planned buildDeclaration delta [integrationPass] (SelectionComplete Set.empty))
+      (planned buildDeclaration delta [integrationPass] (complete Set.empty))
   , expectEq "selector/missing-source: required check runs" RunRequired
-      (planned selected (delta { GatePlan.sourceTree = Omitted }) [integrationPass] (SelectionComplete Set.empty))
+      (planned selected (delta { GatePlan.sourceTree = Omitted }) [integrationPass] (complete Set.empty))
   , expectEq "selector/missing-paths: required check runs" RunRequired
-      (planned selected (delta { GatePlan.paths = Omitted }) [integrationPass] (SelectionComplete Set.empty))
+      (planned selected (delta { GatePlan.paths = Omitted }) [integrationPass] (complete Set.empty))
   , expectEq "selector/no-source-pass: required check runs" RunRequired
-      (planned selected delta [] (SelectionComplete Set.empty))
+      (planned selected delta [] (complete Set.empty))
   , expectEq "selector/source-failed: required check runs" RunRequired
-      (planned selected delta [integrationPass { Verification.result = GateFail }] (SelectionComplete Set.empty))
+      (planned selected delta [integrationPass { Verification.result = GateFail }] (complete Set.empty))
   , expectEq "selector/other-event: required check runs" RunRequired
-      (planned selected delta [publicationPass] (SelectionComplete Set.empty))
+      (planned selected delta [publicationPass] (complete Set.empty))
   , expectEq "selector/other-environment: required check runs" RunRequired
-      (planned selected delta [integrationPass { Verification.environment = Just (EnvironmentId "elsewhere") }] (SelectionComplete Set.empty))
+      (planned selected delta [integrationPass { Verification.environment = Just (EnvironmentId "elsewhere") }] (complete Set.empty))
   , expectEq "selector/other-declaration: required check runs" RunRequired
-      (planned selected delta [integrationPass { Verification.shape = DeclarationShape "other command" 60 }] (SelectionComplete Set.empty))
+      (planned selected delta [integrationPass { Verification.shape = DeclarationShape "other command" 60 }] (complete Set.empty))
   , expectEq "selector/publication: changed tree runs the complete tier" RunRequired
-      (planGate Publication [(buildGate, selected)] buildGate selected delta here [publicationPass] (SelectionComplete Set.empty))
+      (planGate Publication [(buildGate, selected)] buildGate selected delta here [publicationPass] (complete Set.empty))
   ] <>
   [ expectEq ("selector/conservative: " <> show answer) RunRequired
       (planned selected delta [integrationPass] answer)
   | answer <- [SelectionMissing, SelectionFailed, SelectionMalformed, SelectionIncomplete]
   ]
   where
+    complete = SelectionComplete (SelectorRequest delta [(buildGate, selected)])
     selected = buildDeclaration { Declaration.selector = Just "select-checks" }
     delta = GateDelta (Observed tree) (TreeId "tree-next") (Observed ["README.md"])
     planned declaration change evidence = planGate Integration [(buildGate, declaration)] buildGate declaration change here evidence

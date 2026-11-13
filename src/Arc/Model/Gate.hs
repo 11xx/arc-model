@@ -39,6 +39,7 @@ data GateCoverage = Covered EventId
                   | EvaluatedDirtyTree                                     -- ^ The run read uncommitted changes, and no waiver names its revision.
                   | WorktreeUnrecorded                                     -- ^ The run recorded nothing about its worktree.
                   | EvaluatedOtherEvent GateEvent
+                  | BypassRecorded
   deriving stock (Eq, Ord, Show)
 
 -- | Whether evidence exists at all, and whether the record could be read.
@@ -70,6 +71,8 @@ data GateRefusal = GateNotDeclared GateName
                  | GateEvaluatedDirtyTree GateName
                  | GateWorktreeUnrecorded GateName
                  | GateEvaluatedOtherEvent GateName GateEvent
+                 | GateWasNotAdmitted GateName EventId
+                 | GateBypassed GateName
   deriving stock (Eq, Ord, Show)
 
 gateRefusalText :: GateRefusal -> String
@@ -95,8 +98,12 @@ gateRefusalText = \case
     -> "gate " <> name <> " evidence records nothing about the worktree it ran in"
   GateEvaluatedOtherEvent (GateName name) event
     -> "gate " <> name <> " evidence answers " <> show event <> ", not the required event"
+  GateWasNotAdmitted (GateName name) event
+    -> "gate " <> name <> " was not admitted at event " <> show event
+  GateBypassed (GateName name)
+    -> "gate " <> name <> " records a bypass, which satisfies nothing"
 
--- C13, C14, C15, C16
+-- C13, C14, C15, C16, C35, C36
 {- | Read one required gate from the recorded verifications, given the
 identity the declaration's probe yields where the decision is made and the
 revision the dirty-tree waiver in force names.
@@ -115,17 +122,18 @@ regardless of its declaration or environment, not only the newest.
 readGate :: GateName -> Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> GateReading
 readGate = readGateFor Integration
 
--- C13, C14, C15, C16
+-- C13, C14, C15, C16, C35, C36
 readGateFor :: GateEvent -> GateName -> Declaration -> TreeId -> Observed EnvironmentId -> Maybe Revision -> [Verification] -> GateReading
 readGateFor operation gate declaration tree here waived verifications = GateReading
   { gate         = gate
   , result       = maybe Omitted (Observed . (.result)) (newest (filter (.readable) deciding))
   , coverage     = coverage
   , availability = availability
-  , falsified    = maybe Omitted Observed (newest [ label | v <- verifications, v.gate == gate, v.tree == tree, v.readable, v.result == GatePass, Just label <- [v.answers] ])
+  , falsified    = maybe Omitted Observed (newest [ label | v <- verifications, v.gate == gate, v.tree == tree, v.readable, v.execution /= Bypassed, v.result == GatePass, Just label <- [v.answers] ])
   }
   where
-    matching = [ v | v <- verifications, v.gate == gate, v.declaration == declaration.declarationId ]
+    history  = [ v | v <- verifications, v.gate == gate, v.declaration == declaration.declarationId ]
+    matching = filter ((/= Bypassed) . (.execution)) history
     atEvent  = [ v | v <- matching, evidenceEvent v.gateEvent == operation ]
     shape    = declarationShape declaration
     atTree   = [ v | v <- atEvent, v.shape == shape, v.tree == tree ]
@@ -133,7 +141,8 @@ readGateFor operation gate declaration tree here waived verifications = GateRead
     deciding
       | not (null keyed)   = keyed
       | not (null atEvent) = atEvent
-      | otherwise         = matching
+      | not (null matching) = matching
+      | otherwise          = history
     -- a gate without a probe takes evidence from any environment
     environmentMatches v = case (declaration.environment, v.environment, here) of
       (Nothing, _, _)                         -> True
@@ -151,6 +160,7 @@ readGateFor operation gate declaration tree here waived verifications = GateRead
     -- a run arc observed counts on a clean tree, or on a dirty one whose
     -- revision the waiver in force names
     worktreeCoverage v = case (v.execution, v.worktree) of
+      (Bypassed, _)                        -> BypassRecorded
       (Attested, _)                        -> environmentCoverage v
       (RanLocally, Observed CleanWorktree) -> environmentCoverage v
       (RanLocally, Observed DirtyWorktree)
@@ -189,6 +199,7 @@ gateGreenFor operation gate (Just declaration) tree here waived verifications =
     Covered event -> case reading.result of
       Observed GatePass -> Right reading
       Observed GateFail -> Left (GateFailed gate event)
+      Observed GateNotAdmitted -> Left (GateWasNotAdmitted gate event)
       Omitted           -> Left (GateEvidenceUnreadable gate)
     NeverEvaluated -> case reading.availability of
       EvidenceUnreadable -> Left (GateEvidenceUnreadable gate)
@@ -201,5 +212,6 @@ gateGreenFor operation gate (Just declaration) tree here waived verifications =
     EvaluatedDirtyTree                   -> Left (GateEvaluatedDirtyTree gate)
     WorktreeUnrecorded                   -> Left (GateWorktreeUnrecorded gate)
     EvaluatedOtherEvent other             -> Left (GateEvaluatedOtherEvent gate other)
+    BypassRecorded                       -> Left (GateBypassed gate)
   where
     reading = readGateFor operation gate declaration tree here waived verifications

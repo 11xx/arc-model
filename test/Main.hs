@@ -10,6 +10,7 @@ import GateTierFixtures ( gateTierChecks )
 import Generators
 import Mutants
 import Render
+import RepinChecks ( repinChecks, repinProperties )
 import ProvenanceChecks ( provenanceChecks )
 import SandboxChecks ( sandboxChecks )
 
@@ -41,11 +42,12 @@ main = do
   putStrLn ""
 
   propertyResults <- propertyChecks seed tests
+  repinResults <- sequence [ runProperty name (seed + index * 19) tests prop | (index, (name, prop)) <- zip [1 :: Int ..] repinProperties ]
   mutantResults   <- mutantChecks
   coverage        <- coverageCheck seed tests
   sandbox         <- sandboxChecks
   provenance      <- provenanceChecks
-  let checks   = fixtureChecks <> gateTierChecks <> debtFixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
+  let checks   = repinChecks <> repinResults <> fixtureChecks <> gateTierChecks <> debtFixtureChecks <> comparatorChecks <> sandbox <> provenance <> propertyResults <> mutantResults <> [coverage]
       failures = filter (not . (.passed)) checks
   mapM_ printCheck checks
   putStrLn ""
@@ -416,6 +418,8 @@ prop_grounds_are_facts scenario = conjoin
       GateEvaluatedDirtyTree gate           -> gate
       GateWorktreeUnrecorded gate           -> gate
       GateEvaluatedOtherEvent gate _        -> gate
+      GateWasNotAdmitted gate _             -> gate
+      GateBypassed gate                     -> gate
 
 -- mutants
 
