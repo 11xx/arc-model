@@ -2761,3 +2761,26 @@ judgments, baseline retention, host batches/locks, completed-dispatch derivation
 observed identities, dated elections/ladders, assessment/2 and author effort
 binding, extents, receipt ingestion, role-addition byte validation and atomic
 landing remain unrepresented or external as each contract clause states.
+
+### Replay encoding findings
+
+Before updating the replay, decision and execution each had seven new differing
+rows. Three were generated-4, check-time-4 and check-time-10: the scenario
+explicitly requests another execution, but the CLI call omitted the explicit
+rerun switch, so the current default reused an earlier pass. This is an encoding
+defect exposed by changed documented reuse defaults (C14), not a model/arc
+semantic repair. The encoding now asks for rerun only when that binary's public
+help advertises it, preserving older-baseline compatibility. The retained
+publication replay had the same explicit-failure trigger and requires the same
+correction.
+
+The other four rows, target-behind-evaluated, ff-only-behind-evaluated,
+generated-2 and check-time-55, assume an observed probe identity when no clean
+evaluated-content checkout remains. The first, second and fourth need the
+discarded merge checkout; generated-2 closed and then moved its branch, leaving
+no clean checkout of the closed head. C15/C42 now explicitly require that content.
+This is an observation encoding difference. Its adjudication omits only the
+probe identity and compares the entire rebuilt refusal answer, readiness,
+dry-run plan and authority exit. Seven comparator assertions preserve the exact
+difference and reject unrelated blockers, readiness and authority changes.
+Neither arc nor the model was changed to match these rows.

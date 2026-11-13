@@ -34,7 +34,7 @@ import Data.Aeson.Types ( parseEither )
 import Data.ByteString.Builder ( stringUtf8, toLazyByteString )
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as BL
-import Data.List ( isPrefixOf )
+import Data.List ( isInfixOf, isPrefixOf )
 import Data.Maybe ( listToMaybe )
 import Data.Set ( Set )
 import Data.Set qualified as Set
@@ -360,8 +360,10 @@ runSteps options sandbox = mapM_ step
         -- evidence, which is the run the plan asked for, and so does a run
         -- against the merge whose probe yields nothing
         when run.dirty (appendFile (wt </> "README.md") "uncommitted\n")
+        (_, help, _) <- arc options sandbox wt author [] ["verify", "--help"] ""
         let target = if run.against then ["--against", "master"] else ["--gate", "build"]
-        (if run.fails || run.against then allowRefusal else expect) =<< arc options sandbox wt author (gateEnv run) (["verify", changeSlug] <> target) ""
+            rerun  = [ "--rerun" | "--rerun" `isInfixOf` help ]
+        (if run.fails || run.against then allowRefusal else expect) =<< arc options sandbox wt author (gateEnv run) (["verify", changeSlug] <> target <> rerun) ""
         when run.dirty (git sandbox wt ["checkout", "--", "README.md"])
       WaiveDirty ->
         expect =<< arc options sandbox wt author [] ["verify", changeSlug, "--command", "true", "--waive-dirty", "generated output"] ""

@@ -34,6 +34,7 @@ comparatorChecks = concat
   , decisionIterating
   , committedOnTarget
   , hiddenByNewerRun
+  , probeObservation
   ]
 
 -- | The answer with each field changed in turn, named by the field.
@@ -275,3 +276,30 @@ executionComparison scenario code isReady blockers =
     projected = case wanted of
       WouldIntegrate fields | code == 0 -> Just fields
       _refused -> Nothing
+
+-- | The C15 observation difference explains only the exact resulting answer.
+probeObservation :: [Check]
+probeObservation =
+  [ expectTrue "comparator/probe observation: exact decision is encoding"
+      (show (decision exact)) (adjudicatedAs Encoding (decision exact))
+  , expectEq "comparator/probe observation: another blocker still disagrees" Disagreed
+      (decision (Answer False (Set.insert "nonsense" blockers)))
+  , expectEq "comparator/probe observation: false readiness still disagrees" Disagreed
+      (decision (Answer True blockers))
+  , expectTrue "comparator/probe observation: exact dry run is encoding"
+      (show (execution (DryRun 5 exact Nothing)))
+      (adjudicatedAs Encoding (execution (DryRun 5 exact Nothing)))
+  , expectEq "comparator/probe observation: authority exit is not hidden" Disagreed
+      (execution (DryRun 17 exact Nothing))
+  , expectEq "comparator/probe observation: unrelated execution blocker disagrees" Disagreed
+      (execution (DryRun 5 (Answer False (Set.insert "nonsense" blockers)) Nothing))
+  , expectEq "comparator/probe observation: an ordinary checkout grants no exception" Disagreed
+      (compareAnswer defaultScenario Set.empty exact)
+  ]
+  where
+    scenario = defaultScenario { Scenario.targetMode = TargetBehindEvaluated }
+    built = build scenario
+    blockers = Set.singleton "gates-not-green"
+    exact = Answer False blockers
+    decision = compareAnswer scenario (expected (refusals built.observation built.state))
+    execution = compareExecution scenario (expectedExecution built built.execution)

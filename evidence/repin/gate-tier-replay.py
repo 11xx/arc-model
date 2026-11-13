@@ -74,7 +74,8 @@ after = arc("check", "work", "--json", cwd=work)
 check("integration tier passes independently of publication-only requirements", json.loads(after.stdout)["ready"])
 
 (root / "home/fail").write_text("fail publication\n")
-failed_verification = arc("verify", "work", "--all", "--event", "publication", expected=None, cwd=work)
+rerun = ["--rerun"] if "--rerun" in arc("verify", "--help", cwd=work).stdout else []
+failed_verification = arc("verify", "work", "--all", "--event", "publication", *rerun, expected=None, cwd=work)
 if failed_verification.returncode == 0:
     raise SystemExit("a failing declared publication gate returned success")
 after_failed_publication = arc("check", "work", "--json", cwd=work)

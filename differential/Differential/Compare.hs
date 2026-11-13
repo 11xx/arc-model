@@ -32,6 +32,7 @@ module Differential.Compare
     ) where
 
 import Arc.Model
+import Arc.Model.Observations qualified as Observations
 import Differential.Arc ( Answer(..), DryRun(..), PostIntegration(..), checkRefusedConflictingGates )
 import Differential.IntegrationPlan ( PlanView(..), expectedPlan )
 import Generators ( Built(..), build )
@@ -115,7 +116,8 @@ compareExecution = compareExecutionAs MayReread
 compareExecutionAs :: Reread -> Scenario -> Execution -> DryRun -> Comparison
 compareExecutionAs mode scenario wanted dry
   | executionAgrees wanted dry = Agreed
-  | otherwise = orAdjudicated (adjudicateExecution scenario wanted dry) $ rereading mode scenario $ \reread ->
+  | otherwise = orAdjudicated (adjudicateExecution scenario wanted dry) $
+      orAdjudicated (adjudicateProbeExecution scenario dry) $ rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareExecutionAs Literal reread (expectedExecution rebuilt rebuilt.execution) dry
 
 -- | Whether a dry run is the model's execution. A dry run that would
@@ -314,5 +316,41 @@ compareAnswer = compareAnswerAs MayReread
 compareAnswerAs :: Reread -> Scenario -> Set String -> Answer -> Comparison
 compareAnswerAs mode scenario wanted answer
   | wanted == answer.blockers && Set.null wanted == answer.ready = Agreed
-  | otherwise = rereading mode scenario $ \reread ->
+  | otherwise = orAdjudicated (adjudicateProbeAnswer scenario answer) $ rereading mode scenario $ \reread ->
       let rebuilt = build reread in compareAnswerAs Literal reread (expected (refusals rebuilt.observation rebuilt.state)) answer
+
+-- C15/C42: observing commands cannot create a checkout for a probe. The
+-- replay keeps neither its evaluated merge checkout nor a closed old head.
+unobservedContent :: Scenario -> Observations -> Maybe Observations
+unobservedContent scenario observations
+  | needsCheckout = Just observations
+      { Observations.environments = [ (probe, Omitted) | (probe, _) <- observations.environments ] }
+  | otherwise = Nothing
+  where
+    closed = (build scenario).state.closed /= Nothing
+    needsCheckout
+      | closed    = scenario.headMoved
+      | otherwise = scenario.targetMode == TargetBehindEvaluated
+
+probeObservationDifference :: Adjudication
+probeObservationDifference = Adjudication
+  { kind   = Encoding
+  , reason = "C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer"
+  }
+
+adjudicateProbeAnswer :: Scenario -> Answer -> Maybe Adjudication
+adjudicateProbeAnswer scenario answer = do
+  let built = build scenario
+  observed <- unobservedContent scenario built.observation
+  let grounds = expected (refusals observed built.state)
+  if answer.blockers == grounds && answer.ready == Set.null grounds
+    then Just probeObservationDifference
+    else Nothing
+
+adjudicateProbeExecution :: Scenario -> DryRun -> Maybe Adjudication
+adjudicateProbeExecution scenario dry = do
+  let built = build scenario
+  observed <- unobservedContent scenario built.executionObservation
+  let rebuilt = built { Generators.executionObservation = observed }
+      wanted = expectedExecution rebuilt (execute observed built.state (decide observed built.state))
+  if executionAgrees wanted dry then Just probeObservationDifference else Nothing
