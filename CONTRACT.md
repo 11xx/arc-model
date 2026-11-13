@@ -38,6 +38,13 @@ here reads it as a patchset like any other. Git effects, durability,
 locking, forks, queues, and the other items `REPORT.md` lists under "Known
 unsupported semantics" are outside the contract too.
 
+C31 to C42 also state documented authorization requirements whose clocks,
+host administration, retained Git objects or richer review records the pure
+model cannot observe. Each clause distinguishes its modeled decision from
+its unrealized protocol or external boundary. A permission from the model
+assumes those external requirements were satisfied; it is not a complete
+readiness certificate for those configurations.
+
 History rewrites and what protects shared history belong to Git effects and
 are outside the contract, with their documentation's refusals ("Refusals
 happen before any ref move"; `--include-shared` "grants permission without
@@ -68,10 +75,11 @@ repository without the project's configuration, reading the ref Git
 updated — records a fresh patchset of the patchset whose head it replayed,
 carrying every contributor the earlier patchset carries at its recorded
 coordinate, model included, and naming exactly the tip that replay wrote.
-The replaying session is not the replayed patchset's implementer. A replay
+Where no matching patchset exists, completed bound-run attribution may be
+established at the original head before replay (C38). The replaying session
+is not the replayed patchset's implementer. A replay
 that falls back to `git rebase`, or stops for a person to resolve, records
-ordinary work, whose author is its recorder unless `--on-behalf-of` or
-`--contributors` declares another; `--contributors` and `--solo` decide any
+ordinary work, whose author follows C38; `--contributors` and `--solo` decide any
 replayed patchset's contributor set, a member the replay carries over
 keeping its recorded coordinate and one it does not carry credited as
 declared.
@@ -84,7 +92,7 @@ A snapshot after a rewrite that invalidates approval records a fresh
 patchset even when the mapped head already equals the branch; it grants no
 approval. An implicit verdict refuses while the approved and mapped heads
 differ; an explicit historical patchset verdict can be recorded and stays
-stale. The model has no rewrite map, so its fresh patchset identity states
+stale. C39 also permits complete role-addition approval carry. The model has no rewrite map, so its fresh patchset identity states
 the authorization boundary without the mapped-head recording protocol.
 Recording a patchset while another actor holds a live claim on the change
 requires declared contributors or `--solo`; that is a condition on
@@ -201,7 +209,8 @@ under `ff-only`, where no merge ships, a change behind its target still lists
 
 **Rule.** The ledger, never commit trailers, says who held which role. The
 effective author of an event is the subject it was recorded on behalf of,
-otherwise its actor. A patchset's contributor set is the set declared for it
+otherwise its actor. C38 states how completed bound runs can supply a
+recorded contributor set at snapshot time. A patchset's contributor set is the set declared for it
 when nonempty, otherwise its effective author alone; that set is its
 authorship, and the patchset's implementer is the identity of that
 authorship. Its planner is the plan's recorded planners, else an asserted
@@ -225,7 +234,9 @@ assumed the reviewing identity rather than anyone declaring it, or when the
 model its verdict recorded, effort dropped, equals the model the ledger
 records for that patchset's implementer. A read under that model is a
 self-review at any effort. A model compares as a string: arc holds no alias
-table, so a model spelled another way is not matched. Where the ledger
+table, so a model spelled another way is not matched by this ordinary model-match test.
+Observed identities and the dated mixed-model exception are C40's unrealized
+requirements. Where the ledger
 records no model for the implementer, the read is judged by the actor,
 session, and harness it records, and commit trailers never supply the
 missing model. A verdict that recorded no model names nobody for this
@@ -416,8 +427,8 @@ is a decision the contract makes: nothing is left to authorize. What the
 recorded basis names is C19's. A debt `arc integrate --debt` declared
 stays declared when that integration is refused, and waives like any other
 on the patchset it names; an imported debt waives only as C24 allows.
-A waiver follows only a signature-only rewrite. A message or content
-rewrite leaves it stale even when the mapped head equals the branch:
+A waiver follows signature-only and complete role-addition rewrites
+(C39). Any other message or content rewrite leaves it stale even when the mapped head equals the branch:
 a fresh snapshot and debt declaration are required. Equivalent declarations
 reuse the obligation and confirm its backing publication; that changes no
 waiver scope. Rewrites and publication durability are outside the model.
@@ -648,7 +659,9 @@ and gate execution refuse), "Rules
 that change what you do" (the run under the declared gate decides), and
 "Files" (the `[gates.<name>]` table); `arc policy --help`.
 
-**Realized by.** `declarationShape`, `declarationApplies`, `evaluate`, `gateEvidence`,
+**Realized by.** C31 to C37 state additional budget, coverage, admission and
+batch constraints absent from the effective declaration inputs. For the
+represented command, timeout and event fields: `declarationShape`, `declarationApplies`, `evaluate`, `gateEvidence`,
 `execute`.
 
 ### C13. The four gate readings
@@ -693,9 +706,12 @@ coverage to a tree and declaration and makes falsification advisory;
 the declaration it ran, and the environment it recorded. A publication pass
 answers no integration requirement, and an integration pass answers no
 publication requirement. Evidence that recorded no event is read as
-integration evidence. Two commits with one tree are one
-evaluation, so evidence recorded at an earlier revision answers a later head
-with the same tree. A record at another tree, under another declaration, or
+integration evidence. For a tree-bound gate, two commits with one tree are one evaluation, so
+evidence recorded at an earlier revision answers a later head with the same
+tree. A `binds = "commit"` declaration in any applicable layer narrows this:
+only execution at the required commit, or its evaluated merge, answers;
+rewrites never carry its evidence. Publication reuse requires its exact
+recorded target revision. A record at another tree, under another declaration, or
 from another environment never answers the gate at the evaluated tree, and
 never hides a record that does. With an older pass at tree A and a newer run
 at tree B, evaluated at A, the run at B says nothing: the answer comes from
@@ -728,7 +744,12 @@ publication pass does not satisfy an integration requirement. The same
 section states that historical verification evidence with no recorded event
 is integration evidence.
 
-**Realized by.** `readGate`, `readGateFor`, `evidenceEvent`.
+**Realized by.** `readGate`, `readGateFor`, `evidenceEvent` for tree-bound
+checks. Commit binding is documented but not realized: gate lookup receives
+an evaluated tree, not the required execution commit. `arc guide
+rules-evidence` states "only a run at the head's own commit, or at the merge
+of that commit, answers for it"; `arc guide gates` declares `binds` and its
+layering. Scheduling default reuse and `--rerun` are execution effects.
 
 ### C15. Environment probes
 
@@ -822,8 +843,10 @@ identity guard refuses before an integration is evaluated; (ii) the
 integration's unconditional exit 17 for withheld authority answers first.
 The model reads (ii). Both readings refuse and record nothing.
 
-Placeholder identities and malformed supplied agent coordinates are
-refused by the write's identity validation. The model's actor observation
+Placeholder identities, malformed supplied agent coordinates and a
+`harness:session` actor with an empty session are refused by the write's
+identity validation (`arc guide identity-basics`: "An actor written as
+harness:session requires a nonempty session"). The model's actor observation
 represents a validated identity or absence; the spelling validation and
 harness/session/model lookup are outside it.
 
@@ -850,7 +873,9 @@ normalized declaration values, each prerequisite's closure, and the
 blocking-finding and hold vectors that had to be empty. A refusal names the
 facts that stood in the way.
 
-**Status.** Settled on the integration basis's contents. The guide also
+**Status.** Settled on the integration basis's contents. C31, C32, C37 and
+C41 state budget constraints, raise pins, batch references and landing facts
+that the model's basis does not carry. The guide also
 names an approving verdict's provisional reason, an external approval when
 consumed, normalized gate and policy values, and the danger determination.
 The model's basis identifies verdicts, captures required gate declarations,
@@ -939,11 +964,14 @@ integration-mode"); `arc integrate --help`, `--dry-run`, `--json`,
 
 **Rule.** A debt names what kind of review is missing: `nothing-read`,
 `merge-resolution-unread`, `repair-unread`, `contributor-only`,
-`ineligible-review`, or `independent-review`. A declared kind wins over the
+`ineligible-review`, or `independent-review`, with C41's derived-only `replayed-unread` for composed
+landings. A declared kind wins over the
 derived one. The ledger sees a merge resolution and a repair the same way, so
 only a declaration names `merge-resolution-unread`. Only routing's reading can
 say a read does not count, so only a declaration names `ineligible-review`.
-The ledger derives the other four. Where no kind is declared, the kind of a
+Assessed clearance may derive `ineligible-review` from a findings approval
+(C40). The ordinary local model derives the other four and carries neither
+ladder clearance nor replayed-unread. Where no kind is declared, the kind of a
 debt on a patchset is:
 
 - `nothing-read` where no patchset of the change carries a verdict;
@@ -985,7 +1013,10 @@ records an empty list; a record kept before the range was read, or whose
 range could not be read then, has no list, and says nothing of it; an audit
 reads the range again.
 
-**Status.** Settled, except for a patchset with no verdict of its own when
+**Status.** The ordinary model realizes the represented kinds. C40/C41
+state the additional derivations; named audit reads after integration,
+assessment/2, below-clearance and extent-bearing declarations are documented
+but unrealized. Settled, except for a patchset with no verdict of its own when
 earlier patchsets of the change carry verdicts and none of them is an
 approval. No documented kind names that history. (i) `independent-review`,
 the general case. (ii) No derived kind; only a declaration answers. The
@@ -1002,13 +1033,13 @@ named read of an unrecorded patchset. Whether a declaration whose named
 qualifier is outside the closed set is refused before or after a missing
 verdict is presentation (C23): both refuse.
 
-**Source.** The guide, "Review coverage and debt" (the
+**Source.** `arc guide debt-obligations` and `arc guide debt-clearance`
+govern the additional kinds and assessment/2. The ordinary rules are the
+guide, "Review coverage and debt" (the
 table of kinds, `ineligible-review` among them: "a read happened, by a
 reviewer routing does not count as independent of the author"; "Only the
 caller can say a resolution was what went unread, because the ledger sees a
-repair and a merge resolution the same way"; "`ineligible-review` is
-declared, never derived: arc holds no family, tier or floor, so only
-routing's reading can say a read does not count"; the record's `read`,
+repair and a merge resolution the same way"; the ordinary declared `ineligible-review` route; the record's `read`,
 `qualifiers`, `assessment` and `route_version`; "An `eligible` assessment is
 refused on this kind, because there is no debt to record"; "Production names
 who set the contract, who implemented it, and the orchestrator and
@@ -1029,139 +1060,69 @@ the patchset has no verdict, or the event is not one of its verdicts").
 
 ### C22. Audits, and why a fulfilled read is not an approval
 
-**Rule.** An audit is a review recorded after integration, anchored to the
-revision that shipped. It is refused while the change is open. It never
-rewrites the answer to what shipped on what review: the recorded
-authorization of an integration is fixed when the integration is recorded.
-Audit findings are a separate set from the shipped findings. Auditing into
-changes-requested is open to anyone. An approving audit discharges an
-obligation only when it comes from a declared identity the ledger does not
-credit with authorship of the shipped patchset: not a contributor, and
-whose recorded model, effort dropped, is not the model the ledger records
-for the implementer (C4). Planning and orchestrating are the auditor's
-recorded held roles, dirty context for routing, and never refuse;
-integrating somebody else's work is not contributing to it. Where the ledger
-records no model for the implementer, the read is judged by the actor,
-session, and harness it records; commit trailers never supply the missing
-model.
-Any independent verdict on the shipped revision, recorded after the debt,
-fulfils the owed read, whether it came before the merge or in an audit after
-it. A fulfilled read is not an approval: a negative audit can fulfil the read
-and leave its findings open, and what the reader concluded stays in its
-verdict and findings.
+**Rule.** An audit reads the integrated revision and cannot be recorded while
+the change is open. It never rewrites the recorded authorization. Its findings
+are separate from those that shipped. A declared independent read recorded
+after the debt, approving or requesting changes on what shipped, discharges
+ordinary debt. A `comment-only` read judges nothing and leaves debt owed.
+An audit carrying an ineligible assessment discharges no kind of debt.
+Without assessed clearance or an assessment, actor and ledger model authorship
+decide independence (C4). Planning, orchestration and integration of another's
+work do not supply authorship. An approving self-audit refuses where policy
+forbids self-approval; a negative audit can record without independence but
+discharges nothing unless independent. Discharge never implies approval.
 
-A debt that carries no production record reads the shipped patchset's
-recorded authorship. An integrated closure that recorded no source patchset
-recovers it from the ledger: the patchset whose head is its integrated
-commit, else the latest one recorded before the closure. Only a range with
-no patchset at all has nothing to compare: its read is recorded, and
-declared trailers alone neither discharge nor refuse it.
+Outside assessed ladder clearance, `ineligible-review` requires an independent
+approving or changes-requested audit with an eligible bound assessment. Binding
+requires the auditor's model among the reviewer's identities, equal efforts
+where both name one, and author coverage of every range `Implemented-by`
+coordinate at its effort. An author with no effort covers its model at any
+effort; a trailer with no effort needs such an entry. Missing range evidence
+is not an empty author set. C40 states observed-model, clearance and extent
+requirements, including the exception for a clearing ladder agent.
 
-A debt of kind `ineligible-review` is the exception: no verdict fulfils it,
-before the merge or after, and an audit fulfils it only when routing's
-assessment of its auditor says so. The audit must carry an assessment whose
-independence is `eligible`; the auditor must also be independent as above;
-and the assessment must be *bound*, which has two parts. It describes the
-auditor when the model the audit recorded is among the reviewer's
-`identities` and, where both name an effort, the effort equals the
-reviewer's. It covers the work when its `authors`, through their `identities`,
-answer to the model of every `Implemented-by` line in the integrated range,
-read from the debt's production record, else from the range itself — the
-range's declared trailers, a projection, not the ledger's implementer. A range
-read and found to have no `Implemented-by` line asks nothing of the authors;
-a range whose lines cannot be established is not an empty one. The audit
-records the outcome of the binding: `bound`, `model-mismatch`,
-`effort-mismatch`, `model-unrecorded` (an audit by a person records no
-model), `identities-unstated` (the file lists no identity),
-`authors-uncovered` (naming the models of the range the authors omit) or
-`authors-unread` (the range's authors could not be read). An audit without
-an assessment, with an `ineligible` one, or whose binding is not `bound`, is
-recorded, says why, and leaves the debt open. Other kinds ignore the
-assessment.
+A debt with no production record reads the shipped patchset's authorship.
+A closure with no source patchset recovers the patchset whose head is its
+integrated commit, else the newest before closure. With no patchset, declared
+trailers alone neither discharge nor refuse.
 
-**Status.** Settled on the ledger as the source of the shipped authors and
-their model; the trailer projection is C21's record and answers only the
-assessment binding. The model's integrations always name the patchset they
-shipped, so the closure's recovery of a missing source patchset is outside
-it. Settled, except:
+**Status.** Settled on ordinary verdict kinds and ineligible-assessment bars.
+Unsettled on an eligible assessed verdict clearing `ineligible-review`:
 
-- *The binding where several parts fail.* An assessment can fail to describe
-  the auditor and fail to cover the authors at once, and the documentation
-  lists the outcomes without an order. (i) The auditor is judged first:
-  `model-unrecorded`, then `identities-unstated`, `model-mismatch`,
-  `effort-mismatch`, and only a bound assessment is then checked for the
-  authors. (ii) The authors are judged first. The model reads (i). The debt
-  stays open either way, so the order is presentation (C23) wherever only the
-  debt is compared.
-- *A non-independent approving audit.* (i) It is refused where policy
-  forbids self-approval, and recorded without discharging anything
-  elsewhere (the guide: "Where `forbid_self_approval` is off, an approving
-  verdict from the identity that wrote the work is recorded rather than
-  refused, and `arc review` and `arc audit` both name the match"). (ii) It
-  is always refused (the guide: "An approving audit must come
-  from an identity the ledger does not credit with authorship"). (iii) An assumed auditor is refused
-  whatever the policy, and a declared contributor is recorded without
-  effect (the guide: an assumed reviewing identity "cannot be the second
-  party"). The model reads (i).
-- *Approval beside a later negative audit.* Whether a later negative audit
-  withdraws an approval that shipped: (i) the approval stands and the
-  audit's verdict is its own fact; (ii) the approval is withdrawn. The model
-  reads (i).
-- *A repair after a fulfilling audit.* (i) It starts a fresh obligation.
-  (ii) The fulfilled read survives. The model reads (i).
+- `arc guide debt-obligations`: "a verdict recorded since clears it only with
+  an eligible, bound assessment of its own (`arc review --assessment`)".
+- `arc guide debt-recovery`: "Outside assessed ladder clearance,
+  ineligible-review additionally requires an audit that approves or requests
+  changes with an eligible, bound assessment."
 
-**Source.** The guide, "Review coverage and debt" (an
-audit "never rewrites what shipped with what review"; "anyone may audit
-into `changes-requested`"; discharge; "discharging the debt does not mean
-approval"; "Only an audit clears it: `arc audit --assessment <file>` with
-`independence: eligible`, by an auditor who is also independent of the
-contributors and whom the assessment describes, and whose assessment covers
-the work: the `authors` it lists answer, through their `identities`, to the
-model of every `Implemented-by` line in the integrated range. An assessment
-that omits one is recorded with binding `authors-uncovered` and the omitted
-models in `uncovered_authors`, and leaves the debt open [...] A range read
-and found to have no `Implemented-by` line asks nothing of the authors; a
-range whose lines cannot be established (no list kept with the production
-record, and the range does not read) is not an empty one, and its audit is
-recorded with binding `authors-unread` and leaves the debt open. No other
-kind has this rule"; "The assessment describes the auditor when the model its
-audit event recorded is among the reviewer's `identities` [...] and, where
-both name an effort, the effort equals the reviewer's `effort`"; "a verdict
-recorded since carries no assessment and does not clear it"; "The
-`ineligible-review` kind is the exception stated above: only an audit with an
-eligible assessment clears it"; and, after it, "A debt that carries no
-production record still has its shipped patchset's recorded authorship to
-compare against, so a legacy obligation discharges as it did before
-production summaries existed. An integrated closure that recorded no source
-patchset recovers it from the ledger: the patchset whose head is its
-integrated commit, else the latest one recorded before the closure. Only a
-range with no patchset at all has nothing to compare"; "An approving audit
-must come
-from an identity the ledger does not credit with authorship — otherwise the
-obligation would discharge itself — though anyone may audit into
-`changes-requested` [...] Planning
-and orchestrating are recorded as the auditor's held roles and never refuse;
-integrating somebody else's work is not contributing to it"; and, under
-coverage, "Where the ledger records no model for the implementer, the read is
-judged by the actor, session and harness it records; commit trailers are
-declared text and never supply the missing model") and "The history model" ("a discharge is
-fulfilment, never approval, and never rewrites the basis the integration was
-accepted on"); `arc audit --help` ("An approving audit recorded under the
-model of the ledger's implementer of the audited range, at any effort, warns
-that it shows a review happened and not that it was independent of whoever
-wrote the work. Where the ledger records no implementer model, the audit
-says so and is judged by the actor, session and harness; `Implemented-by`
-trailers are reported as declared text only [...] Where `forbid_self_approval`
-is on it is refused, with the
-remedy a contributor match gets. `--verdict changes-requested` is open to
-anyone"; "An audit discharges a debt when its auditor is independent of the
-work's ledger authorship"; "A debt of kind `ineligible-review` is discharged
-only by an audit
-whose assessment says `eligible` and is `bound`").
+One reading lets an assessed verdict clear it; the other requires an audit
+outside the ladder exception. The model reads the audit requirement and has
+no verdict-assessment field. This remains an unsettled documentation finding.
+The binding order when both auditor and authors fail is unsettled: the model
+checks the auditor first. Whether a later negative audit withdraws an approval
+is unsettled: the model retains the approval beside the audit. Whether a repair
+after a discharging read starts a new obligation is unsettled: the model starts
+one. The guide's categorical approving-audit independence sentence and its
+policy-off permission still admit the readings previously stated in C4; the
+model permits recording under policy off while requiring independence for
+coverage.
+
+**Source.** `arc guide debt-recovery`: "A `comment-only` read judged nothing:
+it is kept as a read and the debt stays owed"; "Without assessed ladder policy,
+an ineligible assessment leaves debt owed"; `arc audit --help`: "An audit whose
+`--assessment` says `ineligible` discharges no debt of any kind, whatever actor
+records it". `arc guide debt-obligations` and `arc audit --help` state
+model-and-effort author coverage, missing-range handling and the binding
+outcomes `bound`, `model-mismatch`, `effort-mismatch`, `model-unrecorded`,
+`identities-unstated`, `authors-uncovered` and `authors-unread`.
 
 **Realized by.** `admitAudit`, `auditDischarges`, `auditIsIndependent`,
-`assessmentBinding`, `coverageAfterIntegration`, `openAuditFindings`,
-`latestIntegration`, `historicalAuthorization`.
+`assessmentBinding`, `auditClears`, `coverageAfterIntegration`, `debtStanding`,
+`openAuditFindings`, `latestIntegration`, `historicalAuthorization` for
+ordinary local reads. Author-effort binding is documented but not realized:
+the retained author projection and assessment authors hold model slugs only.
+Closure recovery is outside the input history, whose integrations always
+name their patchset. C40 lists other unrealized review requirements.
 
 ### C23. Refusal order is presentation
 
@@ -1320,8 +1281,8 @@ the same one. It is *declared* while its change has not integrated: nothing
 is owed yet and no review has answered it. It is *owed* once the change has
 integrated and no eligible review has answered it. It is *discharged* when
 one has, and the debt names the review that did. Which review is eligible is
-C22's: any independent verdict or audit on the shipped revision recorded
-after the debt was declared for the kinds C22 does not except, and only an
+C22's: an independent approving or changes-requested verdict or audit on the
+shipped revision recorded after the debt was declared for the kinds C22 does not except, and only an
 audit whose assessment is bound, eligible and covers the work for
 `ineligible-review`. A debt is outstanding, listed as an obligation and
 binding as a recorded obligation only while it is owed; a declared debt is
@@ -1406,19 +1367,23 @@ the debt").
 
 **Rule.** Integration may use a gate's optional selector, which receives the
 source and target trees, the changed paths and the declared gates as `arc-gate-delta/1`. A complete
-`arc-gate-selection/1` answer names the gates affected by that delta.
+`arc-gate-selection/1` answer acknowledges the complete input object in its
+`request` and names the gates affected by that delta. Writing stdin alone
+proves no acknowledgment.
 A required gate excluded by such an answer may reuse passing evidence at
 the source tree only under the same event, declaration and applicable
 environment. The receipt retains the source evidence, both trees, selector,
 declaration and environment. A selector produces no gate result.
 
 A missing command or answer, a failed, malformed or incomplete answer,
-unknown named gates, unobserved source or paths, or missing green source
+unknown named gates, an absent or mismatching acknowledgment, unobserved
+source or paths, or missing green source
 evidence runs the required check. A selector that names the gate runs it.
 Publication checks every required gate on a changed tree and never uses a delta selector to skip one.
 
 **Status.** Settled on conservative fallback and the coordinates of reuse.
-The model takes a typed selector answer and the path delta as observations;
+The model takes a typed selector answer, including its acknowledged delta
+and declaration set, and the path delta as observations;
 it neither executes a selector nor infers the relevance of a path. Receipt
 creation plans reuse; appending a production reuse event and retention are
 outside its effects. The guide does not define whether a selector editing
@@ -1426,8 +1391,10 @@ its own command must always select its gate; the model grants no source
 evidence under a changed gate command, and leaves selector relevance to
 the declared command.
 
-**Source.** The guide, "Files" (`arc-gate-delta/1`,
-`arc-gate-selection/1`, conservative fallback, and reuse provenance).
+**Source.** `arc guide gates`: "includes `complete: true`, `request` equal
+to the complete input object, and `gates` naming affected checks"; "Missing,
+failed, malformed, incomplete, unknown or mismatched answers run the required
+checks". C34 states paths selection; C33 states the separate baseline protocol.
 
 **Realized by.** `planGate`, `ReuseReceipt`, `gateGreenFor`.
 
@@ -1445,7 +1412,15 @@ change, patchset or review verdict. Failure names the integrations since the
 most recent successful publication pass. `--skip-green` reuses a complete
 publication pass at the same tree and environment.
 
-**Status.** Settled. The model receives the resolved branch tree and the
+**Status.** Settled. C31 and C32 govern current budgets and raises for fresh
+and cached publication, with repository authority from the recorded integration
+destination or associated open change, plus the publication tree's additions
+and tightenings and current operator policy. An arbitrary branch cannot
+authorize its own raise; unavailable repository budget authority leaves
+operator constraints binding. C33 requires full execution of participating
+base-pass gates, including integration-only ones, since the last successful
+publication. C37 requires publication checks to execute alone.
+The model receives the resolved branch tree and the
 effective declarations for the selected profile. It answers evidence
 coverage; running the checks, recording the publication, choosing the
 failure's integration interval, recognizing a complete publication receipt,
@@ -1454,3 +1429,467 @@ and retaining its Git objects are effects outside the pure model.
 **Source.** The guide, "Files"; `arc publication --help`.
 
 **Realized by.** `publicationAt`, `publicationEvidence`, `gateGreenFor`.
+
+### C31. Current gate budgets and total rules
+
+**Rule.** A raw passing outcome is green only if its selected receipt fits the
+budget in force when read. Equality passes; one millisecond over fails.
+A budgeted receipt needs `run_ms`; legacy, imported or attested evidence without
+it is unmeasured, and `duration_ms` never substitutes. Budget is outside
+execution identity: choose the structurally newest eligible receipt first,
+then judge timing, without searching older faster passes or implicitly rerunning.
+A later reduction changes current applicability, never historical authorization.
+
+The effective budget and total are the minima of applicable destination,
+committed head, operator and staging declarations; absence cannot loosen one.
+A raise substitutes only its named destination constraint (C32). A declared
+integration total requires each required integration gate's budget. Validate
+every declared profile and the unqualified case after layering: a missing
+budget or excessive declaration sum blocks check, accept, integrate and land,
+even with green rows or no required gate in the active profile. Publication-only
+gates do not enter the integration total. C37 states the only batch discount.
+
+Budget durations are positive whole milliseconds, including exact decimal
+units; overflow and submillisecond precision refuse. Without a declared timeout,
+a budgeted command has a checked execution limit of ten budgets. Run time
+includes output drain and excludes arc admission and preparation; wrapper waits
+inside the command still count. Recorded limits and budgets are provenance.
+Every accepting path rejudges: verify, status, integration, acceptance, landing,
+candidate selection/promotion and publication. The queue stops on a budget
+refusal until explicit `verify --rerun` supplies new evidence. Format 9 is
+adopted before budget verification/reuse, evidence, authorization or consuming
+imports; readers through 8 refuse. Reads alone and budget-free writes do not
+adopt it.
+
+**Status.** Settled.
+
+**Source.** `arc guide gates` (budget paragraphs), `arc guide gates-together`
+(total accounting), `arc verify --help`, `arc publication --help`,
+`arc candidate verify --help`, `arc candidate select --help`,
+`arc candidate promote --help`, `arc accept --help`, `arc land --help`.
+
+**Realized by.** Nothing: durations, budget layering, declaration totals,
+timeouts and store-format admission are outside the model's observations.
+The model's gate result is raw success or failure, qualified by its modeled
+coverage; its permission assumes C31's external budget judgment succeeded.
+
+### C32. Raising budgets
+
+**Rule.** A higher committed repository declaration needs an applicable immutable
+raise even if every run fits the old budget. Keeping a gate while removing its
+budget refuses; removing the total while any gate remains refuses. Removing a
+gate, removing all gates with the total, or lowering either needs no raise;
+the destination's obligations remain owed by the change.
+
+A gate raise needs the newest direct execution at the exact clean stable head,
+matching destination command and environment, passing above the destination
+budget and within the proposed one. Reuse, rewritten coordinates, attestation,
+bypass and measurement cannot establish need. A clean accepted batch may.
+The increment is `old * raise * min(1, added / raise_per)`, floored to whole
+milliseconds with checked arithmetic; trusted defaults are 20% and 500 lines.
+Head rules may tighten; requests share one destination basis and final delta
+without compounding. The total needs a separate explicit transition: its maximum
+declaration cost across all profiles must exceed the old total and fit the new
+one and operator ceiling; a new gate can justify it without a gate overrun.
+
+Counting needs destination ancestry containing the declared base.
+`arc-budget-growth/2` counts endpoint net nonblank logical-file growth,
+subtracting shrinkage/deletions in the same trusted scope, floored at zero.
+Pinned rename/copy detection, UTF-8/NUL paths, isolated Git metadata and no
+external diff/text conversion prevent host configuration granting credit.
+Moves, splits, copies without growth, whitespace, binary/non-UTF-8 files,
+symlinks, gitlinks and excluded/custom-diff files grant none. Overlapping globs
+count once; intermediate churn and another unintegrated member grant no credit.
+Destination/operator paths and inert/exclude rules constrain scope; head rules
+may remove growth but cannot remove trusted shrinkage debit. Uncertainty refuses.
+Operator ceilings constrain repeated raises; padding/relevance remain review.
+
+The record binds change, destination revision, exact head/tree, growth algorithm,
+rule digest, per-file counts, old/new values, allowance, direct execution or
+total sum, and reason. Every head/destination change, even signatures or trailers,
+requires a fresh record. Missing objects or changed inputs refuse applicability.
+A fresh snapshot captures the entire raise set, then ordinary review or debt is
+required, even at unchanged Git head. Landing members cannot pool credit.
+Integration, acceptance, landing, candidates and publication refuse stale or
+missing raises. Imported records are facts, subject to receiver constraints;
+format 9 fences older readers. Historical authorization remains fixed.
+
+**Status.** Settled.
+
+**Source.** `arc guide gate-raises`, `arc gates raise --help`.
+
+**Realized by.** Nothing: counted Git growth, direct timing, immutable raise
+sets and snapshot acquisition are outside the model. This is a documented
+but unrealized authorization protocol, not an alternative approval waiver.
+
+### C33. Cross-change base passes
+
+**Rule.** Only destination-committed `selection.base_passes = true` opts in;
+a change cannot opt itself in. Authoritative completion retains clean stable
+local timed integration executions at the installed tree, with declaration,
+coverage, environment, profile, source coordinates and digests. Reuse, bypass,
+attestation, untimed, over-budget and dirty-waived evidence establish none.
+Empty snapshots establish none and obscure no gate's older entry.
+
+Each gate's first observation may use its newest eligible retained local
+baseline in both target and evaluated head first-parent histories. Other
+gates' observations do not consume this right. Any prior observation of that
+gate at any head, including failure, not-admitted or budget refusal, prevents
+it. Search at most eight retained target/profile baselines and select the first
+eligible one containing the gate; mismatching declaration/environment/coverage
+or budget runs the gate, never an older matching/faster entry. First-parent
+walks stop at 256 commits; inconclusive ancestry, missing objects, moved
+history, different profile/event or failed probes are cache misses. Commit-bound
+gates execute. Rewrites do not advance baseline coordinates.
+
+The complete endpoint diff proves nonimpact using destination coverage and
+danger; dangerous and unnamed paths affect every gate and `.arc/` is protected
+even beneath inert. Deltas include both rename endpoints, deletions and mode/type
+changes; unreadable, invalid or excessive input executes. A declared selector
+grants no cross-change reuse. Witnesses cite the immutable baseline/digest,
+authority and execution provenance plus retained objects proving adoption,
+ancestry and diff; hashes/asserted paths alone are insufficient. Replay validates
+structural facts without current budgets; acceptance rejudges original timing.
+Imported facts cannot seed local baselines and imported reuse needs admitted
+baseline integration authority. Witnesses are bounded to 1 MiB. Format 10 fences
+readers/writers through 9 before publication/import, including already-open
+writers. Retention keeps eight baseline ref sets; a receipt retains its proof
+objects independently.
+
+Landing may consume base passes at complete final content and retains one final
+baseline. Candidates consume/create none; provisional preparation creates no
+canonical baseline; accept forces executions; publication creates none.
+Publication fully executes every participating gate since the previous successful
+target/profile publication, including integration-only gates; completion IDs
+set the interval. Missing cache snapshots erase no obligation; `--skip-green`
+cannot suppress those executions. The destination guard spans checking and
+confirmation. Declared coverage remains an assumption that full execution can
+falsify.
+
+**Status.** Settled.
+
+**Source.** `arc guide base-passes`, `arc guide gates-together`,
+`arc publication --help`, `arc verify --help`, `arc accept --help`.
+
+**Realized by.** Nothing: the model has no cross-change baselines, retention,
+authority proofs or Git paths. It does model same-change source selection in
+C29. Publication callers must resolve C33's additional obligations externally;
+`publicationEvidence` alone does not certify their execution.
+
+### C34. Paths, inert exclusions and coverage identity
+
+**Rule.** Paths use case-sensitive repository-relative globs: `*` stays within
+a segment, `**` crosses segments, `**/` includes zero directories, and a trailing
+slash selects descendants. Inert paths affect none unless dangerous; dangerous
+or unnamed paths affect every gate. A gate with no paths is affected by every
+non-inert path; renames check both ends. The complete map spans all events and
+profiles. An unreadable danger declaration conservatively affects every path.
+
+Same-change reuse needs a green source under the same declaration/environment.
+Path proof may emit selector `arc:paths`; a script is consulted only for a still
+affected gate and cannot clear unnamed/dangerous paths when path selection is
+declared. An uncertain delta runs the gate. Paths, combined inert lists, the
+complete coverage map and dangerous patterns participate in evidence identity;
+nonempty coverage requires a fresh identified pass. Target coverage remains
+binding until edits land. Different paths for one layered gate conflict.
+C29 requires acknowledgment of the entire request; publication runs its changed
+tree's complete tier. C33 supplies the stronger cross-change protection.
+
+**Status.** Settled.
+
+**Source.** `arc guide gates`, `arc guide base-passes`,
+`arc gates paths --help`.
+
+**Realized by.** C29 models selection from an already observed affected set,
+including exact acknowledgment. Filesystem deltas, glob matching, dangerous-path
+classification and complete coverage identity are documented but not realized;
+`DeclarationShape` represents command/timeout only. Automatic `arc:paths` proof
+and protected `.arc/` validation remain outside the model.
+
+### C35. Admission and exclusive execution
+
+**Rule.** An exclusive name admits one command across account projects/checkouts.
+The holder keeps it through its last descendant, even after arc exits; there is
+no queue order. Either declaration may require it; omission cannot remove it.
+Equal names take the shortest admission limit, default 60s. Different project/
+operator names conflict; target/head divergence retains the target's lock.
+Lock name and admission are outside execution identity. Expiry starts no command.
+
+Expiry or command exit 75 records `not-admitted`, neither pass nor failure.
+Timeout outranks exit 75. The newest such attempt is not green, cannot answer
+an earlier failure and prevents fallback to an older pass; verify reruns,
+accept refuses it as unobserved, publication with no failing gate records
+not-admitted and exits 1. An interrupted gate/probe is killed as a process group
+and records no result. Evidence that failed to publish is no evidence.
+
+**Status.** Settled.
+
+**Source.** `arc guide change-gates`, `arc guide gates`,
+`arc guide rules-claims`, `arc verify --help`, `arc publication --help`.
+
+**Realized by.** `readGateFor`, `gateGreenFor` model a `GateNotAdmitted`
+observation as not green under the newest structural key. Host locks, waiting,
+process groups, timeout ordering and evidence publication are external effects.
+
+### C36. Bypass satisfies nothing
+
+**Rule.** A bypass declaration has no effect and a recorded bypass supplies no
+integration or publication requirement. It grants no missing measurements,
+raise justification or baseline authority.
+
+**Status.** Settled.
+
+**Source.** `arc guide change-gates`: "Recorded bypasses are history and satisfy
+no integration or publication requirement"; `arc guide gates` (the `bypass`
+key), `arc guide gate-raises`, `arc guide base-passes`.
+
+**Realized by.** `readGateFor`, `gateGreenFor` refuse `Bypassed` evidence.
+Parsing retired declarations and old store envelopes is outside the model.
+
+### C37. Concurrent acceptance
+
+**Rule.** Every layered declaration must consent to concurrency. Standalone
+gates execute first in name order, then the consenting set. Duplicate exclusive
+names are invalid. Five clean stable direct measurement rounds, all passing
+with command timing, establish host/store-local acceptance of the exact complete
+structural identities and membership, not budget compliance. Failed measurement
+removes prior acceptance. Budget, exclusive and admission values do not change
+structural identity. Measurement is private, never exported.
+
+Missing/unreadable acceptance or host identity executes standalone; a singleton
+or explicit gate executes alone. Reuse/selection precede scheduling, so the
+remaining subset needs its own exact acceptance; otherwise standalone costs
+apply and may exceed the total. `--rerun` cannot bypass measurement and
+`--parallel` remains unqualified preflight with unknown cleanliness.
+
+A batch pass is green only with retained tested tree, clean before/unchanged
+after content and head, and current exact local acceptance. Dirty waivers cannot
+rescue it. Receipts/authorization retain batch, acceptance, store, host and
+member identities; replay validates frozen references without loading current
+host administration. Imported batch evidence cannot be green at another store,
+even after receiver measurement. Eligible clean batch execution may justify a
+raise or baseline, whose use rechecks acceptance. Publication/candidates run
+alone. Per integration profile total is standalone sum plus maximum concurrent
+budget only for its complete exactly accepted set; otherwise all budgets add.
+Landing counts the union once and obeys every member's strictest total. Format
+11 fences readers/writers lacking these semantics.
+
+**Status.** Settled.
+
+**Source.** `arc guide gates-together`, `arc gates measure --help`,
+`arc verify --help`, `arc land --help`.
+
+**Realized by.** Nothing: scheduling, host measurement, aggregate budgets and
+store-format admission are outside the pure model. A raw standalone pass never
+establishes a batch permission here.
+
+### C38. Completed bound-run authorship
+
+**Rule.** Explicit contributors, solo or represented subject decide snapshot
+attribution. Otherwise local completed dispatches may derive the recorded
+contributors at snapshot time, never repair an existing patchset. The inspected
+range starts at the previous mapped patchset head or first resolved base, an
+ancestor of head. Only proved complete role-appends/signatures with unchanged
+implementer sets, readable objects and a recorder outside executor bindings
+carry that boundary; other temporally relevant rewrites prevent derivation.
+
+Each delegated commit needs this change's local dispatch, nonconflicting local
+implementation binding and end, a dispatch-to-end interval including Git's whole
+second committer timestamp without rounding, matching worktree, valid represented
+agent coordinate naming the bound harness, and exactly that implementer trailer.
+Binding can follow end but not precede dispatch. Covering dispatches agree on
+session/model; one executor session keeps one coordinate throughout the range.
+Reviewer bindings supply no implementation. Trailers corroborate, never invent,
+the ledger's identity. Each executor contributes its bound harness/session and
+retained represented model; the first executor in commit order is production's
+implementer and all remain authors. Invoker-bound or uncovered own commits add
+the invoker. Missing/conflicting/relevant evidence retains recorder attribution
+for the whole patchset and names ambiguity. No executor means recorder fallback.
+
+Unchanged snapshots preserve attribution. An explicit different subject at
+unchanged content creates a fresh patchset; omission never reverts a subject.
+Mechanical replay preserves matching patchset authorship or bound-run attribution
+established at the original head before replay. Ordinary rebase grants no
+inheritance. Live-claim declaration rules still bind. An unrecorded rewrite
+preserving boundary, times and trailers is undetectable.
+
+**Status.** Settled.
+
+**Source.** `arc guide debt-review`, `arc guide change-integration`,
+`arc guide rules-evidence`, `arc snapshot --help`, `arc rebase --help`,
+`arc trailers --help`.
+
+**Realized by.** `effectiveContributors` and C4 read the resulting recorded
+set and ledger models. Deriving it from dispatch, executor session, Git time,
+worktree and rewrite proof is outside the model's history vocabulary. The model
+accepts recorded patchsets, not unvalidated attribution claims.
+
+### C39. Approval-preserving rewrites
+
+**Rule.** Approval anchors, waiver scope and eligible extent identity follow
+signature-only and complete role-addition rewrites. A role addition appends
+complete Planned-by, Implemented-by, Reviewed-by or Orchestrated-by entries to
+the final trailer block (or a fresh block after one blank line), with all other
+headers/tree byte-identical except signature and parents translated only through
+eligible rewrites. Replacing/removing/reordering roles, Assisted-by, body edits,
+changed committer/extra headers, or ineligible changes below head leave approval
+stale; snapshot and fresh judgment are required. Added roles are declared text,
+never a review or a change to recorded contributors/production/debt.
+
+The receiver recomputes carry from local objects; incoming maps are judged
+together to stable dependency-ordered parent carry irrespective of event order.
+Nonstabilizing judgment cycles refuse the whole import. Pending acceptance
+signing still requires signature-only. A withdrawn-only proof is set aside on
+the withdrawing replica and refuses import elsewhere. Commit-bound gates never
+inherit through rewrites (C14); raises never inherit (C32).
+
+**Status.** Settled.
+
+**Source.** `arc guide rewrites-evidence`, `arc history rewrite --help`,
+`arc rewrite trailers --help`, `arc guide debt-obligations`.
+
+**Realized by.** Nothing: the model has no rewrite maps or commit bytes. C1,
+C5 and C6 consume already resolved patchset/approval facts; neither gate nor
+raise carry is inferred from tree equality beyond C14's tree-bound evidence.
+
+### C40. Review clearance, extents and receipts
+
+**Rule.** A read compares its recorded and disagreeing observed reviewer models;
+either author match refuses or leaves debt owed. A dated target/operator
+`tiebreak_reviewers` election may waive only model-match and, under assessed
+clearance, family tests for mixed-model authorship. It requires an exact recorded
+model/effort and matching observation, an active nonoverlapping interval at
+recording, another canonical author model, and the same destination. It never
+waives actor/contributor/author-session/assumed-identity, rank, effort ordering,
+authority or coverage. Unreadable elections grant no exception; recorded reads
+retain their election or absence despite later policy edits.
+
+Under assessed policy only clearing approvals authorize and only clearing reads
+discharge. With no ladder, agent clearance requires model/effort and a bound
+assessment/2 with `clears: true`. With a ladder, the destination's authorizing
+registry judges integration; its accepted current registry judges later reads,
+except a ladder-changing or unread range remains under closure's target-before
+registry. Candidate/dirty files supply no authority. Missing closure basis is
+not established. Read-time debt uses the stricter checkout/registry policy.
+At judgment basis time select the latest dated version; gaps and missing
+coordinates are not established. Reader rank meets every author floor; a lower
+named effort of the same model never qualifies. Missing effort uses conservative
+reader minimum/author maximum. Clearing also needs a family unlike every author's,
+subject to the narrow election. Both observed/recorded models meet the bar.
+Persons are exempt from model floors, not independence; ineligible-review persons
+still need eligible bound assessment. A clearing ladder agent needs none.
+Optional assessments must bind, but their capability opinion cannot override
+the ladder. Recorded contributors, production implementer and range implementer
+trailers all enter clearance authorship. Approval that only finds needs debt;
+changes-requested, gate failures and other refusals still bind. Coordinate
+admission uses enablement or the strictest inclusive cutoff at recording, while
+capability uses judgment basis time; unknown admitted coordinates never clear.
+
+Extents resolve whole or scoped diff/tree entries and blobs before recording;
+empty scopes refuse. A read covers only the same domain/base/revision or eligible
+successor. Whole covers scoped; scoped must include every obligation entry with
+matching blob and exclude none, and never covers whole. Scoped reads do not
+combine. An extentless read cannot cover an explicit obligation; two absent
+extents leave coverage not established under ordinary rules. Verdicts carry no
+extent, so only audit can discharge an explicit extent. Comment-only never
+discharges. Assessed policy and extent coverage independently qualify assurance;
+partial reads do not refresh it, nor edit-only verdicts on replayed landings.
+
+Receipt ingestion pins subject/frontier and records the reader as represented
+subject, the invoker as writer. Receipt-wide errors write nothing; item errors
+refuse only that item. Moved subject/frontier or internal contradiction refuses;
+identical published items are idempotent. Independence, clearance and binding are
+identical to direct reads. Earliest exact visible assistant key/verdict reply in
+the exact session within issue/ingestion supplies basis time; absent it declared
+judged_at or recorded time applies. Invalid/out-of-window judged_at refuses even
+with a reply. Import keeps the basis but receiver registry judges. Source
+custody, atomic dispositions and extents require format 7.
+
+**Status.** Settled except C22's assessed-verdict contradiction and C4's
+required-independence readings. Imported facts grant no receiver review authority.
+
+**Source.** `arc guide debt-review`, `arc guide debt-clearance`,
+`arc guide debt-obligations`, `arc guide debt-recovery`, `arc guide assurance`,
+`arc guide repair` (receipts), `arc review --help`, `arc audit --help`,
+`arc receipt template --help`, `arc review-ladder import --help`.
+
+**Realized by.** Nothing for ladders, observations, elections, extents, receipt
+acquisition or dated assurance: those fields are absent. C4/C22 model ordinary
+local recorded identities and assessments without these optional protocols.
+C22's ordinary comment-only and ineligible-assessment bars are modeled.
+
+### C41. Atomic landing and asserted correspondence
+
+**Rule.** A lands-with component cannot terminally transition a member alone;
+open partners require land, abandoned/superseded partners require withdrawal.
+Landing includes every open component member, orders dependencies and refuses
+cycles, no-ff/contribution targets, incompatible declarations/bindings/locks,
+multiple commits under squash policy, or an empty required-gate union. Stack
+members retain their bases; other members replay once onto their composed
+parent. Conflict abandons with nothing closed. Each keeps its own approval,
+policy and obligations; replay beyond an approved base needs debt, derived as
+replayed-unread, never declared/imported as a declaration. Only an audit of
+what landed discharges that kind. Members cannot pool raises.
+
+The suite runs once at the final content, using every member's strictest
+constraints and checking shared receipts on the top member. Missing timing or
+budget excess refuses without splitting or retry. Pending intent blocks other
+terminal transitions. Commit rereads all pins under ordered authority/target/
+graph/member locks; movement abandons. One guarded target transaction and one
+completion close all members with their own landed ranges and shared original
+target-before. Recovery publishes only proved authorized application, abandons
+proved unapplied intent, and refuses unexplained movement. Split attempts occur
+only after gate failure within max-attempts, preserve components and dependencies,
+and close only successfully landed children. Imported completion needs admitted
+integration plus debt/waiver capability when applicable, held member patchsets
+and source heads; trial replay grants no rewrite map. Replayed original verdicts
+read only the edit and grant no landed-range assurance.
+
+An asserted integration of independently replayed commits needs explicit
+correspondence matching change/patchset/head/endpoints and every source commit,
+oldest first, one-to-one ordered descendants with equal stable patch IDs.
+Merges and empty commits refuse. The assertion stays asserted, grants no gate
+evidence and is not a landing.
+
+**Status.** Settled.
+
+**Source.** `arc guide change-landing`, `arc land --help`,
+`arc close --help`, `arc guide replicas`, `arc guide debt-obligations`.
+
+**Realized by.** Nothing: the model authorizes one recorded patchset and has
+no landing graph, composed range, pending intent, correspondence or replayed debt.
+These are documented but unrealized protocols; Git transactions/recovery are
+outside the pure boundary. C10's ordinary prerequisites cannot stand in for them.
+
+### C42. External execution and acceptance boundaries
+
+**Rule.** Ordinary gate evidence is open-only. Post-integration attestation
+requires the shipped tree, tested revision, command/gate, result, host and runner;
+it is a later receipt, never gate evidence, authorization or debt discharge.
+Environment probing reads clean evaluated content; an observing report with no
+such checkout yields no identity/receipt, whereas integration may create a scratch
+checkout. A missing/failed probe is not an environment shared by two runs.
+Probe descendants are stopped before using its answer. Publication retains its
+own obligations (C30/C33). Acceptance executes local required gates itself,
+never suppressing them with imported passes, base passes or ordinary reuse;
+it preserves signature-only delivery constraints (C26/C39).
+
+Slot admission/leases, build preparation and host locks supply no passing result.
+Cleanup, journal publication, network/forge effects, retention and process
+accounting confer no integration authority. Optional per-check timing errors
+remain advisory; command outcome decides. Candidate evaluation includes its
+tree's additions and tightened budgets; selection and promotion rejudge current
+budgets and raises, but consume no base pass and create no baseline.
+
+**Status.** Settled.
+
+**Source.** `arc guide change-integration`, `arc guide rules-evidence`,
+`arc guide slots`, `arc guide gates`, `arc guide gate-costs`,
+`arc guide delivery`, `arc guide candidates`, `arc accept --help`,
+`arc verify --help`, `arc candidate select --help`, `arc candidate promote --help`.
+
+**Realized by.** C15 accepts an observed probe identity or its absence.
+Checkout selection, receipts after closure, acceptance execution, slots,
+preparation, cleanup and candidate timing are outside the model's effects or
+not represented. Candidate structural selection remains a separate model;
+its permission is conditional on these external current-budget checks.

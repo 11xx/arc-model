@@ -2664,3 +2664,70 @@ agreed, 7 adjudicated, 14 skipped; execution 175 cases, 130 agreed, 31
 adjudicated, 14 skipped; coverage 180 cases, 161 agreed, 5 adjudicated, 14
 skipped; none disagreed or failed to replay, and every adjudication is one
 of the classes recorded there.
+
+## Re-pin at b405104a
+
+The comparison source is the clean installed build
+b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b. Public text and recursive help,
+including every guide route, are retained in
+[evidence/repin/b405104a](evidence/repin/b405104a). The old text is the
+retained 6e7f9dfb capture; no arc implementation was read or rebuilt.
+The current README is not available through the binary interface and is
+not asserted identical to the old README.
+
+### Contract classification before implementation
+
+The documentation settles C31 to C38's budget, raise, base-pass, coverage,
+admission, bypass, batch and attribution rules. C14 additionally documents
+commit binding; C39 to C42 cover role-addition carry, clearance/extents,
+atomic landing and external execution boundaries. These are authorization
+requirements even when their implementation lies outside this pure model.
+Each clause names that boundary rather than converting a duration, host
+lock, retained Git object or session recording into a fabricated observation.
+
+The old planGate accepts a complete selector answer without proof that it
+acknowledged the entire request. C29 at this revision explicitly requires
+that acknowledgment: this is changed arc semantics, not a reason to infer a
+rule from arc code. The model's input and decision will represent it.
+Likewise ordinary debt discharge now excludes comment-only reads and audits
+with ineligible assessments; the old model counted both in ordinary coverage.
+C22 settles that change directly from the guide and audit help. C35/C36 add
+representable not-admitted and bypass observations. No timing, baseline,
+batch, dispatch, ladder or filesystem acquisition is inferred from them.
+
+### Findings for arc's public documentation
+
+These findings belong to arc but are recorded here under the instruction not
+to write arc's repository, ledger or journal. They are not silently adjudicated.
+Exact sentences refer to the captured topic/help text.
+
+1. **An assessed verdict clearing ineligible-review (C22, unsettled).**
+   The exact competing sentences are in CONTRACT.md C22, sourced from
+   debt-obligations and debt-recovery. The former admits a clearing
+   assessed verdict, the latter requires an audit. The model retains the audit
+   reading and has no verdict-assessment input.
+2. **Candidate verification exit status (C42, unsettled).**
+   Candidate verify help: "Exits 0 when every gate run passes and 1 otherwise."
+   Guide gates: "A command outcome remains pass in the ledger even when its
+   run_ms exceeds the budget in force." The same topic says:
+   "Every path that accepts gate evidence judges it against the budget in force:
+   verify, status, integrate, accept, land, candidate selection and promotion,
+   and publication." The help does not say whether "passes" is raw outcome or
+   current budget acceptance, and the accepting-path list omits candidate
+   verification while guide candidates says "Execution and selection judge
+   timing against the effective budgets in" the gates topic. Retain
+   the execution-budget requirement and leave this CLI exit interpretation
+   open; the candidate model has no durations.
+3. **The boundary page denies the ladder's judgment (C40, unsettled prose).**
+   Guide boundaries: "arc never scores the coordinates a debt records,
+   joins them against a roster, or orders two models against each other."
+   Guide debt-clearance: "With an applicable ladder, arc owns capability."
+   It also says "Findings eligibility requires the reader rank to meet every
+   agent author's floor." A global denial and the explicit assessed-policy
+   exception do not agree. The contract scopes the old ordinary rules and
+   states assessed clearance separately; no ladder is modeled.
+4. **Danger and policy-off self-approval (C4, inherited unsettled reading).**
+   The exact competing sentences remain in C4, sourced from debt-review
+   and debt-recovery. Danger alone versus danger plus policy remains the
+   existing choice; the model retains the latter. An explicit debt still
+   supplies the separate permitted route and does not settle self-approval.
