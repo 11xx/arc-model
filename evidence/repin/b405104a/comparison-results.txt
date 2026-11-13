@@ -1,0 +1,10 @@
+channel decision: 181 cases: 158 agreed, 10 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel execution: 187 cases: 154 agreed, 20 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+
+All four exits: 0. Seed 20260907; 60 generated histories per channel and
+60 check-time histories for decision, execution and coverage.
+Every named history is included. Each child arc/git process uses Differential.Sandbox.
+These are current-build runs compared with the retained prior summaries;
+no retained 6e7f9dfb executable exists here and no old implementation was rebuilt.

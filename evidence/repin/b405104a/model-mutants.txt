@@ -1,0 +1,24 @@
+admission-as-pass: exit 1; predicted rejection: admission/newest
+[FAIL] admission/newest: no fallback to older pass  expected Left (GateWasNotAdmitted (GateName "build") (EventId 91)), got Right (GateReading {gate = GateName "build", result = Observed GateNotAdmitted, coverage = Covered (EventId 91), availability = Recorded RanLocally, falsified = Omitted})
+[FAIL] mutant/admission-as-pass: wrongly authorizes  the predicted fault converts no execution into green
+[FAIL] admission: every later matching unrun attempt supersedes a pass  *** Failed! Falsified (after 1 test): 545044
+bypass-as-execution: exit 1; predicted rejection: bypass/integration
+[FAIL] bypass/integration: recorded bypass satisfies nothing  a bypass must not supply integration success
+[FAIL] bypass/publication: recorded bypass satisfies nothing  a bypass must not supply publication success
+[FAIL] bypass/history: cannot hide an executed failure  a historical bypass cannot rescue a failure
+[FAIL] mutant/bypass-as-execution: wrongly authorizes  the predicted fault treats the retired escape as a run
+[FAIL] bypass: no raw result supplies a passing gate  *** Failed! Falsified (after 2 tests): GatePass
+acknowledgment-ignored: exit 1; predicted rejection: selector/acknowledgment: a different delta
+[FAIL] selector/acknowledgment: a different delta runs  expected RunRequired, got ReusePassing (ReuseReceipt {gate = GateName "build", gateEvent = Integration, sourceEvent = EventId 90, delta = GateDelta {sourceTree = Observed (TreeId "source"), targetTree = TreeId "target", paths = Observed ["README.md"]}, selector = "select", declaration = Declaration {declarationId = DeclarationId "build", command = "check", timeoutSeconds = 60, environment = Nothing, events = Nothing, selector = Just "select"}, declarations = [(GateName "build",Declaration {declarationId = DeclarationId "build", command = "check", timeoutSeconds = 60, environment = Nothing, events = Nothing, selector = Just "select"})], environment = Omitted})
+[FAIL] selector/acknowledgment: a different gate inventory runs  expected RunRequired, got ReusePassing (ReuseReceipt {gate = GateName "build", gateEvent = Integration, sourceEvent = EventId 90, delta = GateDelta {sourceTree = Observed (TreeId "source"), targetTree = TreeId "target", paths = Observed ["README.md"]}, selector = "select", declaration = Declaration {declarationId = DeclarationId "build", command = "check", timeoutSeconds = 60, environment = Nothing, events = Nothing, selector = Just "select"}, declarations = [(GateName "build",Declaration {declarationId = DeclarationId "build", command = "check", timeoutSeconds = 60, environment = Nothing, events = Nothing, selector = Just "select"})], environment = Omitted})
+[FAIL] mutant/acknowledgment-ignored: wrongly reuses  the predicted fault discards the reply request and uses the current one
+[FAIL] selector: every different acknowledged path delta requires execution  *** Failed! Falsified (after 1 test): "k"
+comment-as-judgment: exit 1; predicted rejection: debt/comment-only
+[FAIL] debt/comment-only: leaves ordinary debt owed  a comment judges nothing
+[FAIL] debt/helper: comment-only does not clear  auditDischarges must agree with debtStanding
+[FAIL] mutant/comment-as-judgment: wrongly discharges  the predicted fault upgrades a comment to approval
+[FAIL] debt: comment-only never discharges ordinary local debt  *** Failed! Falsified (after 1 test): IndependentReview
+ineligible-ignored: exit 1; predicted rejection: debt/ineligible
+[FAIL] debt/ineligible: leaves ordinary debt owed  an ineligible assessment cannot discharge another kind
+[FAIL] mutant/ineligible-ignored: wrongly discharges  the predicted fault drops the assessment bar
+[FAIL] debt: ineligible assessment never discharges ordinary local debt  *** Failed! Falsified (after 1 test): Approved

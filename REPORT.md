@@ -1213,10 +1213,11 @@ The capture before it, at source revision
 These are rebuilt executables, not the historical executable whose build
 was `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199eced539ce00c8e54fef41d6`).
 
-The sources are the captured guides, command `--help`, the public README,
-and the two retained operator rulings where they read the guide. No Rust
-source informs the model. The `6e7f9dfb` binary is the installed clean build
-of that revision; its identity is the captured one above. The `3e020e5`
+Historical sources include the captured guides, command help, public README,
+and two retained operator rulings that read the guide. The current capture
+uses only the installed public binary interface; it does not assert a current
+README capture. No Rust source informs the model. The prior 6e7f9dfb binary
+was the installed clean build at that capture; its identity remains above. The `3e020e5`
 build is a fresh clone of the arc
 repository outside its checkout, at the pinned revision, built with
 `cargo build --release --locked`, `CARGO_BUILD_JOBS=4`; its `arc env` reports
@@ -2103,6 +2104,14 @@ not a proof of equivalence.
 
 ## Known unsupported semantics
 
+- **Current external authorization requirements.** C14 documents commit binding;
+  C31-C42 state budget/raise/total checks, baseline retention and full publication
+  audits, coverage acquisition, host locks/batches, bound-run attribution,
+  eligible rewrite acquisition, observed/dated review clearance, extents,
+  receipts, atomic landing and acceptance execution. They remain absent from
+  the pure input vocabulary except the C22/C29/C35/C36 decisions explicitly
+  realized. Model permissions assume those independent requirements succeeded.
+
 - **Planning with `--debt`, and `--expect-basis`.** The model realizes both
   (`planDeclaring`, `executeDeclaring`; C28), pinned by fixtures. No channel
   replays them: the execution channel's dry run takes no debt, and arc names
@@ -2784,3 +2793,101 @@ probe identity and compares the entire rebuilt refusal answer, readiness,
 dry-run plan and authority exit. Seven comparator assertions preserve the exact
 difference and reject unrelated blockers, readiness and authority changes.
 Neither arc nor the model was changed to match these rows.
+
+### Results at b405104a
+
+Seed 20260907, each channel at its defaults: 60 generated histories, all named
+histories, and 60 additional check-time histories except on candidate.
+The copied executable retained its captured digest. Every arc/git child ran
+through Differential.Sandbox, with roots under the requested cache scratch.
+Each channel exited 0. These results compare with the retained prior-pin
+summaries; no old executable was retained or rebuilt, so this is not a new
+two-executable baseline run.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 181 | 158 | 10 | 13 | 0 | 0 |
+| execution | 187 | 154 | 20 | 13 | 0 | 0 |
+| coverage | 222 | 204 | 5 | 13 | 0 | 0 |
+| candidate | 73 | 47 | 3 | 23 | 0 | 0 |
+
+Every mismatch is retained with its exact expected and actual answers in
+[classified-rows.txt](evidence/repin/b405104a/classified-rows.txt).
+No mismatch is silently counted as agreement.
+
+| mismatch | classification | decision | execution | coverage | candidate |
+| --- | --- | --- | --- | --- | --- |
+| committing target declarations/policy also moves the target | encoding/model replay representation, C12/C3; inherited | 6 | 13 | 0 | 0 |
+| no clean evaluated-content checkout can supply the assumed probe observation | encoding/observation boundary, C15/C42; documented arc change | 4 | 4 | 0 | 0 |
+| external approval retained beside a witnessed approval | unsettled authorization consumption, C9; inherited | 0 | 3 | 4 | 0 |
+| declared-actor policy refuses the model's assumed reviewer event | encoding/model replay representation, C18; inherited | 0 | 0 | 1 | 0 |
+| selection roots a reuse-only evaluation supplier in the candidate model | candidate model defect, inherited; candidate-sibling-evidence-reused and candidate-generated-12 | 0 | 0 | 0 | 2 |
+| candidate model demands an environment even with no probe | unsettled candidate contract; candidate-environment-unprobed | 0 | 0 | 0 | 1 |
+
+The four new observation rows are target-behind-evaluated,
+ff-only-behind-evaluated, generated-2 and check-time-55 on both decision and
+execution. Their exact extra gate refusal is classified above. Three other
+initial differences on each channel (generated-4, check-time-4, check-time-10)
+were the explicit-execution encoding defect; rerun now performs the history
+requested, and the answers agree. The before answers remain in
+[before-classified-rows.txt](evidence/repin/b405104a/before-classified-rows.txt).
+
+The retained prior-pin comparison used the same decision/execution/coverage
+counts, with 162/158/204 agreed and 6/16/5 adjudicated, respectively.
+The four clean-content observation cases account for the current shift from
+agreement to adjudication on decision/execution; coverage's counts are unchanged.
+The candidate channel retains its own structural comparison and known readings.
+
+The 13 skips per ordinary channel are unchanged: 6 unreadable records the CLI
+cannot create, 6 findings without a verdict, and 1 dirty run against a merge
+that arc evaluates in its own clean checkout. Candidate skips are 8 unobserved
+targets, 4 evaluations at a registration's other tree, 6 inferred-only reads,
+3 supplied-only reads and 2 unknown outcomes. All remain explicit coverage limits.
+
+The retained publication replay passed 6/6 claims, including the deliberately
+executed later publication failure. The additional modeled-change replay passed
+8/8: successful execution, retained not-admitted, no old-pass fallback, retired
+bypass refusal, no gate waiver from debt/bypass, comment-only debt standing,
+ineligible-assessment debt standing and discharge by an independent negative
+audit. These are public-CLI sandbox replays, not inferred implementation claims.
+Selector acknowledgment is exercised by pure properties and an actual faulty
+source variant; selector-process persistence and wire decoding are not compared.
+
+The old auditDischarges helper also unconditionally marked ordinary debt clear
+without checking independence, revision or chronology. This is a model defect
+against C22's existing later independent shipped-read requirement, visible in the
+removed unconditional branch. The helper now applies those preconditions with
+the changed judgment/assessment bars. Historical authorization remains separate.
+
+### Documentation findings and acceptance boundary
+
+The five findings, including exact competing sentences, source routes and the
+retained readings, are collected in
+[documentation-findings.md](evidence/repin/b405104a/documentation-findings.md).
+D1 (assessed verdict versus audit-only discharge), D2 (candidate verify raw-pass
+exit wording), D3 (global denial versus ladder capability), D4 (inherited danger
+versus policy-off self-approval) and D5 (which eligible /2 answer refuses a debt)
+remain open. Nothing was filed into arc's repository or journal under this task.
+
+The complete guide diff contains 89 hunks, each indexed and classified in
+[authorization-index.md](evidence/repin/b405104a/authorization-index.md).
+The full recursive help diff preserves all changed sentences and options;
+command-passages.diff is an additional inspection view with shared global
+option blocks omitted. C1/C4/C6/C12-C15/C18-C22/C27/C29/C30 and C31-C42 state
+the represented rules and the limits of the model separately. Existing unsettled
+readings remain open; the report never treats a quiet comparison as proof of
+unmodeled duration, host, filesystem, replica, ladder or landing behavior.
+
+The required build passed with tests enabled and one job. Both test suites
+passed, 501/501 spec checks and 102/102 candidate checks, under their compiled
+1 GiB heap caps; cabal ran with the same cap. Five source mutants failed their
+predicted semantic assertions before restoration. Exact commands and result
+summaries are in [gate-results.txt](evidence/repin/b405104a/gate-results.txt).
+
+This episode completes local implementation and comparison only. The change
+remains on arc/repin-gate-budgets in its retained worktree for the lead's review;
+it was not pushed, integrated or installed. The owned cache scratch and newly
+created dist-newstyle build output are removed after verification. The complete
+public text, result summaries, classified answers and replay/mutant drivers stay
+under evidence/repin/b405104a. Future integration, independent review and the
+documented unrealized protocols remain outside this stopping point.

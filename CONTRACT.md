@@ -905,101 +905,60 @@ integration-mode"); `arc integrate --help`, `--dry-run`, `--json`,
 
 ### C21. Debt kinds and the owed review
 
-**Rule.** A debt names what kind of review is missing: `nothing-read`,
-`merge-resolution-unread`, `repair-unread`, `contributor-only`,
-`ineligible-review`, or `independent-review`, with C41's derived-only `replayed-unread` for composed
-landings. A declared kind wins over the
-derived one. The ledger sees a merge resolution and a repair the same way, so
-only a declaration names `merge-resolution-unread`. Only routing's reading can
-say a read does not count, so only a declaration names `ineligible-review`.
-Assessed clearance may derive `ineligible-review` from a findings approval
-(C40). The ordinary local model derives the other four and carries neither
-ladder clearance nor replayed-unread. Where no kind is declared, the kind of a
-debt on a patchset is:
+**Rule.** Debt names nothing-read, merge-resolution-unread, repair-unread,
+replayed-unread, contributor-only, ineligible-review or independent-review.
+A declared kind wins over an ordinary derivation; replayed-unread is derived
+only by composed landing and cannot be declared or imported as a declaration
+(C41). Assessed clearance may derive ineligible-review from a findings approval
+(C40). Otherwise a declaration names an ineligible read and routing's reasons.
 
-- `nothing-read` where no patchset of the change carries a verdict;
-- `contributor-only` where that patchset carries verdicts, all of them from
-  its contributors;
-- `repair-unread` where that patchset carries no verdict and an earlier
-  patchset of the change carries an approval;
-- `independent-review` otherwise.
+The ordinary derivation is nothing-read with no verdict on any patchset;
+contributor-only when every verdict on this patchset is its contributors';
+repair-unread when this patchset has no verdict and an earlier one has approval;
+independent-review otherwise. The review-obligation view reports a covering
+read, standing refusal (C8), waiver (C6), or the owed kind.
 
-The owed-review projection reports, for the latest patchset, a covering
-read, a standing refusal (C8), a waiver in force (C6), or the kind of
-review still owed, derived the same way for that patchset.
+An ineligible-review declaration names a verdict or audit: explicit read, else
+latest verdict on its patchset, else after integration latest audit; none
+refuses. Qualifiers are same-model, same-family, below-floor, floor-unknown,
+reviewer-unseated and below-clearance. Source is assessed or declared, with a
+route-version coordinate. A read flag on another kind refuses.
 
-A debt of kind `ineligible-review` records beside the kind:
+Assessment/1 retains independence, qualifiers and route version; qualifiers
+are present exactly when independence is ineligible. Assessment/2 additionally
+retains findings eligibility and clears. A clearing /2 answer must be eligible
+on both answers, name reviewer effort and no qualifier; a nonclearing one needs
+a qualifier. Shape, closed qualifier names and one-token route version are
+validated. The ordinary /1 route refuses an eligible assessment because it
+declares no missing independent review.
 
-- the *read*, the verdict event it names: the declaration's `--read`, else the
-  latest verdict on the patchset the debt covers, and it is refused when that
-  patchset has no verdict or the event is not one of its verdicts;
-- the *qualifiers*, why the read does not count, from the closed set
-  `same-model`, `same-family`, `below-floor`, `floor-unknown`,
-  `reviewer-unseated`;
-- the *assessment*, `assessed` when the qualifiers came from an
-  `agent-routing assess` file and `declared` when they came from
-  `--qualifier` flags;
-- the *route version*, a coordinate and nothing else.
+Production records the ledger planner, implementer, orchestrator and integrator.
+The unique verbatim Implemented-by projection from the patchset's range is kept
+as trailer_implementers for comparison and assessment binding, never as the
+source of those roles. Missing range evidence differs from an empty list.
 
-A declaration is refused, with the same refusal whether it is made, planned
-(C28) or executed, when it names a read on another kind, names no verdict to
-read, or carries an assessment whose independence is `eligible`, since "there
-is no debt to record". Arc keeps no tier, family or floor: the kind is a
-record of routing's word.
+**Status.** Settled on the represented ordinary kinds and /1 declaration.
+Named audit reads, below-clearance, assessment/2 and the assessed/replayed
+derivations are documented but not realized. Unsettled:
 
-Every debt's production record names the ledger's planner, implementer,
-orchestrator, and integrator, and keeps the `Implemented-by` values of the
-commits in the patchset's range, read when the debt is declared, without
-repeats, as `trailer_implementers`. Those values are a projection kept for
-comparison, never the source of a role. A range whose commits carry none
-records an empty list; a record kept before the range was read, or whose
-range could not be read then, has no list, and says nothing of it; an audit
-reads the range again.
+- A new unread patchset after earlier negative/comment-only verdicts is not
+  assigned a specific derived kind by the documentation; the model uses the
+  general independent-review case.
+- A declaration with neither assessment nor qualifier may refuse or retain
+  no qualifier; the model refuses.
+- For /2, the guide's categorical "An eligible assessment is refused on this
+  kind, because there is no debt to record" does not specify whether eligible
+  means independence or clearance. The schema admits distinct independence,
+  findings and clears answers. The model has only /1 and leaves this /2
+  boundary unsettled rather than guessing.
 
-**Status.** The ordinary model realizes the represented kinds. C40/C41
-state the additional derivations; named audit reads after integration,
-assessment/2, below-clearance and extent-bearing declarations are documented
-but unrealized. Settled, except for a patchset with no verdict of its own when
-earlier patchsets of the change carry verdicts and none of them is an
-approval. No documented kind names that history. (i) `independent-review`,
-the general case. (ii) No derived kind; only a declaration answers. The
-model reads (i). `nothing-read` is not a reading: the documentation defines
-it as no verdict on any patchset.
+**Source.** arc guide debt-obligations, arc guide debt-clearance,
+arc debt --help and arc integrate --help, including the assessment schema
+rules and the quoted eligible-assessment refusal.
 
-Also unsettled for `ineligible-review`, where the documentation says the
-declaration "takes why from `--assessment` or `--qualifier`" without saying
-what a declaration with neither records: (i) it is refused, a debt of this
-kind records why; (ii) it records no qualifier. The model reads (i). A debt
-declared after integration carries no patchset (C6) and so has no verdict to
-read; the model refuses it unless the read is named, and does not model a
-named read of an unrecorded patchset. Whether a declaration whose named
-qualifier is outside the closed set is refused before or after a missing
-verdict is presentation (C23): both refuse.
-
-**Source.** `arc guide debt-obligations` and `arc guide debt-clearance`
-govern the additional kinds and assessment/2. The ordinary rules are the
-guide, "Review coverage and debt" (the
-table of kinds, `ineligible-review` among them: "a read happened, by a
-reviewer routing does not count as independent of the author"; "Only the
-caller can say a resolution was what went unread, because the ledger sees a
-repair and a merge resolution the same way"; the ordinary declared `ineligible-review` route; the record's `read`,
-`qualifiers`, `assessment` and `route_version`; "An `eligible` assessment is
-refused on this kind, because there is no debt to record"; "Production names
-who set the contract, who implemented it, and the orchestrator and
-integrator when the ledger records them"; "Production also
-names the `Implemented-by` values of the commits in the patchset's range,
-read when the debt is declared and kept verbatim, without repeats, as
-`trailer_implementers`: a projection kept for comparison, never the source
-of a role"; `review_options`); `arc debt --help` ("The production record
-names the ledger's planner, implementer, orchestrator and integrator. It
-also keeps the `Implemented-by` values of the commits in the range verbatim
-as a projection for comparison [...] Trailers never decide a role"), `--kind`,
-`--read`, `--assessment`, `--qualifier`, `--route-version` (`--read`:
-"Omitted, the latest verdict on the patchset the debt covers. Refused when
-the patchset has no verdict, or the event is not one of its verdicts").
-
-**Realized by.** `debtKindFor`, `derivedKind`, `reviewObligation`,
-`declareDebt`.
+**Realized by.** debtKindFor, derivedKind, reviewObligation and declareDebt
+for ordinary verdict-based /1 declarations. C40/C41 state the unrealized
+assessment/2, clearance, extent and landing protocols.
 
 ### C22. Audits, and why a fulfilled read is not an approval
 
@@ -1349,7 +1308,7 @@ defaults to `local`. Optional `--revision <full-commit-id>` requires the
 observed branch head to equal the caller's queued revision, even when two
 revisions have the same tree. Passing integration evidence does not satisfy
 it, and passing publication evidence at an earlier tree does not satisfy the current
-tree. A profile selecting no publication gates owes none. This guard is
+tree. A profile selecting no publication gates owes none unless C33 adds a\nparticipating base-pass gate. This guard is
 local: it makes no network request, installs no implicit hook, and needs no
 change, patchset or review verdict. Failure names the integrations since the
 most recent successful publication pass. `--skip-green` reuses a complete
@@ -1748,8 +1707,14 @@ judged_at or recorded time applies. Invalid/out-of-window judged_at refuses even
 with a reply. Import keeps the basis but receiver registry judges. Source
 custody, atomic dispositions and extents require format 7.
 
-**Status.** Settled except C22's assessed-verdict contradiction and C4's
-required-independence readings. Imported facts grant no receiver review authority.
+**Status.** Settled except C22's assessed-verdict contradiction, C4's
+required-independence readings, and the blanket boundary statement that arc
+never joins debt coordinates against a roster or orders models. That statement
+permits (i) no ladder-based authorization judgment; the explicit assessed ladder
+permits (ii) capability judgment under that policy. This clause reads the
+specific assessed-policy rule (ii); no ladder judgment is realized by the model.
+REPORT.md retains both exact sentences as a documentation finding.
+Imported facts grant no receiver review authority.
 
 **Source.** `arc guide debt-review`, `arc guide debt-clearance`,
 `arc guide debt-obligations`, `arc guide debt-recovery`, `arc guide assurance`,
@@ -1824,7 +1789,7 @@ remain advisory; command outcome decides. Candidate evaluation includes its
 tree's additions and tightened budgets; selection and promotion rejudge current
 budgets and raises, but consume no base pass and create no baseline.
 
-**Status.** Settled.
+**Status.** Settled on requirements. Candidate verification exit wording is\nunsettled between raw pass and budget-accepted pass; REPORT.md retains the\nexact sentences. The candidate model makes no duration judgment.
 
 **Source.** `arc guide change-integration`, `arc guide rules-evidence`,
 `arc guide slots`, `arc guide gates`, `arc guide gate-costs`,
