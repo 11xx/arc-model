@@ -2966,9 +2966,11 @@ with assessed derivation at b405104a, now agrees with the guide. New findings:
    integrated change ("event is open-only") in the replay.
 5. **E5 (C20).** The target-check sentence lives only in the `ARC_TRACE`
    coverage paragraph of `identity-options`; no route names its refusal.
-6. **E6 (C31).** The waited-CPU condition is stated only in `change-gates`
-   among the rule's limits; `gates` still lists the rule without it, no route
-   names the rule's version, and `gate-costs` does not mention it.
+6. **E6 (C31).** The waited-CPU condition is part of the rule ("beyond 5%
+   less is not excused"; "only with" in `gates` states necessary conditions),
+   but it is stated only in `change-gates` among the rule's limits: `gates`
+   lists the rule without it, `gate-costs` does not mention it, and no route
+   names the rule's version.
 
 ### Modeled changes and negative controls
 
@@ -3054,7 +3056,7 @@ publication replay agreed 6/6 and the retained b405104a modeled-change replay
 ### Documentation findings and acceptance boundary
 
 The contract settles every family above from the documentation, or leaves it
-unsettled with its readings (E1 to E4, E6). The model realizes confinement
+unsettled with its readings (E1 to E4). The model realizes confinement
 identity and assessed-verdict discharge; budgets and the busy-host rule,
 confinement enforcement, the reserved-identity guard and the target-check
 race remain outside it, and a model permission assumes those external

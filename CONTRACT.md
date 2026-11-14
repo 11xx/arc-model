@@ -1409,18 +1409,17 @@ adopted before budget verification/reuse, evidence, authorization or consuming
 imports; readers through 8 refuse. Reads alone and budget-free writes do not
 adopt it.
 
-**Status.** Settled, except which `[budget]` keys are enforcement keys and
-where the waited-CPU condition stands. `total` is enforced and `landing` is
-advisory; the guide does not say whether `raise`, `raise_per` or `exclude`
-alone make the table require gate budgets: (i) only `total` does; (ii) every
-key but `landing` does. The waited-CPU condition is stated only in
-`arc guide change-gates`, among the rule's known limits ("beyond 5% less is
-not excused"), while `arc guide gates` states the rule as excusing an overrun
-"only with" its instruction, CPU-share and clock conditions and names no rule
-version: (i) the condition is part of the rule and, being a threshold change,
-of a new rule version whose older receipts keep their own thresholds; (ii)
-the conditions `arc guide gates` lists are complete. The contract states
-reading (i) in the rule. The model judges no budget, so no reading enters it. The busy-host rule makes no gate green
+**Status.** Settled, except which `[budget]` keys are enforcement keys.
+`total` is enforced and `landing` is advisory; the guide does not say whether
+`raise`, `raise_per` or `exclude` alone make the table require gate budgets:
+(i) only `total` does; (ii) every key but `landing` does. The waited-CPU
+condition is settled: `arc guide change-gates` says "beyond 5% less is not
+excused", and the conditions `arc guide gates` gives after "only with" are
+necessary, not a complete list. A threshold change takes a new rule version,
+and a receipt is read under the thresholds it names. The guide states the
+condition only among the rule's known limits and names no current rule
+version; REPORT.md keeps that as a documentation finding about where the rule
+is stated. The model judges no budget, so no reading enters it. The busy-host rule makes no gate green
 that the model would refuse: the model's raw pass already assumes C31's
 judgment succeeded.
 
@@ -1821,7 +1820,8 @@ what landed discharges that kind. Members cannot pool raises.
 
 The suite runs once at the final content, using every member's strictest
 constraints and checking shared receipts on the top member. Missing timing or
-budget excess refuses without splitting or retry. Pending intent blocks other
+a budget refusal (C31), which a busy-host excuse can lift, refuses without
+splitting or retry. Pending intent blocks other
 terminal transitions. Commit rereads all pins under ordered authority/target/
 graph/member locks; movement abandons. One guarded target transaction and one
 completion close all members with their own landed ranges and shared original
@@ -1841,8 +1841,11 @@ evidence and is not a landing.
 
 **Status.** Settled.
 
-**Source.** `arc guide change-landing`, `arc land --help`,
-`arc close --help`, `arc guide replicas`, `arc guide debt-obligations`.
+**Source.** `arc guide change-landing` ("Missing run_ms or a budget refusal
+under `arc guide gates` names the member, gate, run time and budget, leaves
+the target unmoved and does not trigger splitting or an implicit retry"),
+`arc land --help`, `arc close --help`, `arc guide replicas`,
+`arc guide debt-obligations`.
 
 **Realized by.** Nothing: the model authorizes one recorded patchset and has
 no landing graph, composed range, pending intent, correspondence or replayed debt.

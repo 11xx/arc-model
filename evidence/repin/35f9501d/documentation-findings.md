@@ -87,7 +87,7 @@ This integration requirement appears only in the `ARC_TRACE` coverage
 paragraph. Neither change-integration nor `arc integrate --help` states it,
 and no route names the refusal or exit status a disagreement produces.
 
-## E6. Is the waited-CPU condition part of the busy-host rule? (C31, unsettled)
+## E6. Where is the waited-CPU condition stated, and which rule version is current? (C31, placement)
 
 Source: [topics/change-gates.txt](topics/change-gates.txt).
 
@@ -101,12 +101,15 @@ Source: [topics/gates.txt](topics/gates.txt).
 
 > A threshold change takes a new rule version.
 
-The condition appears only in change-gates, inside the paragraph on what the
-rule cannot detect. The rule's own statement in gates still lists only the
-instruction, CPU-share and clock conditions, gate-costs does not mention it,
-and no route names the rule's current version or says how receipts recorded
-under an earlier version are judged beyond "Readers use those thresholds".
+The condition is part of the rule: "beyond 5% less is not excused" is plain,
+and "only with" in gates states necessary conditions, not a complete list.
+What the text leaves to a reader is where it is stated: only in change-gates,
+inside the paragraph on what the rule cannot detect, while the rule's own
+statement in gates lists the instruction, CPU-share and clock conditions
+without it and gate-costs does not mention it. No route names the rule's
+current version.
 
-E1 to E4 and E6 leave the contract unsettled with their readings; E5 is
-settled by reading a disagreement as a basis that differs, so nothing is
-written. The model realizes none of the unsettled readings.
+E1 to E4 leave the contract unsettled with their readings. E5 is settled by
+reading a disagreement as a basis that differs, so nothing is written; E6
+settles the condition into the rule and concerns only where the guide states
+it and its version. The model realizes none of the unsettled readings.
