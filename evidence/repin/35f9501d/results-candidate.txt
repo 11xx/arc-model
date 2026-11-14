@@ -1,0 +1,92 @@
+arc-model differential: comparison revision 35f9501d9c17d1fcd46a3b49bec19310aa55c179
+channel candidate, seed 20260907, 13 named + 60 generated cases, arc = <captured-arc>
+
+[0] candidate-default agreed
+[1] candidate-sibling-evidence-reused adjudicated model-defect: expected {selected [destination work-5jj7ec, target 8733023a9fb5, tree 46361d83364f, evaluations build:01M7CWS66JWG@candidate-b, reads contract.md@ whole by tool-read-1, reuse matching-coordinates, contributors executor-a, selector lead]; promoted ps-01 retained; retire candidate-a=rooted candidate-b=rooted}, arc {selected [destination work-5jj7ec, target 8733023a9fb5, tree 46361d83364f, evaluations build:01M7CWS66JWG@candidate-b, reads contract.md@ whole by tool-read-1, reuse matching-coordinates, contributors executor-a, selector lead]; promoted ps-01 retained; retire candidate-a=rooted candidate-b=retired} — evaluation supplier retention: the guide excludes reuse-only suppliers and their ancestry from pin roots; the candidate model's selection also reaches the registration of every evaluation it relies on
+[2] candidate-sibling-evidence-never agreed
+[3] candidate-stale-target agreed
+[4] candidate-stale-evaluation agreed
+[5] candidate-declared-only agreed
+[6] candidate-lead-repair agreed
+[7] candidate-basis-moved agreed
+[8] candidate-promotion-unobserved agreed
+[9] candidate-parent-other-contract agreed
+[10] candidate-adoption-drops-producer agreed
+[11] candidate-different-trees agreed
+[12] candidate-environment-unprobed adjudicated unsettled: expected {refused environment-unrecorded; no selection; retire candidate-a=retired candidate-b=retired}, arc {selected [destination work-8bxdhn, target 27d89b3dd8b3, tree dc4c90733c03, evaluations build:01M7CWSG41PT@candidate-a, reads contract.md@ whole by tool-read-1, reuse never, contributors executor-a, selector lead]; promoted ps-01 retained; retire candidate-a=rooted candidate-b=retired} — a gate that declares no environment probe: arc takes a candidate evaluation from any environment, as C15 has such a gate take patchset evidence; the candidate model binds every evaluation to a recorded environment
+[13] candidate-generated-0 skipped: an unobserved target: arc reads the target at every selection
+[14] candidate-generated-1 agreed
+[15] candidate-generated-2 agreed
+[16] candidate-generated-3 skipped: an evaluation at a tree its registration does not name: arc runs a candidate's gates at its own tree
+[17] candidate-generated-4 agreed
+[18] candidate-generated-5 agreed
+[19] candidate-generated-6 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[20] candidate-generated-7 skipped: an evaluation at a tree its registration does not name: arc runs a candidate's gates at its own tree
+[21] candidate-generated-8 agreed
+[22] candidate-generated-9 agreed
+[23] candidate-generated-10 skipped: an unobserved target: arc reads the target at every selection
+[24] candidate-generated-11 skipped: only-supplied: arc's supplied context is the contract's own plan or opening artifact, never context supplied to an episode
+[25] candidate-generated-12 adjudicated model-defect: expected {probe accepted; selected [destination work-zpv7n5, target 3868d0224777, tree 46361d83364f, evaluations build:01M7CWSPQ3XJ@candidate-a, reads contract.md@ whole by tool-read-1, reuse matching-coordinates, contributors executor-b, selector lead]; unpromoted; retire candidate-a=rooted candidate-b=rooted candidate-probe=retired}, arc {probe accepted; selected [destination work-zpv7n5, target 3868d0224777, tree 46361d83364f, evaluations build:01M7CWSPQ3XJ@candidate-a, reads contract.md@ whole by tool-read-1, reuse matching-coordinates, contributors executor-b, selector lead]; unpromoted; retire candidate-a=retired candidate-b=rooted candidate-probe=retired} — evaluation supplier retention: the guide excludes reuse-only suppliers and their ancestry from pin roots; the candidate model's selection also reaches the registration of every evaluation it relies on
+[26] candidate-generated-13 agreed
+[27] candidate-generated-14 skipped: an unobserved target: arc reads the target at every selection
+[28] candidate-generated-15 agreed
+[29] candidate-generated-16 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[30] candidate-generated-17 skipped: only-supplied: arc's supplied context is the contract's own plan or opening artifact, never context supplied to an episode
+[31] candidate-generated-18 agreed
+[32] candidate-generated-19 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[33] candidate-generated-20 skipped: an unobserved target: arc reads the target at every selection
+[34] candidate-generated-21 agreed
+[35] candidate-generated-22 agreed
+[36] candidate-generated-23 agreed
+[37] candidate-generated-24 agreed
+[38] candidate-generated-25 agreed
+[39] candidate-generated-26 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[40] candidate-generated-27 skipped: an evaluation at a tree its registration does not name: arc runs a candidate's gates at its own tree
+[41] candidate-generated-28 agreed
+[42] candidate-generated-29 skipped: an unobserved target: arc reads the target at every selection
+[43] candidate-generated-30 skipped: an unobserved target: arc reads the target at every selection
+[44] candidate-generated-31 skipped: an unobserved target: arc reads the target at every selection
+[45] candidate-generated-32 skipped: an unobserved target: arc reads the target at every selection
+[46] candidate-generated-33 agreed
+[47] candidate-generated-34 agreed
+[48] candidate-generated-35 agreed
+[49] candidate-generated-36 agreed
+[50] candidate-generated-37 skipped: an unknown outcome: arc records the result of every gate run
+[51] candidate-generated-38 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[52] candidate-generated-39 agreed
+[53] candidate-generated-40 agreed
+[54] candidate-generated-41 skipped: an evaluation at a tree its registration does not name: arc runs a candidate's gates at its own tree
+[55] candidate-generated-42 agreed
+[56] candidate-generated-43 agreed
+[57] candidate-generated-44 skipped: only-inferred: arc records no inference a read requirement could rest on alone
+[58] candidate-generated-45 agreed
+[59] candidate-generated-46 agreed
+[60] candidate-generated-47 agreed
+[61] candidate-generated-48 agreed
+[62] candidate-generated-49 agreed
+[63] candidate-generated-50 skipped: only-supplied: arc's supplied context is the contract's own plan or opening artifact, never context supplied to an episode
+[64] candidate-generated-51 agreed
+[65] candidate-generated-52 agreed
+[66] candidate-generated-53 agreed
+[67] candidate-generated-54 skipped: an unknown outcome: arc records the result of every gate run
+[68] candidate-generated-55 agreed
+[69] candidate-generated-56 agreed
+[70] candidate-generated-57 agreed
+[71] candidate-generated-58 agreed
+[72] candidate-generated-59 agreed
+
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+  adjudicated 1: a gate that declares no environment probe: arc takes a candidate evaluation from any environment, as C15 has such a gate take patchset evidence; the candidate model binds every evaluation to a recorded environment
+  adjudicated 2: evaluation supplier retention: the guide excludes reuse-only suppliers and their ancestry from pin roots; the candidate model's selection also reaches the registration of every evaluation it relies on
+  skipped 4: an evaluation at a tree its registration does not name: arc runs a candidate's gates at its own tree
+  skipped 2: an unknown outcome: arc records the result of every gate run
+  skipped 8: an unobserved target: arc reads the target at every selection
+  skipped 6: only-inferred: arc records no inference a read requirement could rest on alone
+  skipped 3: only-supplied: arc's supplied context is the contract's own plan or opening artifact, never context supplied to an episode
+  exercised: probe accepted 15, probe refused adoption-drops-producer 5, probe refused parent-other-contract 10, promoted 12, promotion refused basis-moved 5, refused environment-unobserved 4, refused environment-unrecorded 1, refused failed 3, refused no-evaluation 4, refused not-read 1, refused only-declared 4, refused other-declaration 2, refused other-registration 3, refused other-tree 4, refused partial 3, refused target-moved 4, refused unknown-coverage 2, retire refused 21, retired 50, selected 21, unpromoted 4
+  set aside in 32: a later version of read context: it changes only what a reference resolves to, which no arc command reports for a candidate
+  set aside in 1: an inference or a supply nothing requires: arc records neither for a candidate, and no compared answer rests on one
+  set aside in 19: declared roots: arc builds none; its roots are selections and promotions
+  set aside in 34: episode expiry: arc holds one live claim per change, so every episode is released before the next opens; liveness gates no write in either
+  set aside in 73: review (ReviewRecord, the review shortfalls, Requirements.independentReview): outside the candidate contract; review authority binds to the destination patchset after promotion
+a quiet run is supporting evidence, not proof of equivalence

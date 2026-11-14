@@ -39,12 +39,14 @@ Authorship comes from the ledger, never from commit trailers: a reviewing
 model counts as a second identity beside the actor, and a read under the
 model the ledger records for the implementer is not independent of the work.
 A debt
-declared as `ineligible-review` is cleared only by an audit whose routing
-assessment is eligible, bound to its auditor and covering the
-`Implemented-by` projection of the shipped range, and a debt stands as
-declared, owed or discharged.
+declared as `ineligible-review` is cleared only by an audit, or a verdict on
+the shipped patchset, whose own routing assessment is eligible, bound to its
+reader and covering the `Implemented-by` projection of the shipped range, and
+a debt stands as declared, owed or discharged.
 
-Gate declarations select integration, publication or both. Evidence keeps its
+Gate declarations select integration, publication or both. A project's write
+confinement is part of each gate's declaration identity, so a pass under
+another confinement does not answer it. Evidence keeps its
 event, so a publication pass cannot authorize integration. Delta selectors
 can offer reuse only from matching green source evidence, with complete known
 selections and retained provenance. `publicationEvidence` answers the local

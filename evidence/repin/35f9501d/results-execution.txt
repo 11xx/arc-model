@@ -1,0 +1,199 @@
+arc-model differential: comparison revision 35f9501d9c17d1fcd46a3b49bec19310aa55c179
+channel execution, seed 20260907, 67 named + 60 generated + 60 check-time cases, arc = <captured-arc>
+
+[0] approved agreed
+[1] contributor-reviewer agreed
+[2] assumed-reviewer agreed
+[3] assumed-reviewer-open agreed
+[4] self-approval-open agreed
+[5] changes-requested agreed
+[6] comment-only agreed
+[7] unreviewed agreed
+[8] waived agreed
+[9] waiver-expired agreed
+[10] waived-contributor agreed
+[11] stale-approval agreed
+[12] finding-open agreed
+[13] finding-resolved agreed
+[14] head-moved agreed
+[15] gate-omitted agreed
+[16] gate-failed agreed
+[17] gate-other-tree agreed
+[18] gate-declaration-changed adjudicated encoding: expected {refused gates-not-green}, arc {exit 14, refused gates-not-green merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[19] gate-other-environment agreed
+[20] gate-environment-unrecorded agreed
+[21] gate-probe-failed agreed
+[22] external-approved-open agreed
+[23] external-approved-danger agreed
+[24] external-beside-local agreed
+[25] external-changes-requested agreed
+[26] external-over-waiver agreed
+[27] external-rejected agreed
+[28] external-approved-danger-self-permitted agreed
+[29] external-beside-local-danger-self-permitted agreed
+[30] external-approved-danger-undeclared agreed
+[31] external-approved-danger-undeclared-self-forbidden agreed
+[32] external-approved-beside-debt agreed
+[33] extra-contributor agreed
+[34] gate-dirty agreed
+[35] gate-dirty-waived agreed
+[36] gate-dirty-waived-elsewhere agreed
+[37] target-behind agreed
+[38] target-behind-evaluated adjudicated encoding: expected {would integrate PlanView (Object (fromList [("authorization",Object (fromList [("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool True),("paths",Array [String "danger.txt"]),("rule",String "declared-path")])),("forbid_self_approval",Bool True),("gate_evidence",Object (fromList [("build",String "verification-1")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")]))}, arc {exit 5, refused gates-not-green} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[39] target-conflicting agreed
+[40] ff-only-contained agreed
+[41] ff-only-behind agreed
+[42] ff-only-behind-evaluated adjudicated encoding: expected {refused needs-rebase}, arc {exit 11, refused gates-not-green needs-rebase} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[43] ff-only-conflicting agreed
+[44] probe-discharged agreed
+[45] probe-baseline-passed agreed
+[46] probe-final-missing agreed
+[47] probe-final-failed agreed
+[48] probe-undischargeable agreed
+[49] branch-missing agreed
+[50] conflicting-gates agreed
+[51] gate-older-pass-same-tree agreed
+[52] gate-older-pass-newer-other-environment agreed
+[53] gate-older-pass-newer-unrecorded-environment agreed
+[54] waivers-per-patchset agreed
+[55] iterating-unreviewed agreed
+[56] iterating-gate-failed agreed
+[57] iterating-refusing-verdict agreed
+[58] implementer-model-trailer agreed
+[59] implementer-model-ledger agreed
+[60] implementer-model-ledger-other-effort agreed
+[61] execute-target-moved agreed
+[62] execute-policy-loosened adjudicated encoding: expected {would integrate PlanView (Object (fromList [("authorization",Object (fromList [("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-1")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")]))}, arc {exit 14, refused gates-not-green merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[63] execute-policy-tightened adjudicated encoding: expected {refused no-valid-approval}, arc {exit 14, refused gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[64] execute-authority-withheld agreed
+[65] execute-authority-over-refusal agreed
+[66] execute-target-and-authority agreed
+[67] generated-0 agreed
+[68] generated-1 agreed
+[69] generated-2 adjudicated encoding: expected {refused closed no-valid-approval}, arc {exit 6, refused closed gates-not-green no-valid-approval} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[70] generated-3 agreed
+[71] generated-4 agreed
+[72] generated-5 agreed
+[73] generated-6 agreed
+[74] generated-7 skipped: unreadable evidence cannot be recorded through the CLI
+[75] generated-8 skipped: unreadable evidence cannot be recorded through the CLI
+[76] generated-9 agreed
+[77] generated-10 agreed
+[78] generated-11 adjudicated unsettled: expected {would integrate PlanView (Object (fromList [("authorization",Object (fromList [("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-1")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")]))}, arc {would integrate Just (PlanView (Object (fromList [("authorization",Object (fromList [("external",Object (fromList [("decided_by",String "upstream"),("reference",String "upstream/1"),("revision",String "head"),("verdict",String "approved")])),("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-1")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")])))} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[79] generated-12 agreed
+[80] generated-13 agreed
+[81] generated-14 agreed
+[82] generated-15 agreed
+[83] generated-16 agreed
+[84] generated-17 agreed
+[85] generated-18 skipped: a finding is recorded only with a verdict
+[86] generated-19 agreed
+[87] generated-20 agreed
+[88] generated-21 adjudicated unsettled: expected {would integrate PlanView (Object (fromList [("authorization",Object (fromList [("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-3")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")]))}, arc {would integrate Just (PlanView (Object (fromList [("authorization",Object (fromList [("external",Object (fromList [("decided_by",String "upstream"),("reference",String "upstream/1"),("revision",String "head"),("verdict",String "approved")])),("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-3")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")])))} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[89] generated-22 agreed
+[90] generated-23 agreed
+[91] generated-24 agreed
+[92] generated-25 agreed
+[93] generated-26 agreed
+[94] generated-27 agreed
+[95] generated-28 adjudicated encoding: expected {exit 17, refused blocking-findings gates-not-green integration-mode no-valid-approval}, arc {exit 17, refused blocking-findings gates-not-green integration-mode merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[96] generated-29 adjudicated encoding: expected {refused gates-not-green no-valid-approval}, arc {exit 14, refused gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[97] generated-30 agreed
+[98] generated-31 agreed
+[99] generated-32 agreed
+[100] generated-33 agreed
+[101] generated-34 agreed
+[102] generated-35 agreed
+[103] generated-36 adjudicated encoding: expected {refused blocking-findings iterating}, arc {exit 13, refused blocking-findings gates-not-green iterating merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[104] generated-37 adjudicated encoding: expected {exit 17, refused gates-not-green integration-mode}, arc {exit 17, refused gates-not-green integration-mode merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[105] generated-38 agreed
+[106] generated-39 agreed
+[107] generated-40 agreed
+[108] generated-41 agreed
+[109] generated-42 agreed
+[110] generated-43 agreed
+[111] generated-44 agreed
+[112] generated-45 agreed
+[113] generated-46 agreed
+[114] generated-47 agreed
+[115] generated-48 skipped: unreadable evidence cannot be recorded through the CLI
+[116] generated-49 adjudicated encoding: expected {refused gates-not-green no-valid-approval}, arc {exit 14, refused gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[117] generated-50 agreed
+[118] generated-51 agreed
+[119] generated-52 agreed
+[120] generated-53 adjudicated encoding: expected {refused gates-not-green no-valid-approval}, arc {exit 14, refused gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[121] generated-54 skipped: a finding is recorded only with a verdict
+[122] generated-55 agreed
+[123] generated-56 skipped: a finding is recorded only with a verdict
+[124] generated-57 agreed
+[125] generated-58 agreed
+[126] generated-59 agreed
+[127] check-time-0 agreed
+[128] check-time-1 agreed
+[129] check-time-2 agreed
+[130] check-time-3 agreed
+[131] check-time-4 agreed
+[132] check-time-5 agreed
+[133] check-time-6 agreed
+[134] check-time-7 skipped: unreadable evidence cannot be recorded through the CLI
+[135] check-time-8 skipped: unreadable evidence cannot be recorded through the CLI
+[136] check-time-9 agreed
+[137] check-time-10 agreed
+[138] check-time-11 agreed
+[139] check-time-12 agreed
+[140] check-time-13 agreed
+[141] check-time-14 agreed
+[142] check-time-15 agreed
+[143] check-time-16 agreed
+[144] check-time-17 agreed
+[145] check-time-18 skipped: a finding is recorded only with a verdict
+[146] check-time-19 agreed
+[147] check-time-20 agreed
+[148] check-time-21 adjudicated unsettled: expected {would integrate PlanView (Object (fromList [("authorization",Object (fromList [("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-3")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")]))}, arc {would integrate Just (PlanView (Object (fromList [("authorization",Object (fromList [("external",Object (fromList [("decided_by",String "upstream"),("reference",String "upstream/1"),("revision",String "head"),("verdict",String "approved")])),("verdict",String "verdict-1")])),("blocking_findings",Array []),("danger",Object (fromList [("dangerous",Bool False),("rule",String "untouched")])),("forbid_self_approval",Bool False),("gate_evidence",Object (fromList [("build",String "verification-3")])),("gates",Object (fromList [("build",Object (fromList [("command",String "test -z \"$GATE_FAIL\""),("declared_by",Array [String ".arc/gates.toml"]),("timeout",Number 60.0)]))])),("head",String "head"),("holds",Array []),("merge_commit",Bool True),("patchset",String "ps-01"),("prerequisites",Array []),("require_declared_actor",Bool False),("shape",String "merge"),("target",String "master"),("target_revision",String "target"),("tree",String "tree")])))} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[149] check-time-22 agreed
+[150] check-time-23 agreed
+[151] check-time-24 agreed
+[152] check-time-25 agreed
+[153] check-time-26 agreed
+[154] check-time-27 agreed
+[155] check-time-28 adjudicated encoding: expected {exit 17, refused acceptance-probes-not-green blocking-findings gates-not-green integration-mode no-valid-approval}, arc {exit 17, refused acceptance-probes-not-green blocking-findings gates-not-green integration-mode merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[156] check-time-29 adjudicated encoding: expected {refused gates-not-green no-valid-approval}, arc {exit 14, refused gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[157] check-time-30 agreed
+[158] check-time-31 agreed
+[159] check-time-32 agreed
+[160] check-time-33 agreed
+[161] check-time-34 agreed
+[162] check-time-35 agreed
+[163] check-time-36 adjudicated encoding: expected {refused blocking-findings iterating}, arc {exit 13, refused blocking-findings gates-not-green iterating merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[164] check-time-37 agreed
+[165] check-time-38 agreed
+[166] check-time-39 agreed
+[167] check-time-40 agreed
+[168] check-time-41 agreed
+[169] check-time-42 agreed
+[170] check-time-43 agreed
+[171] check-time-44 agreed
+[172] check-time-45 agreed
+[173] check-time-46 agreed
+[174] check-time-47 agreed
+[175] check-time-48 skipped: unreadable evidence cannot be recorded through the CLI
+[176] check-time-49 adjudicated encoding: expected {refused acceptance-probes-not-green gates-not-green no-valid-approval}, arc {exit 14, refused acceptance-probes-not-green gates-not-green merged-tree-unevaluated no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[177] check-time-50 agreed
+[178] check-time-51 agreed
+[179] check-time-52 agreed
+[180] check-time-53 agreed
+[181] check-time-54 skipped: a finding is recorded only with a verdict
+[182] check-time-55 adjudicated encoding: expected {refused acceptance-probes-not-green}, arc {exit 5, refused acceptance-probes-not-green gates-not-green} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[183] check-time-56 skipped: a finding is recorded only with a verdict
+[184] check-time-57 agreed
+[185] check-time-58 agreed
+[186] check-time-59 skipped: a run against the merge uses a clean checkout of its own, so it records no dirt
+
+channel execution: 187 cases: 154 agreed, 20 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+  adjudicated 4: C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+  adjudicated 13: a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+  adjudicated 3: external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+  skipped 6: a finding is recorded only with a verdict
+  skipped 1: a run against the merge uses a clean checkout of its own, so it records no dirt
+  skipped 6: unreadable evidence cannot be recorded through the CLI
+a quiet run is supporting evidence, not proof of equivalence

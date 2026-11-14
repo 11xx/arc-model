@@ -1,0 +1,18 @@
+Produced against arc build 35f9501d9c17d1fcd46a3b49bec19310aa55c179, SHA-256 85edecfeefc5ba8239bcad5248aff7e890036551bac9ad1d83b593cd8aaac884, the pinned build.
+
+channel decision: 181 cases: 158 agreed, 10 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel execution: 187 cases: 154 agreed, 20 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+
+All four exits: 0. Seed 20260907; 60 generated histories per channel and
+60 check-time histories for decision, execution and coverage.
+Every named history is included. Each child arc/git process uses Differential.Sandbox.
+Decision, execution and coverage rows equal the retained b405104a rows case
+for case, classifications included; candidate rows differ only in
+replay-created identifiers. No retained b405104a executable exists here and
+no old implementation was rebuilt, so this is not a two-executable baseline.
+
+repin-replay.py (this re-pin): 15/15 claims agreed, 1 observation, sandbox exit 0
+../gate-tier-replay.py (retained publication): 6/6 claims agreed, sandbox exit 0
+../b405104a/repin-replay.py (retained modeled-change): 8/8 claims agreed, sandbox exit 0

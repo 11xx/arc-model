@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "model",
+    "claim": "C43: an unconfined pass answers an unconfined declaration",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": ""
+  },
+  {
+    "kind": "model",
+    "claim": "C43: an unconfined pass does not answer a confined declaration",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "dy\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confined-qv2afc; record one with `arc changelog confined --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confined --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C43: a pass under the same confinement answers it",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "0FV\",\n  \"schema\": \"arc-check/4\",\n  \"change_id\": \"confined-qv2afc\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confined-qv2afc; record one with `arc changelog confined --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confined --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C43: a changed required flag leaves the earlier pass unanswering",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "dy\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confined-qv2afc; record one with `arc changelog confined --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confined --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C43: the earlier unconfined pass answers the restored unconfined declaration",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "0FV\",\n  \"schema\": \"arc-check/4\",\n  \"change_id\": \"confined-qv2afc\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confined-qv2afc; record one with `arc changelog confined --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confined --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C22: an eligible, bound assessed verdict on the shipped patchset clears ineligible-review",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "[]"
+  },
+  {
+    "kind": "model",
+    "claim": "C22: a verdict whose assessment does not describe its reader leaves ineligible-review owed",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "ntegrator\": {\n        \"actor\": \"author\",\n        \"harness\": \"test\",\n        \"model_recorded\": false,\n        \"session\": \"session-a\"\n      },\n      \"trailer_implementers\": []\n    },\n    \"priority\": 0,\n    \"profile\": \"local\",\n    \"slug\": \"unbound\",\n    \"state\": \"closed\",\n    \"status\": \"integrated\",\n    \"tags\": [],\n    \"target_branch\": \"master\",\n    \"title\": \"unbound\",\n    \"verdict\": \"approved\"\n  }\n]"
+  },
+  {
+    "kind": "observation",
+    "claim": "C22 open question: arc review on a closed change",
+    "arc": 1,
+    "detail": "relation: supersedes 01M7CWTSGESNXMG7WMWRAD3ZHD\nerror: change assessed-9ftkdy is integrated; event is open-only"
+  },
+  {
+    "kind": "model",
+    "claim": "C22: a verdict carrying an ineligible assessment leaves ordinary debt owed",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "ntegrator\": {\n        \"actor\": \"author\",\n        \"harness\": \"test\",\n        \"model_recorded\": false,\n        \"session\": \"session-a\"\n      },\n      \"trailer_implementers\": []\n    },\n    \"priority\": 0,\n    \"profile\": \"local\",\n    \"slug\": \"unbound\",\n    \"state\": \"closed\",\n    \"status\": \"integrated\",\n    \"tags\": [],\n    \"target_branch\": \"master\",\n    \"title\": \"unbound\",\n    \"verdict\": \"approved\"\n  }\n]"
+  },
+  {
+    "kind": "model",
+    "claim": "C22: the same verdict unassessed discharges ordinary debt",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "ntegrator\": {\n        \"actor\": \"author\",\n        \"harness\": \"test\",\n        \"model_recorded\": false,\n        \"session\": \"session-a\"\n      },\n      \"trailer_implementers\": []\n    },\n    \"priority\": 0,\n    \"profile\": \"local\",\n    \"slug\": \"unbound\",\n    \"state\": \"closed\",\n    \"status\": \"integrated\",\n    \"tags\": [],\n    \"target_branch\": \"master\",\n    \"title\": \"unbound\",\n    \"verdict\": \"approved\"\n  }\n]"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: a reserved author address refuses the snapshot",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit 9164b3e1878c1caac28ae241020889436975b7e8 has reserved-domain author address \"tester@example.invalid\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: a reserved committer address refuses the snapshot",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit 050c22e1ba7d00f2e9127c610b5a5c857c1381d2 has reserved-domain committer address \"tester@example.com\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: a subdomain of a reserved name refuses the snapshot",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit ab03357aa14fc16a2befaf213b581b1d2913c467 has reserved-domain author address \"tester@mail.example.org\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: a base override cannot hide an introduced reserved commit",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit 7b993e482916a9abb0f8dbc6b94867a5160e8055 has reserved-domain author address \"tester@example.test\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: the identity-health exception does not permit a reserved address",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit 0ede34e599180cb593b599754632ee711b1ca22d has reserved-domain author address \"tester@test.localhost\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: an address outside the reserved set records a patchset",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": ""
+  }
+]

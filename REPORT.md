@@ -2117,12 +2117,15 @@ not a proof of equivalence.
 ## Known unsupported semantics
 
 - **Current external authorization requirements.** C14 documents commit binding;
-  C31-C42 state budget/raise/total checks, baseline retention and full publication
-  audits, coverage acquisition, host locks/batches, bound-run attribution,
-  eligible rewrite acquisition, observed/dated review clearance, extents,
-  receipts, atomic landing and acceptance execution. They remain absent from
-  the pure input vocabulary except the C22/C29/C35/C36 decisions explicitly
-  realized. Model permissions assume those independent requirements succeeded.
+  C31-C44 state budget/raise/total checks and the busy-host excuse, baseline
+  retention and full publication audits, coverage acquisition, host
+  locks/batches, bound-run attribution, eligible rewrite acquisition,
+  observed/dated review clearance, extents, receipts, atomic landing,
+  acceptance execution, write-confinement scope and enforcement, and the
+  reserved commit-identity guard. They remain absent from the pure input
+  vocabulary except the C22/C29/C35/C36 decisions and C43's declaration
+  identity explicitly realized. Model permissions assume those independent
+  requirements succeeded.
 
 - **Planning with `--debt`, and `--expect-basis`.** The model realizes both
   (`planDeclaring`, `executeDeclaring`; C28), pinned by fixtures. No channel
@@ -2903,3 +2906,160 @@ created dist-newstyle build output are removed after verification. The complete
 public text, result summaries, classified answers and replay/mutant drivers stay
 under evidence/repin/b405104a. Future integration, independent review and the
 documented unrealized protocols remain outside this stopping point.
+
+## Re-pin at 35f9501d
+
+The comparison source is the clean installed build
+35f9501d9c17d1fcd46a3b49bec19310aa55c179. Its guide, every route and its
+recursive help are retained in
+[evidence/repin/35f9501d](evidence/repin/35f9501d), with their complete
+difference from the retained b405104a capture. No arc implementation was read
+or rebuilt; the current README is not available through the binary interface.
+
+The installed arc moved twice during this work, and each comparison names the
+build it ran against:
+
+| build | SHA-256 | public text | comparisons run against it |
+| --- | --- | --- | --- |
+| 510e3f0a680bbc5252a28bbd23fee268f7bff4ab | 47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70 | first capture; the source of every contract change but C31's waited-CPU condition | reserved-identity before run, the corrected four-channel run, modeled-change replay ([at-510e3f0a](evidence/repin/35f9501d/at-510e3f0a)) |
+| 12dd52f5d003434fa07eb77908ea26af3c39af9d | ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a | one `change-gates` paragraph differs from 510e3f0a ([diff](evidence/repin/35f9501d/topics.from-510e3f0a.diff)) | all four channels and all three replays ([at-12dd52f5](evidence/repin/35f9501d/at-12dd52f5)) |
+| 35f9501d9c17d1fcd46a3b49bec19310aa55c179 | 85edecfeefc5ba8239bcad5248aff7e890036551bac9ad1d83b593cd8aaac884 | byte-identical to 12dd52f5: guide, every route, index, overview and 240 help surfaces | the results below, all three replays and the source mutants |
+
+### Contract classification before implementation
+
+Each changed sentence that states what integration, landing, promotion,
+publication or acceptance permits or refuses is classified hunk by hunk in
+[authorization-index.md](evidence/repin/35f9501d/authorization-index.md).
+By family:
+
+| family | clauses | boundary |
+| --- | --- | --- |
+| busy-host excuse, references, retirement, waited-CPU condition, format 12 | C31, C32 (unexcused raise evidence), C33 (no excused baseline) | outside: durations, instruction counts, CPU shares, host shape and store formats are not observations; the model's raw pass assumes the budget judge accepted |
+| write confinement | C43, C12, C14, C34 | modeled: a declaration's roots and `required` flag are part of the shape evidence answers; outside: scope resolution, launch refusals, root validation, layering, kernel enforcement, fallback |
+| reserved commit identities | C44 | documented, unrealized: commit addresses are Git object bytes the model's patchset does not carry |
+| debt settlements D1, D3, D4, D5 | C22, C27, C40, C4, C21 | modeled: an assessed verdict on the shipped patchset clears ineligible-review and an ineligible assessment on a verdict leaves ordinary debt owed (D1); C4's danger-and-policy reading is now the documented one (D4); C21's /1 refusal without review_clearance is unchanged (D5); C40's ladder judgment stays unrealized (D3) |
+| candidate verify exit (D2) | C42 | settled; outside the candidate model, which judges no durations |
+| integrate's target check | C20 | settled as a basis that differs; the model decides readiness and plan from one observation set, so they agree by construction and the race is outside |
+| budget rule wording | C31, C32 | settled; the removed-gate route changes no acceptance. "Enforcement keys" replaces "when that table exists" undefined (E1) |
+| preparation outside gates, the advisory landing budget, `arc gates init` and `measure`, journal workbenches and bindings, run-time guide topics, Git launch counts, Git environment scrubbing and configuration health | none | outside: each is a report, diagnostic, advisory or tool that confers or removes no permission; the landing budget "never changes acceptance" |
+
+### Findings for arc's public documentation
+
+The b405104a findings D1 to D5 are all closed by the new text; the exact
+settling sentences and E1 to E6 are in
+[documentation-findings.md](evidence/repin/35f9501d/documentation-findings.md).
+The `ineligible-review` help sentence "arc never derives it", which disagreed
+with assessed derivation at b405104a, now agrees with the guide. New findings:
+
+1. **E1 (C31).** "Enforcement keys" in a `[budget]` table is undefined; a
+   table holding only `raise`, `raise_per` or `exclude` required every budget
+   at b405104a and may not now.
+2. **E2 (C43).** Whether a change head's own `[confine]` governs its commands
+   before it lands, against "Project commands run under the committed
+   destination's declaration", and what a widening head does.
+3. **E3 (C44).** `arc check` names no blocker for a reserved commit, so a
+   patchset recorded before the guard can read ready and be refused by
+   `integrate`; "recorded patchsets" does not say which are checked.
+4. **E4 (C22).** A verdict can clear an ineligible-review debt only if it is
+   recorded after the declaration; the guide does not say a debt declared at
+   integration cannot be answered that way. arc refused `arc review` on an
+   integrated change ("event is open-only") in the replay.
+5. **E5 (C20).** The target-check sentence lives only in the `ARC_TRACE`
+   coverage paragraph of `identity-options`; no route names its refusal.
+6. **E6 (C31).** The waited-CPU condition is stated only in `change-gates`
+   among the rule's limits; `gates` still lists the rule without it, no route
+   names the rule's version, and `gate-costs` does not mention it.
+
+### Modeled changes and negative controls
+
+`Declaration` and `DeclarationShape` carry the effective confinement, so
+evidence under other roots, another `required` flag, or no confinement does
+not answer a confined declaration, and a newer pass under another
+confinement hides nothing. `Verdict` carries routing's assessment;
+`assessmentBinding` takes the reader's model so a verdict binds exactly as an
+audit does, and `verdictClears` lets the newest clearing audit or verdict on
+the shipped patchset answer ineligible-review in `debtStanding` and coverage.
+A verdict carrying an ineligible assessment no longer discharges ordinary
+debt; approval authority is unchanged.
+
+Sixteen targeted checks and two properties name these claims. Four source
+mutants fail for their predicted semantic assertions against the pinned
+model: confinement dropped from identity, the former audit-only reading,
+verdict binding ignored, and an ineligible verdict discharging ordinary debt;
+[model-mutants.txt](evidence/repin/35f9501d/model-mutants.txt) retains the
+failed assertions. The runner restores every source in a finally block.
+
+### Replay encoding findings
+
+arc refuses snapshots of commits authored or committed under reserved domains
+(C44), and every replay committed as `tester@example.invalid`. Against
+510e3f0a, before any correction, all 551 ordinary replays failed at their first
+snapshot (decision 168, execution 174, coverage 209) and the retained
+publication and modeled-change replays stopped the same way; the candidate
+channel, which records no snapshot, was unaffected.
+[before-results.txt](evidence/repin/35f9501d/at-510e3f0a/before-results.txt)
+keeps the counts and refusal. This is an encoding defect exposed by a
+documented arc change: replays now commit as `tester@arc-model.internal`, in
+the private-use `.internal` domain outside arc's reserved set. Neither arc nor
+the model was changed to match. That differential "before" run is also the
+replay evidence for C44's snapshot refusal.
+
+### Results at 35f9501d
+
+Seed 20260907, each channel at its defaults: 60 generated histories, all named
+histories, and 60 additional check-time histories except on candidate. The
+copied executable matched the installed one byte for byte. Every arc/git child
+ran through Differential.Sandbox, with roots under the cache scratch. Each
+channel exited 0.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 181 | 158 | 10 | 13 | 0 | 0 |
+| execution | 187 | 154 | 20 | 13 | 0 | 0 |
+| coverage | 222 | 204 | 5 | 13 | 0 | 0 |
+| candidate | 73 | 47 | 3 | 23 | 0 | 0 |
+
+510e3f0a (after the identity correction) and 12dd52f5 gave the same counts.
+Decision, execution and coverage rows equal the retained b405104a rows case for
+case; candidate rows differ only in replay-created identifiers. Every mismatch
+therefore keeps its b405104a classification, retained with exact expected and
+actual answers in
+[classified-rows.txt](evidence/repin/35f9501d/classified-rows.txt):
+
+| mismatch | classification | decision | execution | coverage | candidate |
+| --- | --- | --- | --- | --- | --- |
+| committing target declarations/policy also moves the target | encoding/model replay representation, C12/C3; inherited | 6 | 13 | 0 | 0 |
+| no clean evaluated-content checkout can supply the assumed probe observation | encoding/observation boundary, C15/C42; inherited | 4 | 4 | 0 | 0 |
+| external approval retained beside a witnessed approval | unsettled authorization consumption, C9; inherited | 0 | 3 | 4 | 0 |
+| declared-actor policy refuses the model's assumed reviewer event | encoding/model replay representation, C18; inherited | 0 | 0 | 1 | 0 |
+| selection roots a reuse-only evaluation supplier in the candidate model | candidate model defect, inherited | 0 | 0 | 0 | 2 |
+| candidate model demands an environment even with no probe | unsettled candidate contract, inherited | 0 | 0 | 0 | 1 |
+
+No generated history exercises confinement or a verdict assessment, so the
+quiet channels do not test the modeled changes; the replay below does. The
+skips are unchanged: 6 unreadable records, 6 findings without a verdict and
+1 dirty run against a merge per ordinary channel; 23 candidate coverage limits.
+
+The modeled-change replay
+([repin-replay.py](evidence/repin/35f9501d/repin-replay.py),
+[result](evidence/repin/35f9501d/repin-replay.json)) agreed on 15 of 15 claims
+against 35f9501d, as it had against 510e3f0a and 12dd52f5: five C43 claims
+moving only the operator `[confine]` so no tree moves with the declaration,
+four C22/C27 claims on assessed and ineligible verdicts, and six C44 spot
+checks of the unmodeled snapshot guard (author, committer, subdomain, base
+override, identity-health exception, and an unreserved control). The retained
+publication replay agreed 6/6 and the retained b405104a modeled-change replay
+8/8, after the same identity correction.
+
+### Documentation findings and acceptance boundary
+
+The contract settles every family above from the documentation, or leaves it
+unsettled with its readings (E1 to E4, E6). The model realizes confinement
+identity and assessed-verdict discharge; budgets and the busy-host rule,
+confinement enforcement, the reserved-identity guard and the target-check
+race remain outside it, and a model permission assumes those external
+requirements succeeded. Nothing was filed into arc's repository or journal.
+
+This episode completes local implementation and comparison only. The change
+remains on its branch in its retained worktree for the lead's review; it was
+not pushed, integrated or installed.

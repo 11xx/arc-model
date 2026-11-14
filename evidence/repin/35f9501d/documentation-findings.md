@@ -5,7 +5,7 @@ They are recorded in arc-model because this task forbids writes to arc or its jo
 
 ## The b405104a findings
 
-| finding | status at 510e3f0a | the sentences that settle it |
+| finding | status at 35f9501d | the sentences that settle it |
 | --- | --- | --- |
 | D1, an assessed verdict clearing ineligible-review | Closed | debt-obligations: "It clears with a read recorded since the declaration that approves or requests changes under an assessment of its own with `independence: eligible`: an audit (`arc audit --assessment <file>`) or a verdict on the patchset that shipped (`arc review --assessment <file>`), by a reader who is also independent of the contributors and whom the assessment describes." debt-recovery: "An ineligible-review debt also asks the read, audit or verdict alike, for an eligible, bound assessment of its own" |
 | D2, candidate verify's exit status | Closed | `arc candidate verify --help`: "Exits 0 when every gate run passes and the budget judge of `arc guide gates` accepts its command time, and 1 otherwise: an over-budget or unmeasured pass is recorded as a pass, its line names the refusal, and selection refuses it as an evaluation." |
@@ -87,6 +87,26 @@ This integration requirement appears only in the `ARC_TRACE` coverage
 paragraph. Neither change-integration nor `arc integrate --help` states it,
 and no route names the refusal or exit status a disagreement produces.
 
-E1 to E4 leave the contract unsettled with their readings; E5 is settled by
-reading a disagreement as a basis that differs, so nothing is written. The
-model realizes none of the unsettled readings.
+## E6. Is the waited-CPU condition part of the busy-host rule? (C31, unsettled)
+
+Source: [topics/change-gates.txt](topics/change-gates.txt).
+
+> An exec the counters cannot follow shows as a tree clock covering less of the run's waited CPU than its reference's did: beyond 5% less is not excused, and less than that hides.
+
+Source: [topics/gates.txt](topics/gates.txt).
+
+> The busy-host rule excuses an overrun only with at most 3% more user-space instructions than the newest eligible reference and at least 25% unrelated CPU use both before and during the gate.
+
+> Thresholds must match the named version.
+
+> A threshold change takes a new rule version.
+
+The condition appears only in change-gates, inside the paragraph on what the
+rule cannot detect. The rule's own statement in gates still lists only the
+instruction, CPU-share and clock conditions, gate-costs does not mention it,
+and no route names the rule's current version or says how receipts recorded
+under an earlier version are judged beyond "Readers use those thresholds".
+
+E1 to E4 and E6 leave the contract unsettled with their readings; E5 is
+settled by reading a disagreement as a basis that differs, so nothing is
+written. The model realizes none of the unsettled readings.
