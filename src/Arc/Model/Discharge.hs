@@ -89,7 +89,7 @@ auditDischarges state debt audit = case latestIntegration state of
           && audit.event > debt.event
           && maybe True ((== Eligible) . (.independence)) audit.assessment
           && (debt.declaredKind /= Just IneligibleReview || auditClears state debt audit)
-      , binding      = if debt.declaredKind == Just IneligibleReview then assessmentBinding state debt audit <$> audit.assessment else Nothing
+      , binding      = if debt.declaredKind == Just IneligibleReview then assessmentBinding state debt audit.model <$> audit.assessment else Nothing
       }
   where
     approvingRefusal

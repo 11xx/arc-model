@@ -317,6 +317,7 @@ externalTreatedAsWitnessed built = case (latestPatchset built.state, externalVer
                 , relation    = Supersedes
                 , supersedes  = (.event) <$> governingVerdict built.state
                 , model       = Nothing
+                , assessment  = Nothing
                 }
             ]
         }

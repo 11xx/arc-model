@@ -70,6 +70,7 @@ buildDeclaration = Declaration
   , environment    = Just probe
   , events         = Nothing
   , selector       = Nothing
+  , confinement    = Nothing
   }
 
 probe :: ProbeCommand
@@ -137,6 +138,7 @@ build scenario = Built
       , relation    = Supersedes
       , supersedes  = Nothing
       , model       = model
+      , assessment  = Nothing
       }
     -- a rejection of the head is followed by the closure arc records with
     -- it: the change is abandoned, with the decision as its reason
@@ -249,7 +251,7 @@ build scenario = Built
       | scenario.gateMode == EvidenceOtherTree, (earlier : _) <- reverse (NE.init patchsets) = earlier
       | otherwise = latest
     shapeFor = \case
-      EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60
+      EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60 Nothing
       _unchanged     -> declarationShape buildDeclaration
     -- a run against the merge records the merge's tree
     treeFor = \case

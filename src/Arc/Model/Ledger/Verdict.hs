@@ -11,6 +11,7 @@ module Arc.Model.Ledger.Verdict
     ) where
 
 import Arc.Model.Identifiers
+import Arc.Model.Ledger.Assessment ( Assessment )
 
 import Data.Maybe ( fromMaybe )
 
@@ -35,6 +36,7 @@ data Verdict = Verdict
   , relation    :: !VerdictRelation
   , supersedes  :: !(Maybe EventId)
   , model       :: !(Maybe ModelCoordinate)  -- ^ The model the verdict recorded; absent for a verdict by a person.
+  , assessment  :: !(Maybe Assessment)       -- ^ Routing's assessment of the reviewer, bound as an audit's is.
   }
   deriving stock (Eq, Ord, Show)
 

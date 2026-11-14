@@ -146,7 +146,7 @@ gateName :: GateName
 gateName = GateName "build"
 
 declaration :: Declaration
-declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe")) Nothing Nothing
+declaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe")) Nothing Nothing Nothing
 
 readingIn :: GateMode -> GateReading
 readingIn mode = readGate gateName declaration (TreeId "tree1") (hereIn built) Nothing built.state.verifications
@@ -222,13 +222,13 @@ evidenceKeyedByTree :: [Check]
 evidenceKeyedByTree =
   [ expectEq "fixture/keyed: a newer run at another tree does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, run 2 (Revision "rev2") (TreeId "tree2") GateFail here]).coverage
   , expectEq "fixture/keyed: the pass here is the result" (Observed GatePass) (keyedAt [passHere, run 2 (Revision "rev2") (TreeId "tree2") GateFail here]).result
-  , expectEq "fixture/keyed: a newer run of another declaration does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, (run 2 (Revision "rev1") (TreeId "tree1") GatePass here) { Verification.shape = DeclarationShape "cargo build --locked" 60 }]).coverage
+  , expectEq "fixture/keyed: a newer run of another declaration does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, (run 2 (Revision "rev1") (TreeId "tree1") GatePass here) { Verification.shape = DeclarationShape "cargo build --locked" 60 Nothing }]).coverage
   , expectEq "fixture/keyed: a newer run in another environment does not hide the pass here" (Covered (EventId 1)) (keyedAt [passHere, run 2 (Revision "rev1") (TreeId "tree1") GatePass (Just (EnvironmentId "env-elsewhere"))]).coverage
   , expectEq "fixture/keyed: an earlier revision with the same tree answers" (Covered (EventId 1)) (keyedAt [passHere { Verification.revision = Revision "rev0" }]).coverage
   , expectEq "fixture/keyed: with nothing here, the newest record says why" (EvaluatedOtherTree (TreeId "tree2")) (keyedAt [run 2 (Revision "rev2") (TreeId "tree2") GatePass here]).coverage
   , expectEq "fixture/falsified: any passing run here that names a failure discriminates" (Observed known) (keyedAt [passHere { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
   , expectEq "fixture/falsified: a pass in another environment discriminates at this tree" (Observed known) (keyedAt [passHere, (run 2 (Revision "rev1") (TreeId "tree1") GatePass (Just (EnvironmentId "elsewhere"))) { Verification.answers = Just known }]).falsified
-  , expectEq "fixture/falsified: a pass under another declaration discriminates at this tree" (Observed known) (keyedAt [passHere, passHere { Verification.declaration = DeclarationId "old-build", Verification.shape = DeclarationShape "old command" 60, Verification.answers = Just known }]).falsified
+  , expectEq "fixture/falsified: a pass under another declaration discriminates at this tree" (Observed known) (keyedAt [passHere, passHere { Verification.declaration = DeclarationId "old-build", Verification.shape = DeclarationShape "old command" 60 Nothing, Verification.answers = Just known }]).falsified
   , expectEq "fixture/falsified: a failing run's label is no demonstration" Omitted (keyedAt [(run 1 (Revision "rev1") (TreeId "tree1") GateFail here) { Verification.answers = Just known }, run 2 (Revision "rev1") (TreeId "tree1") GatePass here]).falsified
   , expectEq "fixture/falsified: a pass at another tree is no demonstration here" Omitted (keyedAt [(run 1 (Revision "rev2") (TreeId "tree2") GatePass here) { Verification.answers = Just known }, passHere]).falsified
   ]
@@ -581,7 +581,7 @@ readinessRebuilt =
     finding  = FindingRecorded Finding { event = EventId 80, findingId = FindingId 7, patchset = PatchsetId 1, actor = otherActor, blocking = True, audit = False }
     refusing = VerdictRecorded Verdict
       { event = EventId 81, patchset = PatchsetId 1, kind = ChangesRequested, actor = otherActor, onBehalfOf = Nothing
-      , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2), model = Nothing
+      , assumed = False, provisional = Nothing, relation = Supersedes, supersedes = Just (EventId 2), model = Nothing, assessment = Nothing
       }
     rerun result = VerificationRecorded (Verification (EventId 82) gateName (DeclarationId "build") (declarationShape declaration) (Revision "rev1") (TreeId "tree1") result RanLocally Nothing True (Just (EnvironmentId "env-here")) (Observed CleanWorktree) Nothing)
 

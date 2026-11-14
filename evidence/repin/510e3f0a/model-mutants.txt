@@ -1,0 +1,14 @@
+confinement-outside-identity: exit 1; predicted rejection: confinement/identity: an unconfined pass does not answer a confined declaration
+[FAIL] confinement/identity: an unconfined pass does not answer a confined declaration  expected Left (GateDeclarationChanged (GateName "build")), got Right (GateReading {gate = GateName "build", result = Observed GatePass, coverage = Covered (EventId 90), availability = Recorded RanLocally, falsified = Omitted})
+[FAIL] confinement/identity: a pass under the same confinement answers  the declared roots and flag are the identity
+[FAIL] confinement: every different declared confinement leaves the gate unanswered  *** Failed! Falsified (after 1 test): (Nothing,Just (Confinement {writes = fromList ["cache","target"], required = True}))
+verdict-never-clears: exit 1; predicted rejection: debt/ineligible-verdict: an assessed verdict on the shipped patchset clears
+[FAIL] debt/ineligible-verdict: an assessed verdict on the shipped patchset clears  expected [StandingDischarged (ReadByVerdict (EventId 901))], got [StandingOwed]
+[FAIL] debt/ineligible-verdict: coverage names the clearing verdict  expected Just (ReadByVerdict (EventId 901)), got Nothing
+[FAIL] debt/ineligible-verdict: changes requested clears  expected [StandingDischarged (ReadByVerdict (EventId 901))], got [StandingOwed]
+[FAIL] debt: a verdict clears ineligible-review only under an eligible, bound assessment  *** Failed! Falsified (after 2 tests): (Eligible,True,Approved)
+verdict-binding-ignored: exit 1; predicted rejection: debt/ineligible-verdict: an unbound assessment leaves it owed
+[FAIL] debt/ineligible-verdict: an unbound assessment leaves it owed  expected [StandingOwed], got [StandingDischarged (ReadByVerdict (EventId 901))]
+[FAIL] debt: a verdict clears ineligible-review only under an eligible, bound assessment  *** Failed! Falsified (after 1 test): (Eligible,False,ChangesRequested)
+verdict-ineligible-discharges: exit 1; predicted rejection: debt/ordinary-verdict: an ineligible assessment leaves ordinary debt owed
+[FAIL] debt/ordinary-verdict: an ineligible assessment leaves ordinary debt owed  expected [StandingOwed], got [StandingDischarged (ReadByVerdict (EventId 950))]

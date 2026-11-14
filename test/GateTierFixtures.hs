@@ -73,7 +73,7 @@ selectorChecks =
   , expectEq "selector/other-environment: required check runs" RunRequired
       (planned selected delta [integrationPass { Verification.environment = Just (EnvironmentId "elsewhere") }] (complete Set.empty))
   , expectEq "selector/other-declaration: required check runs" RunRequired
-      (planned selected delta [integrationPass { Verification.shape = DeclarationShape "other command" 60 }] (complete Set.empty))
+      (planned selected delta [integrationPass { Verification.shape = DeclarationShape "other command" 60 Nothing }] (complete Set.empty))
   , expectEq "selector/publication: changed tree runs the complete tier" RunRequired
       (planGate Publication [(buildGate, selected)] buildGate selected delta here [publicationPass] (complete Set.empty))
   ] <>
@@ -111,7 +111,7 @@ publicationOnly :: Declaration
 publicationOnly = buildDeclaration { Declaration.events = Just (Set.singleton Publication) }
 
 buildDeclaration :: Declaration
-buildDeclaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe")) Nothing Nothing
+buildDeclaration = Declaration (DeclarationId "build") "cargo build" 60 (Just (ProbeCommand "probe")) Nothing Nothing Nothing
 
 buildGate :: GateName
 buildGate = GateName "build"

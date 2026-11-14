@@ -1,5 +1,5 @@
 {- | Unit fixtures for the debt clauses: the declared-only @ineligible-review@
-kind (C21), its audit-only discharge and the reviewing model as a second
+kind (C21), its assessed discharge and the reviewing model as a second
 identity (C4, C22), a debt's standing (C27), and planning a declaration
 (C28).
 -}
@@ -175,7 +175,7 @@ equivalentDeclarations =
 -- C22
 ineligibleDischarge :: [Check]
 ineligibleDischarge =
-  [ expectTrue "fixture/ineligible-discharge: an independent approval beside the debt does not clear it" "a verdict never clears an ineligible-review debt" (not (answered ineligibleScenario))
+  [ expectTrue "fixture/ineligible-discharge: an independent approval beside the debt does not clear it" "a verdict without an assessment of its own never clears an ineligible-review debt" (not (answered ineligibleScenario))
   , expectTrue "fixture/ineligible-discharge: the debt stays the one the review is owed on" "the debt must remain the selected obligation" (fmap (const ()) (coverageAfterIntegration (build ineligibleScenario).finalState).debt == Just ())
   , expectTrue "fixture/ineligible-discharge: an audit without an assessment leaves it open" "an unassessed audit must not clear" (not (answered (withAudit PickDistinct AssessmentNone)))
   , expectTrue "fixture/ineligible-discharge: an eligible, bound audit clears it" "a bound, eligible audit must clear" (answered (withAudit PickDistinct AssessmentBound))
@@ -220,7 +220,7 @@ bindingFor scenario alter = do
   debt  <- firstOf state.debts
   audit <- firstOf state.audits
   assessment <- audit.assessment
-  pure (assessmentBinding state debt audit assessment)
+  pure (assessmentBinding state debt audit.model assessment)
 
 firstOf :: [a] -> Maybe a
 firstOf = \case

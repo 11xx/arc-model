@@ -16,6 +16,7 @@ module Arc.Model.Coverage
     , auditIsIndependent
     , assessmentBinding
     , auditClears
+    , verdictClears
     , DebtStanding(..)
     , debtStanding
     ) where
@@ -27,6 +28,7 @@ import Arc.Model.Observed ( newest )
 import Arc.Model.State
 
 import Control.Applicative ( (<|>) )
+import Data.List ( sortOn )
 import Data.Maybe ( isJust, listToMaybe )
 import Data.Set qualified as Set
 
@@ -65,6 +67,11 @@ derivedKind state patchset
 data ReadEvidence = ReadByVerdict EventId
                   | ReadByAudit EventId
   deriving stock (Eq, Ord, Show)
+
+readEvent :: ReadEvidence -> EventId
+readEvent = \case
+  ReadByVerdict event -> event
+  ReadByAudit event   -> event
 
 -- | What review the change owes right now.
 data ReviewObligation = CoveringRead ReadEvidence
@@ -130,27 +137,26 @@ coverageAfterIntegration state = case latestIntegration state of
         AuthorizedByVerdict event -> Just event
         _unwitnessed              -> Nothing
       verdict <- verdictByEvent state event
-      verdictIsIndependent state verdict >> Just event
+      verdictIsIndependent state verdict >> Just verdict
     auditRead record = ReadByAudit . (.event) <$> newest
       [ a
       | a <- state.audits
       , a.revision == record.head
       , a.kind /= CommentOnly
-      , assessmentAllows a
+      , assessmentAllows a.assessment
       , auditIsIndependent state a
       ]
     -- the debt the basis consumed, otherwise the newest bound to the
     -- shipped patchset
     standingDebt record = (listToMaybe (authorizationDebts record.authorization) >>= debtById) <|> newestWaiver state record.patchset
     debtById identifier = listToMaybe [ d | d <- state.debts, d.debtId == identifier ]
-    -- an ineligible-review debt is answered by an audit its assessment
-    -- admits and by nothing else; a verdict never clears it
+    -- an ineligible-review debt is answered only by a read its own
+    -- assessment admits, an audit or a verdict alike
     readEvidence record = case standingDebt record of
-      Just debt | debt.declaredKind == Just IneligibleReview
-        -> ReadByAudit . (.event) <$> newest [ a | a <- state.audits, auditClears state debt a ]
+      Just debt | debt.declaredKind == Just IneligibleReview -> clearingRead state debt
       _otherKind -> case independentVerdict record of
-        Just event -> Just (ReadByVerdict event)
-        Nothing    -> auditRead record
+        Just verdict | assessmentAllows verdict.assessment -> Just (ReadByVerdict verdict.event)
+        _unread                                            -> auditRead record
     independentApproval record
       = any (\a -> a.kind == Approved && auditIsIndependent state a) state.audits
       || isJust (independentVerdict record)
@@ -181,16 +187,17 @@ auditIsIndependent state audit =
       && not (implementerModelMatch patchset audit.model)
 
 -- C22
-{- | How an assessment answers to the audit that carries it. The auditor is
-judged first: the audit must have recorded a model, the assessment must list
+{- | How an assessment answers to the read that carries it, given the model
+that read recorded; an audit's and a verdict's bind alike. The reader is
+judged first: the read must have recorded a model, the assessment must list
 identities for its reviewer, the model must be one of them, and the efforts
 must agree where both are named. Only then is the work judged: the
 assessment's authors must answer to every @Implemented-by@ model of the
 integrated range, which the debt's production record keeps, otherwise the
 range itself. A range whose lines cannot be established is not an empty one.
 -}
-assessmentBinding :: ChangeState -> Debt -> Audit -> Assessment -> AssessmentBinding
-assessmentBinding state debt audit assessment = case audit.model of
+assessmentBinding :: ChangeState -> Debt -> Maybe ModelCoordinate -> Assessment -> AssessmentBinding
+assessmentBinding state debt reader assessment = case reader of
   Nothing -> ModelUnrecorded
   Just model
     | Set.null assessment.reviewerIdentities     -> IdentitiesUnstated
@@ -211,8 +218,8 @@ assessmentBinding state debt audit assessment = case audit.model of
 -- C22
 {- | Whether an audit clears an @ineligible-review@ debt: it was recorded
 after the debt, by an independent auditor, with an assessment that says the
-auditor is eligible and is bound to both the auditor and the work. No
-verdict ever does.
+auditor is eligible and is bound to both the auditor and the work.
+'verdictClears' is the same test for a verdict.
 -}
 auditClears :: ChangeState -> Debt -> Audit -> Bool
 auditClears state debt audit = case audit.assessment of
@@ -221,7 +228,30 @@ auditClears state debt audit = case audit.assessment of
     && audit.kind /= CommentOnly
     && auditIsIndependent state audit
     && assessment.independence == Eligible
-    && assessmentBinding state debt audit assessment == Bound
+    && assessmentBinding state debt audit.model assessment == Bound
+
+-- C22
+{- | Whether a verdict clears an @ineligible-review@ debt: it binds to the
+patchset that shipped, was recorded after the debt, judged something, came
+from an independent reviewer, and carries an assessment of its own that says
+the reviewer is eligible and is bound to both the reviewer and the work.
+-}
+verdictClears :: ChangeState -> Debt -> Verdict -> Bool
+verdictClears state debt verdict = case (verdict.assessment, latestIntegration state) of
+  (Just assessment, Just record) -> verdict.patchset == record.patchset
+    && verdict.event > debt.event
+    && verdict.kind /= CommentOnly
+    && verdictIsIndependent state verdict == Just ()
+    && assessment.independence == Eligible
+    && assessmentBinding state debt verdict.model assessment == Bound
+  _unassessedOrOpen -> False
+
+-- C22
+-- | The newest read that clears an @ineligible-review@ debt, whichever kind.
+clearingRead :: ChangeState -> Debt -> Maybe ReadEvidence
+clearingRead state debt = newest . sortOn readEvent $
+  [ ReadByVerdict v.event | v <- state.verdicts, verdictClears state debt v ]
+  <> [ ReadByAudit a.event | a <- state.audits, auditClears state debt a ]
 
 -- | Where a debt stands: nothing is owed before the change integrates.
 data DebtStanding = StandingDeclared
@@ -232,8 +262,8 @@ data DebtStanding = StandingDeclared
 -- C27
 {- | The one standing every reading of a debt shares. An integrated change's
 debt is discharged by the read the integration's coverage names: an
-independent read of the shipped revision, or for @ineligible-review@ an
-audit that clears it.
+independent read of the shipped revision that no ineligible assessment
+qualifies, or for @ineligible-review@ an audit or verdict that clears it.
 -}
 debtStanding :: ChangeState -> Debt -> DebtStanding
 debtStanding state debt = case latestIntegration state of
@@ -241,24 +271,25 @@ debtStanding state debt = case latestIntegration state of
   Just record -> maybe StandingOwed StandingDischarged (answering record)
   where
     answering record
-      | debt.declaredKind == Just IneligibleReview
-        = ReadByAudit . (.event) <$> newest [ a | a <- state.audits, auditClears state debt a ]
+      | debt.declaredKind == Just IneligibleReview = clearingRead state debt
       | otherwise = case verdictAfter record of
           Just event -> Just (ReadByVerdict event)
           Nothing    -> ReadByAudit . (.event) <$> newest
-            [ a | a <- state.audits, a.revision == record.head, a.event > debt.event, a.kind /= CommentOnly, assessmentAllows a, auditIsIndependent state a ]
+            [ a | a <- state.audits, a.revision == record.head, a.event > debt.event, a.kind /= CommentOnly, assessmentAllows a.assessment, auditIsIndependent state a ]
     verdictAfter record = fmap (.event) . newest $
       [ v
       | v <- state.verdicts
       , v.patchset == record.patchset
       , v.event > debt.event
       , v.kind /= CommentOnly
+      , assessmentAllows v.assessment
       , verdictIsIndependent state v == Just ()
       ]
 
--- C22: an explicitly ineligible assessment cannot discharge ordinary debt.
-assessmentAllows :: Audit -> Bool
-assessmentAllows audit = maybe True ((== Eligible) . (.independence)) audit.assessment
+-- C22: an explicitly ineligible assessment on any read cannot discharge
+-- ordinary debt.
+assessmentAllows :: Maybe Assessment -> Bool
+assessmentAllows = maybe True ((== Eligible) . (.independence))
 
 -- C6
 {- | Whether an authorization actually consumed this debt. A debt recorded

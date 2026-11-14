@@ -10,6 +10,7 @@ module Arc.Model.Declaration
     ( GateResult(..)
     , ExecutionKind(..)
     , GateEvent(..)
+    , Confinement(..)
     , Declaration(..)
     , DeclarationShape(..)
     , declarationShape
@@ -40,6 +41,14 @@ data GateEvent = Integration
                | Publication
   deriving stock (Eq, Ord, Show)
 
+-- | The writable roots a project declares for the commands arc runs on its
+-- behalf, as declared, and whether enforcement is required.
+data Confinement = Confinement
+  { writes   :: !(Set String)
+  , required :: !Bool
+  }
+  deriving stock (Eq, Ord, Show)
+
 data Declaration = Declaration
   { declarationId  :: !DeclarationId
   , command        :: !String
@@ -47,22 +56,27 @@ data Declaration = Declaration
   , environment    :: !(Maybe ProbeCommand)  -- ^ The probe whose identity evidence must carry, when the gate declares one.
   , events         :: !(Maybe (Set GateEvent))
   , selector       :: !(Maybe String)
+  , confinement    :: !(Maybe Confinement)   -- ^ The effective write confinement; absent where no layer declares one.
   }
   deriving stock (Eq, Ord, Show)
 
 -- | The part of a declaration evidence is recognized by. The environment is
 -- not part of it: it decides where evidence applies, not which check ran.
+-- Evidence that recorded no confinement carries 'Nothing', so it answers
+-- only an unconfined declaration.
 data DeclarationShape = DeclarationShape
   { command        :: !String
   , timeoutSeconds :: !Int
+  , confinement    :: !(Maybe Confinement)
   }
   deriving stock (Eq, Ord, Show)
 
--- C12
+-- C12, C43
 declarationShape :: Declaration -> DeclarationShape
 declarationShape declaration = DeclarationShape
   { command        = declaration.command
   , timeoutSeconds = declaration.timeoutSeconds
+  , confinement    = declaration.confinement
   }
 
 -- C12
