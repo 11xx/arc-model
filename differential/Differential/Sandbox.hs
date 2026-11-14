@@ -28,6 +28,7 @@ module Differential.Sandbox
     , origin
     , process
     , readProcess
+    , gitEmail
     ) where
 
 import Control.Exception ( Exception, IOException, throwIO, try )
@@ -53,6 +54,14 @@ data Sandbox = Sandbox
 newtype SelfCheckRefused = SelfCheckRefused [String]
   deriving stock (Show)
   deriving anyclass (Exception)
+
+-- | The author and committer address of every commit a replay makes. Arc
+-- refuses commits whose addresses use a domain reserved for documentation or
+-- testing (@.invalid@, @.example@, @.test@, @.localhost@ and the @example@
+-- second-level domains); @.internal@ is reserved for private use and outside
+-- that set.
+gitEmail :: String
+gitEmail = "tester@arc-model.internal"
 
 -- | The ambient variables a sandbox admits. None names a location Git or
 -- arc reads configuration or state from.

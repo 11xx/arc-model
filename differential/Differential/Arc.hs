@@ -333,7 +333,7 @@ mkSandbox options root policy = do
   writeFile (repo </> "README.md") "differential fixture\n"
   git sandbox repo ["init", "-q", "-b", "master"]
   git sandbox repo ["config", "user.name", "Tester"]
-  git sandbox repo ["config", "user.email", "tester@example.invalid"]
+  git sandbox repo ["config", "user.email", Sandbox.gitEmail]
   git sandbox repo ["config", "commit.gpgsign", "false"]
   git sandbox repo ["add", "."]
   git sandbox repo ["commit", "-q", "-m", "init"]
@@ -416,7 +416,7 @@ runSteps options sandbox = mapM_ step
         createDirectoryIfMissing True sandbox.peer
         git sandbox sandbox.peer ["init", "-q", "-b", "master"]
         git sandbox sandbox.peer ["config", "user.name", "Tester"]
-        git sandbox sandbox.peer ["config", "user.email", "tester@example.invalid"]
+        git sandbox sandbox.peer ["config", "user.email", Sandbox.gitEmail]
         git sandbox sandbox.peer ["config", "commit.gpgsign", "false"]
         git sandbox sandbox.peer ["commit", "-q", "--allow-empty", "-m", "peer"]
         (_, listed, _) <- arc options sandbox sandbox.peer author [] ["replica", "id", "--json"] ""

@@ -231,7 +231,7 @@ replayIn options root encoding = do
   writeFile (repo </> "README.md") "differential fixture\n"
   git sandbox repo ["init", "-q", "-b", "master"]
   git sandbox repo ["config", "user.name", "Tester"]
-  git sandbox repo ["config", "user.email", "tester@example.invalid"]
+  git sandbox repo ["config", "user.email", Sandbox.gitEmail]
   git sandbox repo ["config", "commit.gpgsign", "false"]
   git sandbox repo ["add", "."]
   git sandbox repo ["commit", "-q", "-m", "init"]
