@@ -1369,7 +1369,9 @@ The busy-host rule excuses an overrun only with at most 3% more user-space
 instructions than the newest eligible reference and at least 25% unrelated
 CPU use both before the gate (verification startup to spawn, at least
 100 ms) and during it, and only when the clock fits the reference's run time
-scaled by the capacity other work left each run, with 25% slack. Unattributed
+scaled by the capacity other work left each run, with 25% slack, and only when
+the tree clock covers no more than 5% less of the run's waited CPU than it
+covered of its reference's. Unattributed
 concurrent batches, missing or incomplete counters and host readings, zero
 counts, implausibly low instruction rates and a holder or leader with
 restricted CPUs grant no excuse. A reference is a clean, unmoved, unexcused
@@ -1407,11 +1409,18 @@ adopted before budget verification/reuse, evidence, authorization or consuming
 imports; readers through 8 refuse. Reads alone and budget-free writes do not
 adopt it.
 
-**Status.** Settled, except which `[budget]` keys are enforcement keys.
-`total` is enforced and `landing` is advisory; the guide does not say whether
-`raise`, `raise_per` or `exclude` alone make the table require gate budgets:
-(i) only `total` does; (ii) every key but `landing` does. The model judges no
-budget, so neither reading enters it. The busy-host rule makes no gate green
+**Status.** Settled, except which `[budget]` keys are enforcement keys and
+where the waited-CPU condition stands. `total` is enforced and `landing` is
+advisory; the guide does not say whether `raise`, `raise_per` or `exclude`
+alone make the table require gate budgets: (i) only `total` does; (ii) every
+key but `landing` does. The waited-CPU condition is stated only in
+`arc guide change-gates`, among the rule's known limits ("beyond 5% less is
+not excused"), while `arc guide gates` states the rule as excusing an overrun
+"only with" its instruction, CPU-share and clock conditions and names no rule
+version: (i) the condition is part of the rule and, being a threshold change,
+of a new rule version whose older receipts keep their own thresholds; (ii)
+the conditions `arc guide gates` lists are complete. The contract states
+reading (i) in the rule. The model judges no budget, so no reading enters it. The busy-host rule makes no gate green
 that the model would refuse: the model's raw pass already assumes C31's
 judgment succeeded.
 
@@ -1420,12 +1429,14 @@ judgment succeeded.
 instructions than the newest eligible reference and at least 25% unrelated
 CPU use both before and during the gate"; "Lowering the budget retires an
 excuse whose reference stops fitting. Excused runs never become references,
-raise evidence or base-pass seeds, including after a raise"), `arc guide
-gate-costs` (CPU accounting; "Every required integration gate needs a budget
+raise evidence or base-pass seeds, including after a raise"; "A threshold
+change takes a new rule version"), `arc guide gate-costs` (CPU accounting; "Every required integration gate needs a budget
 when enforcement keys exist in that table; a landing-only table requires no
 individual budgets"; the landing budget "never changes acceptance"),
 `arc guide change-gates` (the rule "is not proof against a change built to
-deceive it"), `arc guide gates-together` (total accounting), `arc verify --help`, `arc publication --help`,
+deceive it"; "An exec the counters cannot follow shows as a tree clock
+covering less of the run's waited CPU than its reference's did: beyond 5%
+less is not excused, and less than that hides"), `arc guide gates-together` (total accounting), `arc verify --help`, `arc publication --help`,
 `arc candidate verify --help`, `arc candidate select --help`,
 `arc candidate promote --help`, `arc accept --help`, `arc land --help`.
 
