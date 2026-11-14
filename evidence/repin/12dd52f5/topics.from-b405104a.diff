@@ -1,6 +1,6 @@
-diff -ruN b405104a/topics/base-passes.txt 510e3f0a/topics/base-passes.txt
+diff -ruN b405104a/topics/base-passes.txt 12dd52f5/topics/base-passes.txt
 --- b405104a/topics/base-passes.txt	2026-11-14 07:27:04.451957903 -0300
-+++ 510e3f0a/topics/base-passes.txt	2026-11-14 07:29:10.215390380 -0300
++++ 12dd52f5/topics/base-passes.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -20,7 +20,7 @@
    context, execution/run IDs and digests, coordinates, command, timeout,
    environment identity, binding and timing. Output tails and artifacts stay in
@@ -10,9 +10,9 @@ diff -ruN b405104a/topics/base-passes.txt 510e3f0a/topics/base-passes.txt
    cannot establish an entry. An empty baseline establishes no gate pass.
  
    Each gate's first observation may use the newest retained eligible local
-diff -ruN b405104a/topics/boundaries.txt 510e3f0a/topics/boundaries.txt
+diff -ruN b405104a/topics/boundaries.txt 12dd52f5/topics/boundaries.txt
 --- b405104a/topics/boundaries.txt	2026-11-14 07:27:04.451957903 -0300
-+++ 510e3f0a/topics/boundaries.txt	2026-11-14 07:29:10.239292420 -0300
++++ 12dd52f5/topics/boundaries.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -46,8 +46,10 @@
      arc records declared identities and observed models, and holds no
        routing opinion.
@@ -26,9 +26,9 @@ diff -ruN b405104a/topics/boundaries.txt 510e3f0a/topics/boundaries.txt
      arc never infers an identity from a branch or a directory name.
      arc never claims a recipient read anything.
  
-diff -ruN b405104a/topics/candidates.txt 510e3f0a/topics/candidates.txt
+diff -ruN b405104a/topics/candidates.txt 12dd52f5/topics/candidates.txt
 --- b405104a/topics/candidates.txt	2026-11-14 07:27:04.451957903 -0300
-+++ 510e3f0a/topics/candidates.txt	2026-11-14 07:29:10.018379663 -0300
++++ 12dd52f5/topics/candidates.txt	2026-11-14 08:02:25.787237828 -0300
 @@ -130,7 +130,8 @@
    gate's command, timeout, and environment probe as consumed, the identity the
    probe yielded there, the result, and command timing. Required declarations
@@ -49,9 +49,9 @@ diff -ruN b405104a/topics/candidates.txt 510e3f0a/topics/candidates.txt
    tracked modifications or untracked paths in the way; commits the shipped
    tree onto the destination head with the selector as committer and keeps it
    at `refs/arc/candidate-promotion/<candidate>/<selection>`; moves the branch
-diff -ruN b405104a/topics/change-finalization.txt 510e3f0a/topics/change-finalization.txt
+diff -ruN b405104a/topics/change-finalization.txt 12dd52f5/topics/change-finalization.txt
 --- b405104a/topics/change-finalization.txt	2026-11-14 07:27:04.452534586 -0300
-+++ 510e3f0a/topics/change-finalization.txt	2026-11-14 07:29:09.843409722 -0300
++++ 12dd52f5/topics/change-finalization.txt	2026-11-14 08:02:25.782630732 -0300
 @@ -48,8 +48,8 @@
    Empty list items retain their markers.
    A project whose file follows another convention selects `renderer =
@@ -63,9 +63,9 @@ diff -ruN b405104a/topics/change-finalization.txt 510e3f0a/topics/change-finaliz
    and answers on stdout: the rendering for a read, and for `--write` the
    complete replacement file, written atomically after it exits 0. It may
    answer without reading the whole request. Its process group is killed when
-diff -ruN b405104a/topics/change-gates.txt 510e3f0a/topics/change-gates.txt
+diff -ruN b405104a/topics/change-gates.txt 12dd52f5/topics/change-gates.txt
 --- b405104a/topics/change-gates.txt	2026-11-14 07:27:04.452534586 -0300
-+++ 510e3f0a/topics/change-gates.txt	2026-11-14 07:29:09.821716653 -0300
++++ 12dd52f5/topics/change-gates.txt	2026-11-14 08:02:25.782630732 -0300
 @@ -1,7 +1,8 @@
  Gate execution and atomic review input
  
@@ -77,7 +77,7 @@ diff -ruN b405104a/topics/change-gates.txt 510e3f0a/topics/change-gates.txt
    and record the evidence at that worktree's head, whichever checkout of the
    repository the command was typed in; the run says which tree it used when
    that is not the one you are standing in. Which gates are required is read
-@@ -35,6 +36,14 @@
+@@ -35,6 +36,18 @@
    a timeout or group cleanup that interrupts accounting, or unavailable
    accounting, supplies no CPU figure. Work delegated to an existing external service
    is outside that accounting. Unavailable host observations are absent.
@@ -86,15 +86,19 @@ diff -ruN b405104a/topics/change-gates.txt 510e3f0a/topics/change-gates.txt
 +  blamed on a change; it is not proof against a change built to deceive it.
 +  Work a gate hands to processes outside its tree (a service, a container
 +  daemon, an emulator) counts as other load, before and during the gate. An
-+  exec the counters cannot follow hides work within the checks' tolerances,
-+  and a descendant that narrows its own CPU set is not seen. A pass on a
-+  quiet host exposes each: nothing is excused there.
++  exec the counters cannot follow shows as a tree clock covering less of the
++  run's waited CPU than its reference's did: beyond 5% less is not excused,
++  and less than that hides. The comparison is with the reference because wait
++  also reports process teardown the clock never sees, about a tenth of the
++  CPU of a command that starts many processes. A descendant that narrows its
++  own CPU set is not seen. A pass on a quiet host exposes each: nothing is
++  excused there.
    Attestations, bypasses and older events supply no missing measurements.
    `arc stats` uses `run_ms`, falling back to `duration_ms` only for events
    without command timing. These observations impose no cost limit.
-diff -ruN b405104a/topics/change-integration.txt 510e3f0a/topics/change-integration.txt
+diff -ruN b405104a/topics/change-integration.txt 12dd52f5/topics/change-integration.txt
 --- b405104a/topics/change-integration.txt	2026-11-14 07:27:04.452534586 -0300
-+++ 510e3f0a/topics/change-integration.txt	2026-11-14 07:29:09.829004331 -0300
++++ 12dd52f5/topics/change-integration.txt	2026-11-14 08:02:25.782630732 -0300
 @@ -1,5 +1,14 @@
  Replay, integration shapes and shipped evidence
  
@@ -110,9 +114,9 @@ diff -ruN b405104a/topics/change-integration.txt 510e3f0a/topics/change-integrat
    `arc rebase` is what `check` names when the selected integration shape
    requires replay onto the target. Where Git can, arc performs the replay
    itself with `git replay`, which runs no hooks and leaves the worktree alone.
-diff -ruN b405104a/topics/change-landing.txt 510e3f0a/topics/change-landing.txt
+diff -ruN b405104a/topics/change-landing.txt 12dd52f5/topics/change-landing.txt
 --- b405104a/topics/change-landing.txt	2026-11-14 07:27:04.453534608 -0300
-+++ 510e3f0a/topics/change-landing.txt	2026-11-14 07:29:09.835858519 -0300
++++ 12dd52f5/topics/change-landing.txt	2026-11-14 08:02:25.782630732 -0300
 @@ -86,8 +86,8 @@
    attempts are outside that bound. Before authorization, every shared receipt
    is judged against every requiring member's budget. A budgeted gate refuses
@@ -124,9 +128,9 @@ diff -ruN b405104a/topics/change-landing.txt 510e3f0a/topics/change-landing.txt
    the target unmoved and does not trigger splitting or an implicit retry.
    Effective budgets, totals and sources are pinned, confirmed and retained in
    each member's authorization.
-diff -ruN b405104a/topics/debt-clearance.txt 510e3f0a/topics/debt-clearance.txt
+diff -ruN b405104a/topics/debt-clearance.txt 12dd52f5/topics/debt-clearance.txt
 --- b405104a/topics/debt-clearance.txt	2026-11-14 07:27:04.455534654 -0300
-+++ 510e3f0a/topics/debt-clearance.txt	2026-11-14 07:29:09.952328601 -0300
++++ 12dd52f5/topics/debt-clearance.txt	2026-11-14 08:02:25.783630753 -0300
 @@ -94,7 +94,7 @@
  
    Persons are exempt from model-coordinate enforcement and capability floors;
@@ -136,9 +140,9 @@ diff -ruN b405104a/topics/debt-clearance.txt 510e3f0a/topics/debt-clearance.txt
    `arc guide debt-obligations`. A clearing ladder agent needs no assessment to discharge that
    kind. No read before the debt declaration or without required coverage
    discharges it. An approval that only finds cannot gate integration;
-diff -ruN b405104a/topics/debt-obligations.txt 510e3f0a/topics/debt-obligations.txt
+diff -ruN b405104a/topics/debt-obligations.txt 12dd52f5/topics/debt-obligations.txt
 --- b405104a/topics/debt-obligations.txt	2026-11-14 07:27:04.455534654 -0300
-+++ 510e3f0a/topics/debt-obligations.txt	2026-11-14 07:29:09.936783963 -0300
++++ 12dd52f5/topics/debt-obligations.txt	2026-11-14 08:02:25.783630753 -0300
 @@ -28,8 +28,8 @@
    named read, qualifiers and assessment basis; a debt the change already
    carries reads `debt already declared` with its event. A declaration the
@@ -218,9 +222,9 @@ diff -ruN b405104a/topics/debt-obligations.txt 510e3f0a/topics/debt-obligations.
  
    A verdict can also be owed corroboration rather than absent. `arc review
    --verdict approved --provisional "<why>"` records one that gates like any
-diff -ruN b405104a/topics/debt-recovery.txt 510e3f0a/topics/debt-recovery.txt
+diff -ruN b405104a/topics/debt-recovery.txt 12dd52f5/topics/debt-recovery.txt
 --- b405104a/topics/debt-recovery.txt	2026-11-14 07:27:04.456534676 -0300
-+++ 510e3f0a/topics/debt-recovery.txt	2026-11-14 07:29:09.944322677 -0300
++++ 12dd52f5/topics/debt-recovery.txt	2026-11-14 08:02:25.783630753 -0300
 @@ -43,10 +43,10 @@
    head is its integrated commit, else the latest one recorded before the
    closure. Only a range with no patchset at all has nothing to compare: its
@@ -236,9 +240,9 @@ diff -ruN b405104a/topics/debt-recovery.txt 510e3f0a/topics/debt-recovery.txt
  
    Under `review_clearance = "assessed"` (`arc guide debt-clearance`) only a
    clearing read discharges a debt of any kind. Every other read since the
-diff -ruN b405104a/topics/debt-review.txt 510e3f0a/topics/debt-review.txt
+diff -ruN b405104a/topics/debt-review.txt 12dd52f5/topics/debt-review.txt
 --- b405104a/topics/debt-review.txt	2026-11-14 07:27:04.456534676 -0300
-+++ 510e3f0a/topics/debt-review.txt	2026-11-14 07:29:09.928857581 -0300
++++ 12dd52f5/topics/debt-review.txt	2026-11-14 08:02:25.783630753 -0300
 @@ -187,20 +187,21 @@
    `.arc/policy.toml` or the operator policy at
    `<git-common-dir>/arc/operator-policy.toml`. Both path lists apply, so a
@@ -270,9 +274,9 @@ diff -ruN b405104a/topics/debt-review.txt 510e3f0a/topics/debt-review.txt
  
    Required booleans apply when either policy enables them, danger and safe
    declarations combine with danger taking priority, debt thresholds use the
-diff -ruN b405104a/topics/files.txt 510e3f0a/topics/files.txt
+diff -ruN b405104a/topics/files.txt 12dd52f5/topics/files.txt
 --- b405104a/topics/files.txt	2026-11-14 07:27:04.456534676 -0300
-+++ 510e3f0a/topics/files.txt	2026-11-14 07:29:10.160831433 -0300
++++ 12dd52f5/topics/files.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -32,6 +32,7 @@
    `arc doctor` reports an unreadable or malformed policy as the problem
    `policy-unreadable`, naming its file and error, and exits 1.
@@ -281,9 +285,9 @@ diff -ruN b405104a/topics/files.txt 510e3f0a/topics/files.txt
      [policy] forbid_self_approval = true
      [policy] require_declared_actor = true
      [policy] debt_count_threshold = <n>          debt turns advisory past n
-diff -ruN b405104a/topics/gate-confinement.txt 510e3f0a/topics/gate-confinement.txt
+diff -ruN b405104a/topics/gate-confinement.txt 12dd52f5/topics/gate-confinement.txt
 --- b405104a/topics/gate-confinement.txt	1969-12-31 21:00:00.000000000 -0300
-+++ 510e3f0a/topics/gate-confinement.txt	2026-11-14 07:29:10.176051054 -0300
++++ 12dd52f5/topics/gate-confinement.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -0,0 +1,102 @@
 +Kernel-enforced project writable roots
 +
@@ -387,9 +391,9 @@ diff -ruN b405104a/topics/gate-confinement.txt 510e3f0a/topics/gate-confinement.
 +  behalf. Existing build daemons, D-Bus, systemd, Docker and tmux can act for a
 +  process through sockets.
 +
-diff -ruN b405104a/topics/gate-costs.txt 510e3f0a/topics/gate-costs.txt
+diff -ruN b405104a/topics/gate-costs.txt 12dd52f5/topics/gate-costs.txt
 --- b405104a/topics/gate-costs.txt	2026-11-14 07:27:04.457534699 -0300
-+++ 510e3f0a/topics/gate-costs.txt	2026-11-14 07:29:10.184066519 -0300
++++ 12dd52f5/topics/gate-costs.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -1,4 +1,4 @@
 -Cost diagnosis, check timings and the order of work
 +Cost diagnosis, levers and check timings
@@ -541,9 +545,9 @@ diff -ruN b405104a/topics/gate-costs.txt 510e3f0a/topics/gate-costs.txt
    Cost and failures inform review; they do not choose which check to remove.
  
    A gate may declare timings = "checks.tsv". Its command writes the relative
-diff -ruN b405104a/topics/gate-raises.txt 510e3f0a/topics/gate-raises.txt
+diff -ruN b405104a/topics/gate-raises.txt 12dd52f5/topics/gate-raises.txt
 --- b405104a/topics/gate-raises.txt	2026-11-14 07:27:04.457534699 -0300
-+++ 510e3f0a/topics/gate-raises.txt	2026-11-14 07:29:10.199374693 -0300
++++ 12dd52f5/topics/gate-raises.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -17,7 +17,7 @@
  
    The newest direct execution of that gate at the exact head must pass, be
@@ -553,9 +557,9 @@ diff -ruN b405104a/topics/gate-raises.txt 510e3f0a/topics/gate-raises.txt
    one. Reuse, rewritten execution coordinates, attestation, bypass and measurement
    output cannot establish this need. Later evidence remains subject to ordinary
    newest-evidence judgement; a raise never masks a failure.
-diff -ruN b405104a/topics/gate-rounds.txt 510e3f0a/topics/gate-rounds.txt
+diff -ruN b405104a/topics/gate-rounds.txt 12dd52f5/topics/gate-rounds.txt
 --- b405104a/topics/gate-rounds.txt	1969-12-31 21:00:00.000000000 -0300
-+++ 510e3f0a/topics/gate-rounds.txt	2026-11-14 07:29:10.191824107 -0300
++++ 12dd52f5/topics/gate-rounds.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -0,0 +1,119 @@
 +Gate rules and the method of a round
 +
@@ -676,9 +680,9 @@ diff -ruN b405104a/topics/gate-rounds.txt 510e3f0a/topics/gate-rounds.txt
 +    measurement that justifies it, by
 +    `arc journal todo <topic> --body-file <path>`.
 +
-diff -ruN b405104a/topics/gates.txt 510e3f0a/topics/gates.txt
+diff -ruN b405104a/topics/gates.txt 12dd52f5/topics/gates.txt
 --- b405104a/topics/gates.txt	2026-11-14 07:27:04.458534722 -0300
-+++ 510e3f0a/topics/gates.txt	2026-11-14 07:29:10.168178233 -0300
++++ 12dd52f5/topics/gates.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -21,8 +21,8 @@
    `unclaimed_paths` counts tracked paths outside inert exclusions that no
    explicit gate pattern names; a gate with no paths does not name a path.
@@ -848,9 +852,9 @@ diff -ruN b405104a/topics/gates.txt 510e3f0a/topics/gates.txt
    coverage stays in force until an edited declaration lands, as with selector
    changes. Project and operator inert lists combine; differing paths for the
    same gate conflict. Scoped run receipts retain identity, and delta receipts
-diff -ruN b405104a/topics/guide-topics.txt 510e3f0a/topics/guide-topics.txt
+diff -ruN b405104a/topics/guide-topics.txt 12dd52f5/topics/guide-topics.txt
 --- b405104a/topics/guide-topics.txt	1969-12-31 21:00:00.000000000 -0300
-+++ 510e3f0a/topics/guide-topics.txt	2026-11-14 07:29:09.673975960 -0300
++++ 12dd52f5/topics/guide-topics.txt	2026-11-14 08:02:25.780500239 -0300
 @@ -0,0 +1,32 @@
 +Built-in contracts and run-time guide topics
 +
@@ -884,9 +888,9 @@ diff -ruN b405104a/topics/guide-topics.txt 510e3f0a/topics/guide-topics.txt
 +  evidence` to append corrections or blocks with history. A successor is
 +  a separate artifact: unpin the predecessor and pin the successor under
 +  the topic name.
-diff -ruN b405104a/topics/identity-events.txt 510e3f0a/topics/identity-events.txt
+diff -ruN b405104a/topics/identity-events.txt 12dd52f5/topics/identity-events.txt
 --- b405104a/topics/identity-events.txt	2026-11-14 07:27:04.458534722 -0300
-+++ 510e3f0a/topics/identity-events.txt	2026-11-14 07:29:09.697460231 -0300
++++ 12dd52f5/topics/identity-events.txt	2026-11-14 08:02:25.780500239 -0300
 @@ -66,7 +66,7 @@
      journal events  journal catchup  journal memories  journal pins
      journal render  journal open  journal list  journal inventory
@@ -896,9 +900,9 @@ diff -ruN b405104a/topics/identity-events.txt 510e3f0a/topics/identity-events.tx
    `gates measure --concurrent` writes local acceptance under `arc guide gates-together`.
    Read-only invocations read the ledger through a handle that never parses that policy,
    refuses any append, and leaves ledger files byte-identical. Entries name complete leaf paths. Output files,
-diff -ruN b405104a/topics/identity-options.txt 510e3f0a/topics/identity-options.txt
+diff -ruN b405104a/topics/identity-options.txt 12dd52f5/topics/identity-options.txt
 --- b405104a/topics/identity-options.txt	2026-11-14 07:27:04.458534722 -0300
-+++ 510e3f0a/topics/identity-options.txt	2026-11-14 07:29:09.713551161 -0300
++++ 12dd52f5/topics/identity-options.txt	2026-11-14 08:02:25.780500239 -0300
 @@ -87,6 +87,16 @@
    phases on concurrent threads are summed, so they can total more than
    elapsed_ms; time outside every phase is not attributed.
@@ -916,9 +920,9 @@ diff -ruN b405104a/topics/identity-options.txt 510e3f0a/topics/identity-options.
    `coverage` names what the counters see. `ledger: store` counts ledger
    files read through the store's readers, not a file a diagnostic opens on
    its own; `children: arc` counts processes arc starts, not those a library
-diff -ruN b405104a/topics/journal-references.txt 510e3f0a/topics/journal-references.txt
+diff -ruN b405104a/topics/journal-references.txt 12dd52f5/topics/journal-references.txt
 --- b405104a/topics/journal-references.txt	2026-11-14 07:27:04.459534745 -0300
-+++ 510e3f0a/topics/journal-references.txt	2026-11-14 07:29:09.760635506 -0300
++++ 12dd52f5/topics/journal-references.txt	2026-11-14 08:02:25.780630688 -0300
 @@ -8,7 +8,9 @@
      arc journal pin <file.md> [--reason TEXT]
                           Record a `pinned` event. The body must be in hot
@@ -930,9 +934,9 @@ diff -ruN b405104a/topics/journal-references.txt 510e3f0a/topics/journal-referen
      arc journal unpin <file.md>
                           Record `unpinned`; an actionable artifact returns to
                           the queues. An artifact that is not pinned refuses.
-diff -ruN b405104a/topics/journal-resolution.txt 510e3f0a/topics/journal-resolution.txt
+diff -ruN b405104a/topics/journal-resolution.txt 12dd52f5/topics/journal-resolution.txt
 --- b405104a/topics/journal-resolution.txt	2026-11-14 07:27:04.459534745 -0300
-+++ 510e3f0a/topics/journal-resolution.txt	2026-11-14 07:29:09.776382959 -0300
++++ 12dd52f5/topics/journal-resolution.txt	2026-11-14 08:02:25.780630688 -0300
 @@ -14,6 +14,20 @@
       or the journal named by this directory's slug.
    A prefix covering repositories shadows their Git journals.
@@ -954,9 +958,9 @@ diff -ruN b405104a/topics/journal-resolution.txt 510e3f0a/topics/journal-resolut
    `arc journal rebind <journal-dir>` adopts an existing journal and records
    the move to this project's anchor. It refuses when both journals hold
    content. Read `arc journal rebind --help` for its input contract.
-diff -ruN b405104a/topics/journal-workbenches.txt 510e3f0a/topics/journal-workbenches.txt
+diff -ruN b405104a/topics/journal-workbenches.txt 12dd52f5/topics/journal-workbenches.txt
 --- b405104a/topics/journal-workbenches.txt	1969-12-31 21:00:00.000000000 -0300
-+++ 510e3f0a/topics/journal-workbenches.txt	2026-11-14 07:29:09.768540518 -0300
++++ 12dd52f5/topics/journal-workbenches.txt	2026-11-14 08:02:25.780630688 -0300
 @@ -0,0 +1,89 @@
 +Workbenches for working material
 +
@@ -1047,27 +1051,27 @@ diff -ruN b405104a/topics/journal-workbenches.txt 510e3f0a/topics/journal-workbe
 +  `workbench/` or an archive root that is a link, and a directory under
 +  `workbench/` that no event records; `adopt` records one where it stands.
 +
-diff -ruN b405104a/topics/journal.txt 510e3f0a/topics/journal.txt
+diff -ruN b405104a/topics/journal.txt 12dd52f5/topics/journal.txt
 --- b405104a/topics/journal.txt	2026-11-14 07:27:04.459534745 -0300
-+++ 510e3f0a/topics/journal.txt	2026-11-14 07:29:09.736046939 -0300
++++ 12dd52f5/topics/journal.txt	2026-11-14 08:02:25.780500239 -0300
 @@ -2,4 +2,5 @@
    arc guide journal-lookup                 Artifact lookup, archival and project queues
    arc guide journal-records                Keeping facts during work
    arc guide journal-references             Pinned references, living documents and published pages
 +  arc guide journal-workbenches            Workbenches for working material
    arc guide journal-resolution             Journal directory resolution and anchors
-diff -ruN b405104a/topics/overview.txt 510e3f0a/topics/overview.txt
+diff -ruN b405104a/topics/overview.txt 12dd52f5/topics/overview.txt
 --- b405104a/topics/overview.txt	2026-11-14 07:27:04.459534745 -0300
-+++ 510e3f0a/topics/overview.txt	2026-11-14 07:29:09.667104541 -0300
++++ 12dd52f5/topics/overview.txt	2026-11-14 08:02:25.780500239 -0300
 @@ -16,4 +16,5 @@
  waiting for a session.
  Run `arc guide` for indexed topics, `arc guide <topic>` for depth, or
  `arc guide --search <text>` to find a topic or command-help route.
 +`arc guide guide-topics` explains editable operator and project guide topics.
  
-diff -ruN b405104a/topics/sandbox.txt 510e3f0a/topics/sandbox.txt
+diff -ruN b405104a/topics/sandbox.txt 12dd52f5/topics/sandbox.txt
 --- b405104a/topics/sandbox.txt	2026-11-14 07:27:04.461534790 -0300
-+++ 510e3f0a/topics/sandbox.txt	2026-11-14 07:29:09.783820640 -0300
++++ 12dd52f5/topics/sandbox.txt	2026-11-14 08:02:25.780630688 -0300
 @@ -1,6 +1,28 @@
  Destructive rehearsals
  
@@ -1109,9 +1113,9 @@ diff -ruN b405104a/topics/sandbox.txt 510e3f0a/topics/sandbox.txt
    refused by name rather than run in, so gates and `rebase` say to make one
    inside with `git worktree add`.
  
-diff -ruN b405104a/topics/schemas.txt 510e3f0a/topics/schemas.txt
+diff -ruN b405104a/topics/schemas.txt 12dd52f5/topics/schemas.txt
 --- b405104a/topics/schemas.txt	2026-11-14 07:27:04.462534813 -0300
-+++ 510e3f0a/topics/schemas.txt	2026-11-14 07:29:10.231377558 -0300
++++ 12dd52f5/topics/schemas.txt	2026-11-14 08:02:25.791451671 -0300
 @@ -23,7 +23,7 @@
      `arc-assurance/1`                arc query --assurance --json
      `arc-check/4`                    arc check --json

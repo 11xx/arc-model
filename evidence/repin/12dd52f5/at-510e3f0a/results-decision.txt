@@ -1,0 +1,192 @@
+arc-model differential: comparison revision 510e3f0a680bbc5252a28bbd23fee268f7bff4ab
+channel decision, seed 20260907, 61 named + 60 generated + 60 check-time cases, arc = <captured-arc>
+
+[0] approved agreed
+[1] contributor-reviewer agreed
+[2] assumed-reviewer agreed
+[3] assumed-reviewer-open agreed
+[4] self-approval-open agreed
+[5] changes-requested agreed
+[6] comment-only agreed
+[7] unreviewed agreed
+[8] waived agreed
+[9] waiver-expired agreed
+[10] waived-contributor agreed
+[11] stale-approval agreed
+[12] finding-open agreed
+[13] finding-resolved agreed
+[14] head-moved agreed
+[15] gate-omitted agreed
+[16] gate-failed agreed
+[17] gate-other-tree agreed
+[18] gate-declaration-changed adjudicated encoding: expected {gates-not-green}, arc {gates-not-green, merged-tree-unevaluated} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[19] gate-other-environment agreed
+[20] gate-environment-unrecorded agreed
+[21] gate-probe-failed agreed
+[22] external-approved-open agreed
+[23] external-approved-danger agreed
+[24] external-beside-local agreed
+[25] external-changes-requested agreed
+[26] external-over-waiver agreed
+[27] external-rejected agreed
+[28] external-approved-danger-self-permitted agreed
+[29] external-beside-local-danger-self-permitted agreed
+[30] external-approved-danger-undeclared agreed
+[31] external-approved-danger-undeclared-self-forbidden agreed
+[32] external-approved-beside-debt agreed
+[33] extra-contributor agreed
+[34] gate-dirty agreed
+[35] gate-dirty-waived agreed
+[36] gate-dirty-waived-elsewhere agreed
+[37] target-behind agreed
+[38] target-behind-evaluated adjudicated encoding: expected {ready}, arc {gates-not-green} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[39] target-conflicting agreed
+[40] ff-only-contained agreed
+[41] ff-only-behind agreed
+[42] ff-only-behind-evaluated adjudicated encoding: expected {needs-rebase}, arc {gates-not-green, needs-rebase} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[43] ff-only-conflicting agreed
+[44] probe-discharged agreed
+[45] probe-baseline-passed agreed
+[46] probe-final-missing agreed
+[47] probe-final-failed agreed
+[48] probe-undischargeable agreed
+[49] branch-missing agreed
+[50] conflicting-gates agreed
+[51] gate-older-pass-same-tree agreed
+[52] gate-older-pass-newer-other-environment agreed
+[53] gate-older-pass-newer-unrecorded-environment agreed
+[54] waivers-per-patchset agreed
+[55] iterating-unreviewed agreed
+[56] iterating-gate-failed agreed
+[57] iterating-refusing-verdict agreed
+[58] implementer-model-trailer agreed
+[59] implementer-model-ledger agreed
+[60] implementer-model-ledger-other-effort agreed
+[61] generated-0 agreed
+[62] generated-1 agreed
+[63] generated-2 adjudicated encoding: expected {closed, no-valid-approval}, arc {closed, gates-not-green, no-valid-approval} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[64] generated-3 agreed
+[65] generated-4 agreed
+[66] generated-5 agreed
+[67] generated-6 agreed
+[68] generated-7 skipped: unreadable evidence cannot be recorded through the CLI
+[69] generated-8 skipped: unreadable evidence cannot be recorded through the CLI
+[70] generated-9 agreed
+[71] generated-10 agreed
+[72] generated-11 agreed
+[73] generated-12 agreed
+[74] generated-13 agreed
+[75] generated-14 agreed
+[76] generated-15 agreed
+[77] generated-16 agreed
+[78] generated-17 agreed
+[79] generated-18 skipped: a finding is recorded only with a verdict
+[80] generated-19 agreed
+[81] generated-20 agreed
+[82] generated-21 agreed
+[83] generated-22 agreed
+[84] generated-23 agreed
+[85] generated-24 agreed
+[86] generated-25 agreed
+[87] generated-26 agreed
+[88] generated-27 agreed
+[89] generated-28 adjudicated encoding: expected {blocking-findings, gates-not-green, no-valid-approval}, arc {blocking-findings, gates-not-green, merged-tree-unevaluated, no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[90] generated-29 agreed
+[91] generated-30 agreed
+[92] generated-31 agreed
+[93] generated-32 agreed
+[94] generated-33 agreed
+[95] generated-34 agreed
+[96] generated-35 agreed
+[97] generated-36 agreed
+[98] generated-37 agreed
+[99] generated-38 agreed
+[100] generated-39 agreed
+[101] generated-40 agreed
+[102] generated-41 agreed
+[103] generated-42 agreed
+[104] generated-43 agreed
+[105] generated-44 agreed
+[106] generated-45 agreed
+[107] generated-46 agreed
+[108] generated-47 agreed
+[109] generated-48 skipped: unreadable evidence cannot be recorded through the CLI
+[110] generated-49 adjudicated encoding: expected {gates-not-green, no-valid-approval}, arc {gates-not-green, merged-tree-unevaluated, no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[111] generated-50 agreed
+[112] generated-51 agreed
+[113] generated-52 agreed
+[114] generated-53 adjudicated encoding: expected {gates-not-green, no-valid-approval}, arc {gates-not-green, merged-tree-unevaluated, no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[115] generated-54 skipped: a finding is recorded only with a verdict
+[116] generated-55 agreed
+[117] generated-56 skipped: a finding is recorded only with a verdict
+[118] generated-57 agreed
+[119] generated-58 agreed
+[120] generated-59 agreed
+[121] check-time-0 agreed
+[122] check-time-1 agreed
+[123] check-time-2 agreed
+[124] check-time-3 agreed
+[125] check-time-4 agreed
+[126] check-time-5 agreed
+[127] check-time-6 agreed
+[128] check-time-7 skipped: unreadable evidence cannot be recorded through the CLI
+[129] check-time-8 skipped: unreadable evidence cannot be recorded through the CLI
+[130] check-time-9 agreed
+[131] check-time-10 agreed
+[132] check-time-11 agreed
+[133] check-time-12 agreed
+[134] check-time-13 agreed
+[135] check-time-14 agreed
+[136] check-time-15 agreed
+[137] check-time-16 agreed
+[138] check-time-17 agreed
+[139] check-time-18 skipped: a finding is recorded only with a verdict
+[140] check-time-19 agreed
+[141] check-time-20 agreed
+[142] check-time-21 agreed
+[143] check-time-22 agreed
+[144] check-time-23 agreed
+[145] check-time-24 agreed
+[146] check-time-25 agreed
+[147] check-time-26 agreed
+[148] check-time-27 agreed
+[149] check-time-28 adjudicated encoding: expected {acceptance-probes-not-green, blocking-findings, gates-not-green, no-valid-approval}, arc {acceptance-probes-not-green, blocking-findings, gates-not-green, merged-tree-unevaluated, no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[150] check-time-29 agreed
+[151] check-time-30 agreed
+[152] check-time-31 agreed
+[153] check-time-32 agreed
+[154] check-time-33 agreed
+[155] check-time-34 agreed
+[156] check-time-35 agreed
+[157] check-time-36 agreed
+[158] check-time-37 agreed
+[159] check-time-38 agreed
+[160] check-time-39 agreed
+[161] check-time-40 agreed
+[162] check-time-41 agreed
+[163] check-time-42 agreed
+[164] check-time-43 agreed
+[165] check-time-44 agreed
+[166] check-time-45 agreed
+[167] check-time-46 agreed
+[168] check-time-47 agreed
+[169] check-time-48 skipped: unreadable evidence cannot be recorded through the CLI
+[170] check-time-49 adjudicated encoding: expected {acceptance-probes-not-green, gates-not-green, no-valid-approval}, arc {acceptance-probes-not-green, gates-not-green, merged-tree-unevaluated, no-valid-approval} — a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+[171] check-time-50 agreed
+[172] check-time-51 agreed
+[173] check-time-52 agreed
+[174] check-time-53 agreed
+[175] check-time-54 skipped: a finding is recorded only with a verdict
+[176] check-time-55 adjudicated encoding: expected {acceptance-probes-not-green}, arc {acceptance-probes-not-green, gates-not-green} — C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+[177] check-time-56 skipped: a finding is recorded only with a verdict
+[178] check-time-57 agreed
+[179] check-time-58 agreed
+[180] check-time-59 skipped: a run against the merge uses a clean checkout of its own, so it records no dirt
+
+channel decision: 181 cases: 158 agreed, 10 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+  adjudicated 4: C15/C42: the scenario supplies a probe identity, but the observing command has no clean checkout of the evaluated content; omitting only that observation gives arc's exact answer
+  adjudicated 6: a declaration or policy committed on the target moves the target too (C12), which the scenario does not state; arc answers as the model does with the target moved as well
+  skipped 6: a finding is recorded only with a verdict
+  skipped 1: a run against the merge uses a clean checkout of its own, so it records no dirt
+  skipped 6: unreadable evidence cannot be recorded through the CLI
+a quiet run is supporting evidence, not proof of equivalence

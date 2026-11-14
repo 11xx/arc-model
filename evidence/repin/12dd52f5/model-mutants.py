@@ -3,7 +3,7 @@ from pathlib import Path
 import os
 import subprocess
 
-cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "arc-model/repin/510e3f0a"
+cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "arc-model/repin/12dd52f5"
 cache.mkdir(parents=True, exist_ok=True)
 declaration = Path("src/Arc/Model/Declaration.hs")
 coverage = Path("src/Arc/Model/Coverage.hs")
@@ -48,4 +48,4 @@ try:
 finally:
     for path, content in original.items():
         path.write_text(content)
-    Path("evidence/repin/510e3f0a/model-mutants.txt").write_text("\n".join(summary) + "\n")
+    Path("evidence/repin/12dd52f5/model-mutants.txt").write_text("\n".join(summary) + "\n")

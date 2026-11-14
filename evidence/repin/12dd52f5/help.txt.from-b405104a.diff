@@ -1,5 +1,5 @@
 --- b405104a/help.txt	2026-11-14 07:27:04.447534472 -0300
-+++ 510e3f0a/help.txt	2026-11-14 07:29:11.104395004 -0300
++++ 12dd52f5/help.txt	2026-11-14 08:02:25.797631054 -0300
 @@ -148,7 +148,7 @@
  ===== arc guide --help =====
  Read indexed workflow topics or search instruction text without project state

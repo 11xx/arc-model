@@ -1,0 +1,14 @@
+Produced against arc build 510e3f0a680bbc5252a28bbd23fee268f7bff4ab, SHA-256 47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70.
+
+channel decision: 181 cases: 158 agreed, 10 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel execution: 187 cases: 154 agreed, 20 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+
+All four exits: 0. Seed 20260907; 60 generated histories per channel and
+60 check-time histories for decision, execution and coverage.
+Every named history is included. Each child arc/git process uses Differential.Sandbox.
+Decision, execution and coverage rows equal the retained b405104a rows case
+for case, classifications included; candidate rows differ only in
+replay-created identifiers. No retained b405104a executable exists here and
+no old implementation was rebuilt, so this is not a two-executable baseline.

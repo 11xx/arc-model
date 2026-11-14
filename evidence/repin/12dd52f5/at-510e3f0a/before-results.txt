@@ -1,0 +1,10 @@
+Produced against arc build 510e3f0a680bbc5252a28bbd23fee268f7bff4ab, SHA-256 47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70.
+
+Before the replay identity correction (commits authored as tester@example.invalid):
+channel decision: 181 cases: 0 agreed, 0 adjudicated, 13 skipped, 0 disagreed, 168 failed to replay
+channel execution: 187 cases: 0 agreed, 0 adjudicated, 13 skipped, 0 disagreed, 174 failed to replay
+channel coverage: 222 cases: 0 agreed, 0 adjudicated, 13 skipped, 0 disagreed, 209 failed to replay
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+Every failed replay names the same refusal; the first decision case reads:
+[0] approved REPLAY FAILED: user error (arc refused: error: commit <sha> has reserved-domain author address "tester@example.invalid"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot)
+Retained publication replay and b405104a modeled-change replay: exit 1 at their first snapshot, same refusal.

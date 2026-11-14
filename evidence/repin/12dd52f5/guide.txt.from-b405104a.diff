@@ -1,5 +1,5 @@
 --- b405104a/guide.txt	2026-11-14 07:27:04.445534426 -0300
-+++ 510e3f0a/guide.txt	2026-11-14 07:29:09.633361990 -0300
++++ 12dd52f5/guide.txt	2026-11-14 08:02:25.795277636 -0300
 @@ -14,6 +14,7 @@
  waiting for a session.
  Run `arc guide` for indexed topics, `arc guide <topic>` for depth, or
@@ -70,7 +70,7 @@
    and record the evidence at that worktree's head, whichever checkout of the
    repository the command was typed in; the run says which tree it used when
    that is not the one you are standing in. Which gates are required is read
-@@ -1147,6 +1172,14 @@
+@@ -1147,6 +1172,18 @@
    a timeout or group cleanup that interrupts accounting, or unavailable
    accounting, supplies no CPU figure. Work delegated to an existing external service
    is outside that accounting. Unavailable host observations are absent.
@@ -79,13 +79,17 @@
 +  blamed on a change; it is not proof against a change built to deceive it.
 +  Work a gate hands to processes outside its tree (a service, a container
 +  daemon, an emulator) counts as other load, before and during the gate. An
-+  exec the counters cannot follow hides work within the checks' tolerances,
-+  and a descendant that narrows its own CPU set is not seen. A pass on a
-+  quiet host exposes each: nothing is excused there.
++  exec the counters cannot follow shows as a tree clock covering less of the
++  run's waited CPU than its reference's did: beyond 5% less is not excused,
++  and less than that hides. The comparison is with the reference because wait
++  also reports process teardown the clock never sees, about a tenth of the
++  CPU of a command that starts many processes. A descendant that narrows its
++  own CPU set is not seen. A pass on a quiet host exposes each: nothing is
++  excused there.
    Attestations, bypasses and older events supply no missing measurements.
    `arc stats` uses `run_ms`, falling back to `duration_ms` only for events
    without command timing. These observations impose no cost limit.
-@@ -1262,6 +1295,15 @@
+@@ -1262,6 +1299,15 @@
    argument; one the flag cannot spell exactly, because it holds a comma or
    edge whitespace, is left as a placeholder the line names.
  
@@ -101,7 +105,7 @@
    `arc rebase` is what `check` names when the selected integration shape
    requires replay onto the target. Where Git can, arc performs the replay
    itself with `git replay`, which runs no hooks and leaves the worktree alone.
-@@ -1547,8 +1589,8 @@
+@@ -1547,8 +1593,8 @@
    attempts are outside that bound. Before authorization, every shared receipt
    is judged against every requiring member's budget. A budgeted gate refuses
    authorization if its selected receipt cannot be resolved on the top member.
@@ -112,7 +116,7 @@
    the target unmoved and does not trigger splitting or an implicit retry.
    Effective budgets, totals and sources are pinned, confirmed and retained in
    each member's authorization.
-@@ -1738,8 +1780,8 @@
+@@ -1738,8 +1784,8 @@
    Empty list items retain their markers.
    A project whose file follows another convention selects `renderer =
    "command"` with a `renderer_command` argv. That command runs from the
@@ -123,7 +127,7 @@
    and answers on stdout: the rendering for a read, and for `--write` the
    complete replacement file, written atomically after it exits 0. It may
    answer without reading the whole request. Its process group is killed when
-@@ -2094,7 +2136,9 @@
+@@ -2094,7 +2140,9 @@
      arc journal pin <file.md> [--reason TEXT]
                           Record a `pinned` event. The body must be in hot
                           storage. Pinning again with the recorded reason
@@ -134,7 +138,7 @@
      arc journal unpin <file.md>
                           Record `unpinned`; an actionable artifact returns to
                           the queues. An artifact that is not pinned refuses.
-@@ -2162,6 +2206,93 @@
+@@ -2162,6 +2210,93 @@
    text. Rendering to the same `--out` path each time lets a publisher that
    maps a path to a copy update that copy.
  
@@ -228,7 +232,7 @@
  END A SESSION (what the next one reads)
    arc journal handoff <topic> --derive        Stopped midstream.
    arc journal conclusion <topic> --body-file - Finished the thing.
-@@ -2781,20 +2912,21 @@
+@@ -2781,20 +2916,21 @@
    `.arc/policy.toml` or the operator policy at
    `<git-common-dir>/arc/operator-policy.toml`. Both path lists apply, so a
    path declared dangerous by either file is dangerous. Integration reads
@@ -259,7 +263,7 @@
  
    Required booleans apply when either policy enables them, danger and safe
    declarations combine with danger taking priority, debt thresholds use the
-@@ -2866,8 +2998,8 @@
+@@ -2866,8 +3002,8 @@
    named read, qualifiers and assessment basis; a debt the change already
    carries reads `debt already declared` with its event. A declaration the
    execution would refuse is refused by the plan with the same message and
@@ -270,7 +274,7 @@
    changes-requested verdict on the exact head still refuses it. `--json`
    carries the debt as `debt` in `arc-integration-plan/1`, with
    `disposition` `would-declare` or `already-declared`; a plan that would
-@@ -2932,28 +3064,33 @@
+@@ -2932,28 +3068,33 @@
    `ineligible`) and `clears` (true or false); arc stores both beside
    `independence`, and a `/1` file leaves them absent. arc keeps its
    `independence`, `qualifiers` and `route_version`, never a tier or a model
@@ -314,7 +318,7 @@
    work: the `authors` it lists answer, through their `identities`,
    to the model of every `Implemented-by` line in the integrated range, at
    that line's effort. An author entry without an `effort` covers its model at
-@@ -2981,8 +3118,9 @@
+@@ -2981,8 +3122,9 @@
    named beside it) or `authors-unread` (the range's authors could not be read). An
    audit without an assessment, with an `ineligible` one, or
    whose binding is not `bound` is recorded, says why, and is listed beside the
@@ -326,7 +330,7 @@
    `arc query --debt`, `arc catchup`, `arc inbox`, the workspace backlog, the
    debt advisory, `arc show` and `arc explain` show the qualifiers, the read's
    reviewer and model as its verdict recorded them, whether the assessment
-@@ -3012,9 +3150,8 @@
+@@ -3012,9 +3154,8 @@
    kept whole, the effort that string's trailing `#suffix` names, and the
    routing version `arc review --route-version` or `arc audit --route-version`
    declared. Production names who set the contract, who implemented it, and
@@ -338,7 +342,7 @@
  
    A verdict can also be owed corroboration rather than absent. `arc review
    --verdict approved --provisional "<why>"` records one that gates like any
-@@ -3120,10 +3257,10 @@
+@@ -3120,10 +3261,10 @@
    head is its integrated commit, else the latest one recorded before the
    closure. Only a range with no patchset at all has nothing to compare: its
    read is recorded, and declared trailers alone neither discharge nor refuse
@@ -353,7 +357,7 @@
  
    Under `review_clearance = "assessed"` (`arc guide debt-clearance`) only a
    clearing read discharges a debt of any kind. Every other read since the
-@@ -3287,7 +3424,7 @@
+@@ -3287,7 +3428,7 @@
  
    Persons are exempt from model-coordinate enforcement and capability floors;
    their identities must remain independent of the complete author set. A
@@ -362,7 +366,7 @@
    `arc guide debt-obligations`. A clearing ladder agent needs no assessment to discharge that
    kind. No read before the debt declaration or without required coverage
    discharges it. An approval that only finds cannot gate integration;
-@@ -4113,7 +4250,8 @@
+@@ -4113,7 +4254,8 @@
    gate's command, timeout, and environment probe as consumed, the identity the
    probe yielded there, the result, and command timing. Required declarations
    include the candidate tree's additions and tightened budgets. Execution and
@@ -372,7 +376,7 @@
  
    Selection is validation, never choice. The caller names the registration,
    the destination (the change whose brief it answers), the target head it
-@@ -4152,7 +4290,8 @@
+@@ -4152,7 +4294,8 @@
    lock and the repository-events lock, never the target's, and in order:
    refuses `basis-moved`, recording nothing, when the destination head or the
    target differs from the basis; rejudges the selected evaluations against
@@ -382,7 +386,7 @@
    tracked modifications or untracked paths in the way; commits the shipped
    tree onto the destination head with the selector as committer and keeps it
    at `refs/arc/candidate-promotion/<candidate>/<selection>`; moves the branch
-@@ -5262,6 +5401,7 @@
+@@ -5262,6 +5405,7 @@
    `arc doctor` reports an unreadable or malformed policy as the problem
    `policy-unreadable`, naming its file and error, and exits 1.
  
@@ -390,7 +394,7 @@
      [policy] forbid_self_approval = true
      [policy] require_declared_actor = true
      [policy] debt_count_threshold = <n>          debt turns advisory past n
-@@ -5477,8 +5617,8 @@
+@@ -5477,8 +5621,8 @@
    `unclaimed_paths` counts tracked paths outside inert exclusions that no
    explicit gate pattern names; a gate with no paths does not name a path.
    Unreadable changes are named, readable history is retained, and a partial
@@ -401,7 +405,7 @@
  
    `arc gates paths [--json]` reports tracked paths, affected gates and why
    coverage is mandatory, using one `git ls-files` with no ledger reads or
-@@ -5488,37 +5628,9 @@
+@@ -5488,37 +5632,9 @@
    or null; protected inputs follow `arc guide base-passes`.
    Inert paths are not unclaimed.
  
@@ -442,7 +446,7 @@
  
    `arc workspace gates [--json] [--under PATH|--here|--global] [--retired]`
    lists each registered project's declarations and its own ledger's costs,
-@@ -5555,7 +5667,7 @@
+@@ -5555,7 +5671,7 @@
    Budget durations accept positive whole milliseconds with ms, s, m or h
    units, including decimal forms such as 2.5s and 0.001s. Overflow and precision
    below a millisecond are refused. A [budget] table may declare total = "15s".
@@ -451,7 +455,7 @@
    `arc guide gates-together` defines the total's profile and batch accounting.
    The effective suite is validated after layering for every declared
    profile and the unqualified case. A missing budget or excessive sum is a
-@@ -5571,17 +5683,18 @@
+@@ -5571,17 +5687,18 @@
    and basis digests are confirmed before integration. See `arc guide gate-raises`.
    Budgets are outside execution identity. Reuse selects the same structurally
    eligible receipt and then judges its command time, with no search for an
@@ -474,7 +478,7 @@
    Missing run_ms is unmeasured
    and cannot satisfy a budget, including legacy local, imported and attested
    evidence. duration_ms never substitutes for run_ms. Explain labels historical
-@@ -5590,21 +5703,48 @@
+@@ -5590,21 +5707,48 @@
  
    Without a declared timeout, a budgeted command has an execution limit of
    ten times its effective budget, computed in checked milliseconds. The clock
@@ -534,7 +538,7 @@
  
    A ledger adopts store format 9 before gate verification or reuse under any
    budget declaration, including a total with missing individual budgets,
-@@ -5616,8 +5756,9 @@
+@@ -5616,8 +5760,9 @@
    Every path that accepts gate evidence judges it against the budget in force:
    verify, status, integrate, accept, land, candidate selection and promotion,
    and publication.
@@ -546,7 +550,7 @@
  
    A gate command exits 75 (`EX_TEMPFAIL`) to say it did not run, which arc
    records as `not-admitted`. Both are described in `arc guide change-gates`.
-@@ -5686,9 +5827,8 @@
+@@ -5686,9 +5831,8 @@
  
    Paths and inert exclusions participate in evidence identity. The complete
    coverage map and dangerous patterns also participate because they determine
@@ -558,7 +562,7 @@
    coverage stays in force until an edited declaration lands, as with selector
    changes. Project and operator inert lists combine; differing paths for the
    same gate conflict. Scoped run receipts retain identity, and delta receipts
-@@ -5704,6 +5844,106 @@
+@@ -5704,6 +5848,106 @@
    retain the passing source tree, target tree, selector and declarations;
    they grant no result to another event or environment.
  
@@ -665,7 +669,7 @@
  GATE COSTS
    `arc gates` in text and JSON and `arc gates over` diagnose command costs
    from receipts. Indicators can overlap; they suggest what to measure and do
-@@ -5716,6 +5956,107 @@
+@@ -5716,6 +5960,107 @@
    Each measure reports its sample count. Missing fields are unmeasured:
    legacy duration_ms never substitutes for command, CPU, wait or preparation.
  
@@ -773,7 +777,7 @@
    Five cost kinds:
    - waiting: paired wall/CPU medians have wall >= 100ms and wall >= twice CPU.
      CPU is observed child user plus system time; I/O and sleeps can both wait.
-@@ -5733,25 +6074,20 @@
+@@ -5733,25 +6078,20 @@
    Waiting/real-work needs paired fields; queueing and preparation need their
    own field and wall. Absence never means zero.
  
@@ -810,7 +814,7 @@
    Cost and failures inform review; they do not choose which check to remove.
  
    A gate may declare timings = "checks.tsv". Its command writes the relative
-@@ -5791,6 +6127,123 @@
+@@ -5791,6 +6131,123 @@
    or that it can be cut. Dropped checks and invalid or absent timings are
    counted explicitly. Arc builds no result store, impact planner or diff judge.
  
@@ -934,7 +938,7 @@
  GATES TOGETHER
    A gate declaring concurrent = true may share a batch with other consenting
    gates. Required-set executions run standalone gates first in name order,
-@@ -5884,7 +6337,7 @@
+@@ -5884,7 +6341,7 @@
  
    The newest direct execution of that gate at the exact head must pass, be
    observed clean and stable on that head's tree, match the destination check
@@ -943,7 +947,7 @@
    one. Reuse, rewritten execution coordinates, attestation, bypass and measurement
    output cannot establish this need. Later evidence remains subject to ordinary
    newest-evidence judgement; a raise never masks a failure.
-@@ -5986,7 +6439,7 @@
+@@ -5986,7 +6443,7 @@
    context, execution/run IDs and digests, coordinates, command, timeout,
    environment identity, binding and timing. Output tails and artifacts stay in
    the original execution ledger.
@@ -952,7 +956,7 @@
    cannot establish an entry. An empty baseline establishes no gate pass.
  
    Each gate's first observation may use the newest retained eligible local
-@@ -6227,7 +6680,7 @@
+@@ -6227,7 +6684,7 @@
      `arc-assurance/1`                arc query --assurance --json
      `arc-check/4`                    arc check --json
      `arc-inbox/11`                   arc inbox --json
@@ -961,7 +965,7 @@
      `arc-journal-catchup/9`          arc journal catchup --json
      `arc-resume/8`                   arc resume --json
      `arc-explain/2`                  arc explain --json
-@@ -6247,6 +6700,7 @@
+@@ -6247,6 +6704,7 @@
      `arc-journal-entry/1`            arc journal show <entry address> --json
      `arc-journal-open/1`             arc journal open --json
      `arc-journal-pins/1`             arc journal pins --json
@@ -969,7 +973,7 @@
      `arc-journal-render/1`           arc journal render --json
      `arc-journal-inventory/6`        arc journal inventory --json
      `arc-rescue/5`                   arc rescue --json
-@@ -6275,12 +6729,12 @@
+@@ -6275,12 +6733,12 @@
      `arc-perf/1`                     ARC_TRACE=1, one line on stderr at exit
      `arc-workspace/2`                arc workspace list|inbox --json
      `arc-workspace-backlog/19`       arc workspace backlog --json
@@ -984,7 +988,7 @@
      `arc-sandbox-diff/1`             arc sandbox diff --json
      `arc-replica-id/1`               arc replica id --json
      `arc-replica/2`                  arc replica status --json
-@@ -6348,11 +6802,16 @@
+@@ -6348,11 +6806,16 @@
    `arc-journal-bundle/1`.
    Their absent model provenance stays absent.
  
@@ -1002,7 +1006,7 @@
    events, which carry both keys, are read alongside it, and a value of
    `unknown` in either reads as absent. A journal bundle and a journal spool
    (`arc-journal-spool/1` or current) carry events of either version. A reader
-@@ -6369,6 +6828,7 @@
+@@ -6369,6 +6832,7 @@
      store format 9                   .git/arc/config.json and the change ledger
      store format 10                  base-pass baselines and reuse evidence
      store format 11                  measured batches and their authorization
@@ -1010,7 +1014,7 @@
      `arc-accept-checkout/1`           local administrative allocation recovery
      `arc-landing-intent/1`            landing-intents/<attempt>.json recovery
      `arc-import-batch/1`             local atomic change import and authorization
-@@ -6426,13 +6886,45 @@
+@@ -6426,13 +6890,45 @@
      arc records declared identities and observed models, and holds no
        routing opinion.
      arc records the displaced owner and the reason a claim was taken over.
@@ -1058,7 +1062,7 @@
  GLOBAL OPTIONS
    --actor
      Acting identity, from ARC_ACTOR when the flag is absent. Falls back to
-@@ -6520,6 +7012,16 @@
+@@ -6520,6 +7016,16 @@
    phases on concurrent threads are summed, so they can total more than
    elapsed_ms; time outside every phase is not attributed.
  
@@ -1075,7 +1079,7 @@
    `coverage` names what the counters see. `ledger: store` counts ledger
    files read through the store's readers, not a file a diagnostic opens on
    its own; `children: arc` counts processes arc starts, not those a library
-@@ -6538,6 +7040,20 @@
+@@ -6538,6 +7044,20 @@
       or the journal named by this directory's slug.
    A prefix covering repositories shadows their Git journals.
  
