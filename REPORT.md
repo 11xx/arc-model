@@ -1184,12 +1184,16 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 comparisonRevision names source revision
-510e3f0a680bbc5252a28bbd23fee268f7bff4ab. The clean installed
-executable has build revision `510e3f0a680bbc5252a28bbd23fee268f7bff4ab`.
-Its SHA-256 is `47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`.
+12dd52f5d003434fa07eb77908ea26af3c39af9d. The clean installed
+executable has build revision `12dd52f5d003434fa07eb77908ea26af3c39af9d`.
+Its SHA-256 is `ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a`.
 The public interface capture is retained under
-[evidence/repin/510e3f0a](evidence/repin/510e3f0a); no arc source or build
-checkout was used.
+[evidence/repin/12dd52f5](evidence/repin/12dd52f5); no arc source or build
+checkout was used. The re-pin began against the installed clean build
+`510e3f0a680bbc5252a28bbd23fee268f7bff4ab`, SHA-256
+`47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`; the
+comparisons run against it are retained under
+[evidence/repin/12dd52f5/at-510e3f0a](evidence/repin/12dd52f5/at-510e3f0a).
 
 The prior pin is source/build revision
 b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b, clean, with SHA-256
