@@ -1,0 +1,57 @@
+Authority and effect boundaries
+
+WHAT ARC WILL NOT DO
+  Ledger and repository:
+    arc never deletes or rewrites a ledger event file.
+    arc rewrites a branch only through `arc rewrite`, which records the map
+      it produced, and merges only through `arc integrate` when every
+      required gate is green.
+    arc never force-removes a checkout it did not create. Worktree removal
+      refuses while dirty or untracked content is present, `fork retire
+      --force` is the operator's decision to get past that. The
+      scratch checkouts arc force-removes are those it creates to evaluate
+      a merge or run a baseline acceptance probe.
+    arc never runs `git rebase --abort`.
+    arc never installs a Git hook silently.
+    arc never makes a network call. Every transport it offers is a file the
+      caller moves: change and replica bundles, journal bundles, and the
+      tapes records `arc context read --from-tapes` is handed. On its own
+      behalf arc runs `git`, the signing program Git is configured with,
+      and local probes (`df`, `du`, `findmnt`, the installed `arc
+      --version`); a declared gate, renderer, hook, or intake command is
+      the project's or its caller's.
+    arc never refuses to create a worktree over disk space.
+    arc records no configuration history, only the inputs to one
+      irreversible decision.
+
+  Refusals worth knowing before they happen:
+    arc refuses a change or replica bundle written by a newer arc rather
+      than skipping lifecycle events it does not know. A journal import holds
+      back each artifact carrying an unsupported event and reports its kind
+      and schema, while admitting the understood reference closure.
+    `arc import` reads `arc-bundle/6` and `arc-bundle/5`.
+      Absent optional fields stay absent; other bundle schemas are refused.
+    arc refuses a gate run only when the change's recorded worktree is
+      missing or its HEAD is not the branch head. A run started from another
+      checkout of the repository is redirected to the recorded worktree and
+      says so.
+    arc refuses a `--from-journal` source that is missing, non-actionable,
+      already consumed, or an incompletely published transition successor.
+    arc refuses a delivery naming an audience that cannot settle the
+      question.
+    arc refuses a rewrite map claiming a revision survives as a commit this
+      repository does not hold.
+
+  Judgements arc does not make:
+    arc records declared identities and observed models, and holds no
+      routing opinion.
+    arc records the displaced owner and the reason a claim was taken over.
+    arc holds no ranking of its own: it never scores the coordinates a debt
+      records, and joins or orders models only against the dated ladder a
+      destination commits for assessed clearance (`arc guide
+      debt-clearance`).
+    arc never infers an identity from a branch or a directory name.
+    arc never claims a recipient read anything.
+
+  `arc <command> --help` prints that command's full contract.
+  `arc --help` indexes root commands.

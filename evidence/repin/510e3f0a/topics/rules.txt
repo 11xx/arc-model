@@ -1,0 +1,6 @@
+Claims, evidence, journal, run and round rules
+  arc guide rules-claims                   Concurrent claims, lanes and recovery
+  arc guide rules-evidence                 Trees, attribution and acceptance evidence
+  arc guide rules-journal                  Journal ownership, events and spool safety
+  arc guide rules-runs                     Dispatches, executor bindings and native children
+  arc guide rules-rounds                   Round endings and execution roles

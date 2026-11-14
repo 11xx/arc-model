@@ -1,0 +1,57 @@
+Destructive rehearsals
+
+SANDBOX (rehearse something destructive)
+  Commands arc runs on a project's behalf inherit no Git repository selectors
+  or command-scoped configuration: GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
+  GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR,
+  GIT_NAMESPACE, GIT_PREFIX, GIT_CONFIG, GIT_CONFIG_COUNT and its numbered
+  keys and values, and GIT_CONFIG_PARAMETERS are removed. Gates, selectors,
+  probes, preparation, slot warming, renderers, explicit checkout hooks and
+  scratch-checkout commands share this boundary. Global and system Git
+  configuration still apply. A hook parent's GIT_DIR and GIT_WORK_TREE locate
+  arc's checkout once; subsequent Git calls use explicit directories. This
+  protects against inherited redirection, not commands that choose another
+  repository themselves. `arc guide gate-confinement` defines kernel-enforced
+  writable roots for project commands.
+
+  Git configuration health is reported as problems by `arc doctor`, in one
+  line by `arc catchup`, and per registered project by `arc workspace report`.
+  Local user.name and user.email require [git] allow_local_identity = true
+  in the checkout's .arc/policy.toml. A checkout or linked worktrees with
+  core.bare = true, including inherited settings, and local commit.gpgsign or
+  tag.gpgsign = false overriding
+  global signing, are problems regardless of that exception. Config includes
+  and worktree scope are inspected together; diagnostics never repair config.
+
+  arc doctor             Reports the build commit and tracked-tree state
+                         (clean, dirty, or unknown) in text and JSON.
+                         Opens with the roots this invocation reads and
+                         writes, and whether a sandbox is in force.
+  arc sandbox clone <prefix>
+                         Copy this project — repository, ledger, journal,
+                         configuration — into the prefix, so the copy answers
+                         the way the source does.
+  ARC_SANDBOX=<prefix> arc <command>   (or --sandbox <prefix>, on any command)
+                         Every root arc writes by default lives under the
+                         prefix: journal, registry, configuration, worktrees,
+                         temp, and the ledger wherever a data root places it.
+  arc sandbox diff <prefix>      What the copy's ledger events, journal
+                         events, and refs differ by, in both directions.
+  arc sandbox discard <prefix>   Remove it — only where the marker arc wrote
+                         and the directory agree about what is there.
+
+  The prefix stands in for the home directory, so one value moves every root
+  at once and a configured `~/…` path follows it. A variable naming one exact
+  directory — ARC_AI_HOME, AI_HOME, ARC_WORKTREES_DIR, ARC_DATA_ROOT, ARC_DATA_DIR,
+  ARC_JOURNAL_DIR — still means the directory it names: the prefix replaces
+  defaults, not statements.
+
+  The repository arc was pointed at is still read and written as a Git
+  repository, which is why a rehearsal runs in a clone rather than beside the
+  original. A clone carries committed state: uncommitted work is not copied,
+  nor a workbench's content unless `clone --workbench-content` asks, and an
+  open change's recorded checkout is the source's until one is made in the
+  sandbox. The prefix bounds recorded paths too: a checkout outside it is
+  refused by name rather than run in, so gates and `rebase` say to make one
+  inside with `git worktree add`.
+

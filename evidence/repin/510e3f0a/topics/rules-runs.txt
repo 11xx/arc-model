@@ -1,0 +1,62 @@
+Dispatches, executor bindings and native children
+
+  - `arc run dispatch` names exactly one subject: `--change <id>`, `--fork
+    <slug>`, `--range <base>..<head>`, or `--journal <file>`. A round is its
+    ordinal within that subject, so the loop of bounded rounds records on a
+    fork, a bare commit range, or a journal artifact as readily as on a ledger
+    change. A journal subject resolves as `begin --from-journal` resolves it
+    and is recorded as given, with the digest of the body read then; after a
+    kind transition its `supersedes` chain leads from either name to the
+    other, and `run list` names the newest.
+  - `arc run list --json` emits an `arc-run-list/1` object with `schema` and
+    `runs`, an array in most-recent-dispatch order. Each row carries its
+    subject, round, binding and terminal outcome; journal subjects carry
+    `journal` and, when their journal resolves, `journal_lineage`. An empty
+    list carries `runs: []`.
+  - `arc run bind <dispatch> --executor-harness <h> --executor-session <id>
+    [--handle <handle>] [--forked-from <session>]` records which backend
+    session executed a dispatch, at any time after it, its ending included.
+    The global `--session` names
+    the caller; the binding names the executor. A dispatch has one binding:
+    the same values again record nothing and print the event already held,
+    and different values refuse. An empty value, a placeholder, whitespace, a
+    harness carrying `:`, and a session id given as the harness refuse. A
+    follow-up or resume is its own dispatch with its own binding, so two
+    dispatches bound to one executor session are two spans of one
+    measurement scope. `run list` shows each binding, or `unbound`. Distinct
+    complete tuples arriving by import remain a binding conflict, with each
+    tuple visible in text and in `binding.conflicts` in JSON. Equal imported
+    tuples are harmless duplicate observations. Rebinding a conflicted
+    dispatch refuses; no tuple establishes an exclusive assignment.
+    Binding identities carry no `/`, `\` or `~`; a refusal names the field
+    and a fixed reason without echoing a private locator. A held locator
+    refuses binding retries and run listings with a fixed diagnostic.
+    Cost reads qualify the affected assignment and preserve readable session
+    figures. Imports and exports refuse nonportable bindings while
+    preserving ledger events.
+    `--forked-from` names the session in the executor's harness whose
+    history it began as a copy of, and follows the validation and retry
+    rules of `--executor-session`. Fork origins participate in binding tuples.
+  - A lead that spawns a native child, a Claude Agent-tool subagent or a
+    Codex `thread_spawn` thread, records it by hand as a run: `arc run
+    dispatch --change <id> --route <route> --worktree <path>` before it
+    spawns the child, `arc run bind <dispatch> --executor-harness <h>
+    --executor-session <child> --parent-session <parent> [--executor-role
+    reviewer]` once the child's id is known, and `arc run end` when it
+    returns. A Claude subagent is named by the agent id the Agent tool's
+    result names; tapes reads its recording, held under the parent's, as
+    `<parent>::<agent>`. A Codex child is named by its own thread id, and its
+    recording must name the parent as `parent_thread_id`. The pinned reader
+    must find exactly one recording naming both, or the binding refuses with
+    a fixed reason that echoes neither: the parent does not resolve, the
+    parent records no such child, the child's recording is not in the store,
+    or it names another parent or none. A delegated-agents mirror row
+    (`agentType` `delegated-agents:run`) carries no consumption of its own:
+    binding one refuses and names the agent-delegate run it mirrors, with
+    the dispatch that binds that run's handle when one does. A child is
+    never named `<parent>::<agent>` in `--executor-session`.
+    `--executor-role` is `implementer`, the default, or `reviewer`, on any
+    binding. `run list` shows `parent=` and `role=`, and JSON rows carry
+    `binding.parent_session` and `binding.role`. A resumed child is a further
+    dispatch bound to the same child, so its runs are its spans. Binding
+    still attributes by the ledger alone, never by timestamp proximity.

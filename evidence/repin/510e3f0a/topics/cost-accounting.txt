@@ -1,0 +1,34 @@
+Counters, coverage and accounting bases
+
+    A harness's native counters add only within that harness: a raw input sum across
+    harnesses is refused and other native sums across harnesses are
+    withheld. Tapes' disjoint categories (uncached input, cache read, cache
+    write by TTL, output, reasoning as a subset of output, and their total)
+    add across harnesses, each with its harness's convention, within one
+    accounting basis. An unbound or conflicting dispatch withholds its work
+    totals.
+    A missing amount leaves a total absent beside its known subtotal, never
+    zero. Measurement, assignment, and identity coverage are reported apart.
+    Every quantity names its accounting basis. Incompatible harness or basis
+    domains withhold the combined quantity and expose separate partitions.
+    Completeness is per category and is tapes' typed answer for the figure
+    measured, never a count of its prose notes. A counter or disjoint
+    category tapes qualifies is a known subtotal, with one fixed reason per
+    tapes reason: a missing counter or price, a written zero price, a
+    stopped request, an unreadable record, a read window or counter reset,
+    an unestablished scope, a request not attributed to a model, a
+    category the counters do not determine, or a record carrying usage that
+    no reading counted. A record carrying no usage, such as a harness's
+    attachment note, qualifies nothing. A counter holding no amount is
+    absent. A disjoint category carries the reasons tapes gives it, and the
+    total those of its four categories. Only the reader's `--latest`
+    selection warnings remain prose, counted as such. A recording that
+    keeps several conversation paths, such as a rewound Pi session, counts
+    each consumption event once across every retained branch, with the
+    events, their per-counter coverage and how they are identified reported
+    beside the figure. A recorded zero price beside nonzero or unknown usage
+    is unpriced, never a measured zero, and pricing coverage is reported
+    with the cost.
+    Token arithmetic preserves integers and refuses overflow. Currency sums
+    round to ten fractional places, preserving smaller nonzero values;
+    currency bounds round outwards.

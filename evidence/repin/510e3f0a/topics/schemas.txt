@@ -1,0 +1,185 @@
+Versioned surfaces
+
+SCHEMAS
+  Every structured surface carries a `schema` string `<name>/<n>`. A shape
+  change takes one new version per release, counted from the last release:
+  adding a field as much as removing, renaming, or redefining one. A surface
+  already bumped for the unreleased version keeps that number for further
+  shape changes. A commitment is a shape callers outside arc read, and its
+  version is a promise. An internal shape is arc's own on-disk bookkeeping;
+  parsing one means tracking arc's implementation.
+
+  An input format, stored or supplied, is versioned from the reader's side:
+  its version marks what a reader must accept, so a new optional field that
+  leaves every older file valid keeps the version, and removing a field or
+  making one required takes the next. `journal-events/2` and
+  `arc-trailer-edits/1` are two.
+
+  Commitments, derived views:
+    `arc-forge-view/1`               arc forge show --json; forge reconstruction
+    `arc-state/3`                    arc show --json
+    `arc-trailers/1`                 arc trailers --json
+    `arc-status/27`                  arc status
+    `arc-assurance/1`                arc query --assurance --json
+    `arc-check/4`                    arc check --json
+    `arc-inbox/11`                   arc inbox --json
+    `arc-catchup/12`                 arc catchup --json; git_health config problems
+    `arc-journal-catchup/9`          arc journal catchup --json
+    `arc-resume/8`                   arc resume --json
+    `arc-explain/2`                  arc explain --json
+    `arc-watch/1`                    arc watch --json, stdin of arc watch --exec
+    `arc-config/1`                   arc config
+    `arc-accept/1`                   arc accept --json
+    `arc-export/1`                   arc export --json
+    `arc-import/1`                   arc import --json
+    `arc-integration-plan/1`         arc integrate --dry-run --json
+    `arc-landing-plan/1`             arc land --dry-run --json
+    `arc-check-timings/1`            optional gate timings file; guide gate-costs
+    `arc-gate-delta/1`               gate selector stdin
+    `arc-gate-selection/1`           gate selector stdout
+    `arc-provisional-transition/2`   arc integrate --provisional --json
+    `arc-brief/2`                    arc brief --json
+    `arc-journal-artifact/3`         arc journal show --json
+    `arc-journal-entry/1`            arc journal show <entry address> --json
+    `arc-journal-open/1`             arc journal open --json
+    `arc-journal-pins/1`             arc journal pins --json
+    `arc-journal-workbenches/1`      arc journal workbench list --json
+    `arc-journal-render/1`           arc journal render --json
+    `arc-journal-inventory/6`        arc journal inventory --json
+    `arc-rescue/5`                   arc rescue --json
+    `arc-review/5`                   arc review --json
+    `arc-receipt-result/1`           arc review|audit --receipt --json
+    `arc-findings/3`                 arc findings --format json
+    `arc-blocker-status/1`           arc blocker-status --json
+    `arc-metadata/1`                 arc metadata --json
+    `arc-chain/5`                    arc chain --json
+    `arc-candidate/1`                arc candidate show|list --json
+    `arc-gates/1`                    arc gates --json
+    `arc-gate-paths/1`               arc gates paths --json
+    `arc-workspace-gates/1`          arc workspace gates --json
+    `arc-stats/2`                    arc stats --json
+    `arc-stats-by-model/1`           arc stats --by-model --json
+    `arc-stats-provenance/1`         arc stats --provenance --json
+    `arc-stats-round-trip/1`         arc stats --round-trip --json
+    `arc-cost/1`                     arc cost show --json
+    `arc-cost-commit/1`              arc cost show --commit --json
+    `arc-changelog/1`                arc changelog --json
+    `arc-changelog-render-request/1` stdin of a command changelog renderer
+    `arc-forks/3`                    arc fork list --json
+    `arc-run-list/1`                 arc run list --json
+    `arc-doctor/6`                   arc doctor --json
+    `arc-slots/1`                    arc slots status --json
+    `arc-perf/1`                     ARC_TRACE=1, one line on stderr at exit
+    `arc-workspace/2`                arc workspace list|inbox --json
+    `arc-workspace-backlog/19`       arc workspace backlog --json
+    `arc-workspace-report/3`         arc workspace report|watch; projects[].git_health; optional library
+    `arc-workspace-inventory/2`      arc workspace inventory --json
+    `arc-workspace-pins/1`           arc workspace pins --json
+    `arc-workspace-retirement/1`     arc workspace retire|restore --json
+    `arc-writability/1`              arc config --check-writable --json
+    `arc-sandbox-clone/2`            arc sandbox clone --json
+    `arc-sandbox-diff/1`             arc sandbox diff --json
+    `arc-replica-id/1`               arc replica id --json
+    `arc-replica/2`                  arc replica status --json
+    `arc-journal-questions/4`        arc journal questions --json
+    `journal-discussion/5`           arc journal discussion --json
+    `journal-source/2`               arc journal source --json
+    `arc-journal-filed/1`            arc journal filed --json
+    `arc-journal-latest/1`           arc journal latest --json
+    `arc-journal-scaffolds/1`        arc journal scaffolds --json
+    `arc-checkpoint/1`               arc checkpoint show --json
+    `arc-checkpoint-list/1`          arc checkpoint list --json
+
+  Read views with `review_context` carry target revisions and author
+  coordinates computed at projection time. Verdict and audit entries may carry
+  `tiebreak_reviewer`, the dated policy entry elected when the read was recorded,
+  and `tiebreak_target`, the destination whose policy elected it. An absent
+  entry or destination grants no exception. Store format 7 accepts this optional read
+  metadata alongside records without it. Verdict and audit entries also carry
+  optional `basis_time`, `basis_source` (`session-reply`, `declared` or
+  `recorded`) and `basis_version`, preserved in bundles and replica events.
+  `basis_version` names the recorder's applicable version; `review_context`
+  judgments name the receiver's version at that time. An absent basis time
+  is legacy evidence, inferred from `created_at`. Receipt items accept optional
+  RFC 3339 `judged_at`; its bounds and reply precedence are defined by
+  `arc guide debt-clearance`. These optional input fields leave older records
+  valid under store format 7.
+
+  The bypass fields in state, status, check and explain retain historical
+  judgements, including check.bypassed; gate authorization uses eligible passes.
+
+  Candidate evaluations and publication receipts carry optional command timing;
+  candidate views expose the evaluations' timing. Missing timing remains absent through replay and transport; current
+  budget acceptance is separate from the recorded outcome. These optional
+  receipt fields retain the stored-input versions. Publication's optional
+  budget_accepted records historical cost acceptance separately from raw
+  results; current acceptance rejudges timing.
+
+  Commitments, files:
+    `arc-bundle/6`                   arc export / arc import
+    `arc-bundle-objects/1`           arc export --objects-json
+    `arc-custody-bundle/1`           arc export / import --custody-dir
+    `arc-forge-delivery/1`           arc message --delivery-file
+    `arc-disclosure/1`               arc context declare --disclosure-file
+    `arc-forge-observation/1`        arc forge observe --file
+    `arc-forge-receipt/1`            arc forge observe|link|checks|pr-state --json
+    `arc-review-receipt/1`           arc receipt template; arc review|audit --receipt
+    `arc-received-evidence/1`        arc candidate register --evidence-file
+    `arc-replica-bundle/3`           arc replica export / import
+    `arc-replica-event/3`            one event inside an arc-replica-bundle
+    `arc-journal-bundle/2`           arc journal export / import
+    `journal-events/2`               events.jsonl, streamed by arc journal events
+    `arc-workspace-feed/1`           <ai-home>/arc/feed/events.jsonl (arc guide workspace)
+    `arc-journal-spool/2`            .arc/outbox/<ts>-<kind>-<topic>.json
+    `arc-trailer-edits/1`            arc rewrite trailers --edits
+    `arc-workspace-watch-request/1`  arc workspace watch, one per stdin line
+    `arc-correspondence/1`           arc close --correspondence
+    `arc-review-ladder/1`            .arc/review-ladder.toml; review-ladder import|show --json
+
+  `arc cost evidence` writes `tapes-attribution-evidence/1`, a format tapes
+  owns and versions; this rule counts the shapes arc defines, so that file
+  takes no arc schema string.
+
+  Imports accept `arc-bundle/5` and `arc-replica-bundle/2` alongside
+  current export formats. Journal imports accept
+  `arc-journal-bundle/1`.
+  Their absent model provenance stays absent.
+
+  A `pinned` event may carry an optional `guide` topic name. This additive
+  input field keeps `journal-events/2`; pins without it remain valid.
+
+  A journal event omits the harness or session key nobody established.
+  Owned claim and lane lifecycle events require their complete identities;
+  an event lacking one is unsupported and cannot change ownership state.
+  `journal-events/2` covers that and the `evidence`, `relocated`,
+  `redacted`, `pinned`, `unpinned`, `published`, and `workbench-opened`,
+  `-adopted`, `-linked`, `-closed`, `-archived` and `-unarchived` kinds,
+  which name a workbench and no artifact `file`; `journal-events/1`
+  events, which carry both keys, are read alongside it, and a value of
+  `unknown` in either reads as absent. A journal bundle and a journal spool
+  (`arc-journal-spool/1` or current) carry events of either version. A reader
+  of an older version skips an event it does not know, `journal doctor`
+  reports that event as `unknown-jsonl-event`, and journal import holds back
+  each artifact carrying an unsupported event and its dependents while
+  admitting unrelated understood artifacts.
+
+  Private successor preparation uses complete Markdown at
+  `.transitions/<successor>`, retained until source retirement. These files
+  are recovery evidence, separate from versioned journal events.
+
+  Internal:
+    store format 9                   .git/arc/config.json and the change ledger
+    store format 10                  base-pass baselines and reuse evidence
+    store format 11                  measured batches and their authorization
+    store format 12                  busy-host work references and excuses
+    `arc-accept-checkout/1`           local administrative allocation recovery
+    `arc-landing-intent/1`            landing-intents/<attempt>.json recovery
+    `arc-import-batch/1`             local atomic change import and authorization
+    `arc-replica-import/3`           receipt of an imported replica bundle
+    `arc-journal-exchange-import/1`  receipt of an imported journal bundle
+    `arc-sandbox/2`                  .arc-sandbox.json
+    `arc-slot-pool/1`, `arc-slot/1`  a slot pool's pool.json and slot-NN.json
+    assurance blame cache            <ledger>/cache/assurance/<change>.json
+    Codex model checkpoint format 1  <ai-home>/arc/cache/model-lookups/<key>.json
+    `journal-binding/1`              bindings.jsonl
+

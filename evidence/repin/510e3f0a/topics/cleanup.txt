@@ -1,0 +1,57 @@
+Integration cleanup and retained checkouts
+
+  `integration.cleanup` governs branch and worktree cleanup after integration
+  (built-in false). A slot checkout is never removed; its release detaches it
+  and deletes the merged branch (arc guide slots). `integrate --cleanup` enables it; `--no-cleanup` overrides
+  a configured true. `integration.discard` selects `"artifacts"` (built-in) or
+  `"ignored"`. `integrate --discard <artifacts|ignored>` overrides that scope,
+  implies cleanup, and conflicts with `--no-cleanup` for single changes and
+  queues. The ignored scope discards every Git-ignored file and directory
+  outside `.arc/`, as classified by the parent checkout's Git ignore rules.
+  A worktree containing another repository is never removed, under either
+  scope. Cleanup walks its whole filesystem tree independently of Git status.
+  A directory with a `.git` entry or a bare repository layout (`HEAD`,
+  `objects/` and `refs/`) keeps the checkout and is named. The checkout's
+  own `.git` file at its root is the only exclusion. The walk never follows
+  symlinks, and any read error keeps the checkout. A recorded worktree path
+  that is itself a symlink keeps the checkout uninspected. Tracked edits, untracked
+  files and index entries marked skip-worktree or assume-unchanged
+  keep the checkout. Ignored `.arc/` content keeps it under either scope,
+  including recognized artifacts; only owned, emptied outbox metadata is
+  exempt. Ownership checks apply under either scope. Cleanup uses the
+  cleanup, discard and disposable style values selected before the merge;
+  a change's policy edits do not govern its own cleanup. Cleanup deletes
+  merged branches with Git’s merged-branch check and removes only clean
+  worktrees inside the sandbox. Arc removes only
+  the checkout instance it created, identified by an owner record in that
+  checkout’s Git administrative directory. `begin` allocates the worktree
+  without checkout, writes its owner record, and then populates its files.
+  Creation authority requires the registered path to retain that allocated
+  administrative directory after checkout hooks run. A changed identity opens
+  the change without creation authority and keeps all worktrees. `fork begin`
+  also verifies the allocated directory after checkout and refuses its marker
+  on a changed identity, keeping all worktrees.
+  Worktree creation runs post-checkout with a null old revision, HEAD as the
+  new revision, and flag 1, matching Git's creation hook arguments. Population
+  or hook failure keeps the branch and worktree and records no opening or fork
+  marker. The error prints adoption and discard commands. The begin adoption
+  command preserves the opening options and resolved target and base. Every
+  option value uses --flag=<shell-quoted value> to preserve leading hyphens.
+  The retained branch determines the checkout. Fork provenance during
+  adoption requires an explicit base. `begin` removes its
+  unrecorded owner token when its identity matches; cleanup failures are reported.
+  The registered checkout must still hold the change branch. An ignored
+  directory outside `.arc/` identified as a build artifact by a valid
+  CACHEDIR.TAG, a built-in recognizer, or a configured
+  `integration.disposable` rule's path and marker is eligible for removal
+  only if a repository scan succeeds and finds no repository. With the
+  artifacts scope, other ignored content keeps it. Tracked edits and untracked files keep it under
+  either scope. Recognition grants no checkout removal authority. An
+  outbox containing only the spool's regular `.gitignore` with `*` and a
+  trailing newline is disposable metadata only when its Git administrative
+  ownership record identifies that file and records successful promotion.
+  Foreign metadata and any other outbox content keep the checkout.
+  The integration checkout is kept. A kept worktree retains its checked-out
+  branch; each retained path and branch carries its reason. Cleanup failures
+  warn after closure and do not fail integration or stop a queue.
+

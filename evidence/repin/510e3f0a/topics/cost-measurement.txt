@@ -1,0 +1,68 @@
+Selection, measurement and pricing
+
+  - `arc cost show <change|journal-file>... [--json]` reports what the executor
+    sessions bound to the selected runs, and the participants that act on the
+    selected work, consumed, and records nothing. A
+    change selects itself and the artifact it was begun from; an artifact
+    selects its `supersedes` lineage and the changes begun from any name in
+    it. Membership compares resolved journal and artifact identity, so bare,
+    qualified and equivalent directory spellings select the same work.
+    References retain their original spelling as provenance. References to
+    names outside a readable artifact's lineage need no resolution.
+    Unavailable membership qualifies selection and withholds only the work
+    totals that depend on it; readable session figures remain available.
+    Unreadable ledger records and published imports are reported as coverage
+    gaps beside readable records. A query refuses only when neither its
+    target metadata nor any relevant dispatch or session can be read.
+    A citation selects
+    nothing, and transitions and `begin
+    --from-journal` add no consumption. Each session is measured through
+    the pinned tapes reader, or from retained facts when its source no longer
+    answers, and the report says which; a fresh read that disagrees with
+    facts retained at the same frontier shows the conflict. A session
+    whose read failed and that no retained facts measure is unmeasured with
+    `usage read failed`, or with `usage read failed transiently; a later
+    read may succeed` where tapes found its store busy or unavailable
+    through every attempt it makes, so reading again may measure it. Direct
+    totals hold
+    each undivided session whose work the item holds, and the item's share of
+    each divided session with a span on it; inclusive totals add the artifact
+    a change was begun from, and the union counts each session once, a
+    divided one by the selected items' shares. A run's
+    figure is the segments that run alone covers. A harness-written dollar
+    figure is a harness-calculated estimate with an unknown pricing basis;
+    token counts are resource quantities by tapes' categories. A list-price
+    estimate prices a figure's disjoint categories by a `tapes-price-table/1`
+    or `/2` table: `--prices <file>`, else the file `TAPES_PRICES` names, else
+    `$XDG_CONFIG_HOME/tapes/prices.toml` (`~/.config/tapes/prices.toml`). It
+    uses the table rows of the one model the recording says served the
+    figure, or each model's rows share by share, through tapes' pricing,
+    where the recording splits it by several models, where it counts events
+    on branches besides the active one, each priced by the model it names,
+    or where its attribution is uncertain and the split leaves part of it to
+    no model, a part no row prices; a model served at several efforts is one share,
+    priced over every request it served, and a figure added up from a
+    divided session's segments holds each segment's models. Each share is
+    priced by its own recorded cache-write TTLs and keeps its own reasons. A `/2` row's terms set by the request, a
+    long-context rate above a prompt size for the billing it applies to,
+    time-of-day rates and a validity window, are priced request by request
+    over the requests a fresh read kept, a Pi figure's on every branch its
+    recording retains, under the billing the recording establishes; a
+    subscription pays no long-context surcharge. A model the
+    table lacks, a figure no model is known to have served, a figure one
+    model served whole where its read leaves attribution uncertain, a
+    category measured incompletely, a cache write with no recorded TTL, a
+    term the figure's requests do not settle, billing the recording does not
+    establish, and a request no row was in effect for each leave a known
+    subtotal with a fixed reason, priced at the least it can cost where a
+    rate is in doubt, with the most it can cost under `bound`: `whole
+    figure` when those doubts are its only reasons, else `known_bound`. A
+    total adds its members' least and most alike. Retained facts, a share
+    of a request and a child's figure from its family hold no request one
+    by one, so a term they could pay leaves such a subtotal. The estimate
+    is priced when the view is shown, from fresh or retained facts alike,
+    and is never retained. With no table it is absent with the
+    reason `no price table is loaded`; an invalid default table is reported
+    and leaves it absent, and a named or environment table that cannot be read
+    refuses.
+

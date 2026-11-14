@@ -1,0 +1,118 @@
+Owed work, audits and findings after integration
+
+  Coming back to owed work:
+
+    arc inbox                       debt-owed bucket, including closed changes
+    arc catchup                     the same, with each reason and review subject
+    arc query --debt                change IDs alone, for scripting
+    arc query --provisional         approvals still owed corroboration
+                                    (query filters on flags alone; the acting
+                                     identity never narrows a read, so --debt
+                                     lists every harness's obligations)
+    arc diff <change> --integrated  the exact range that landed, for an audit
+    arc audit <change> --verdict <v>          record a post-integration review
+    arc findings <change> --audit             what an audit raised
+
+  A debt stands in one of three states, and every view that shows it reads
+  the same one. `declared`: the change has not integrated, so nothing is owed
+  yet and no review has answered it. `owed`: the change integrated and no
+  eligible review has answered it. `discharged`: one has, and the debt names
+  it. `arc show` and `arc explain` print the state in words (`Declared, not
+  yet integrated`, `Owed`, `Owed (discharged)`); `arc status --json` and
+  `arc chain --review --json` carry it as `debt_standing`, and every JSON
+  view of the debt itself as `debt.standing`. `debt_outstanding`, the
+  debt queues and the waiver keep their meaning: true, listed and binding
+  only for `owed`, which is why a declared debt is absent from `arc inbox`,
+  `arc query --debt` and the workspace backlog.
+
+  An independent read of the revision that shipped, recorded after the debt
+  was declared, that approves it or requests changes discharges it — whether
+  it came from `arc review` before the merge or `arc audit` after. The debt
+  records that no such read existed, not that one command must supply it. A
+  `changes-requested` read is that review; its findings carry what remains.
+  A `comment-only` read judged nothing: it is kept as a read and the debt
+  stays owed. Clearance follows `arc guide debt-clearance`. Without assessed
+  ladder policy, an ineligible assessment leaves debt owed; a read without
+  assessed policy or an assessment is judged by actor and model authorship. `arc audit` prints `debt
+  discharged` only when its own read discharged the debt, and otherwise what
+  the debt still owes and why this read leaves it owed.
+  A debt that carries no production record still has its shipped patchset's
+  recorded authorship to compare against, so a legacy obligation discharges as
+  it did before production summaries existed. An integrated closure that
+  recorded no source patchset recovers it from the ledger: the patchset whose
+  head is its integrated commit, else the latest one recorded before the
+  closure. Only a range with no patchset at all has nothing to compare: its
+  read is recorded, and declared trailers alone neither discharge nor refuse
+  it. An ineligible-review debt also asks the read, audit or verdict alike,
+  for an eligible, bound assessment of its own: `arc guide debt-obligations`
+  states that rule, and `arc guide debt-clearance` the ladder agents it
+  exempts.
+
+  Under `review_clearance = "assessed"` (`arc guide debt-clearance`) only a
+  clearing read discharges a debt of any kind. Every other read since the
+  declaration is a findings read: its verdict and findings stand, the debt
+  stays owed, and `arc status`, `arc show` and `arc check` list it beside the
+  obligation as `debt.findings_reads`, with kind `findings`, its reason and
+  remedy. Ladder reasons name family, floor, explicit lower effort, binding
+  or missing evidence. Without a ladder, assessment-only reasons and the
+  `agent-routing assess --purpose clearance --json` remedy apply. A
+  `comment-only` read remains a read that judged nothing.
+
+  Coverage is judged last: a read that every rule above lets discharge the
+  debt discharges it only when its extent covers the obligation's (`arc
+  guide debt-obligations`). Otherwise it is partial coverage: the debt stays
+  owed, and `arc status`, `arc show` and `arc check` list the read beside the
+  obligation as `debt.partial_coverage` (`debt_partial_coverage` in `arc
+  check --json`), with kind `partial`, its extent, the reason
+  (`read-extent-not-established`, `obligation-extent-not-established`,
+  `domain-mismatch`, `base-mismatch`, `revision-mismatch`, `scoped-read`,
+  `entries-excluded`, `entries-missing`) and the obligation paths it leaves
+  unread. A discharged debt says how in `debt.discharge_extent`: `covered`,
+  or `not-established` where neither side named an extent. A
+  `changes-requested` read within its extent discharges as any read does;
+  its findings carry what remains. A verdict records no extent, so only an
+  audit discharges an obligation that names one.
+
+  An audit is a separate event from the verdict that shipped, so attaching one
+  never rewrites what shipped with what review. An approving audit must come
+  from an identity the ledger does not credit with authorship — otherwise the
+  obligation would discharge itself — though anyone may audit into
+  `changes-requested`, since raising problems needs no independence. Planning
+  and orchestrating are recorded as the auditor's held roles and never refuse;
+  integrating somebody else's work is not contributing to it. An auditor is
+  compared with the authors, planners and orchestrators under the model its
+  audit records and, where its session store observed another, the observed
+  model too: either matching refuses, warns, holds the role or leaves the
+  debt owed, and the message names the model that matched.
+
+  A review finding the change shipped unresolved, whether open, still-open,
+  disputed, or contested, stays that way in what shipped. `arc resolve` on
+  the integrated change records its later disposition, such as `resolved
+  --commit <fix>`, `obsolete`, or `accepted-risk`, beside that state, and
+  readers show both: how it shipped, and how it stood after integration;
+  `explain` lists the disposition as later knowledge. A finding resolved,
+  accepted-risk, or obsolete in the receiver's eligible disposition graph at
+  integration takes none. Replay preserves recorded dispositions and
+  references regardless of receiver trust; release permission is assessed in
+  the receiver's projection.
+  Such a disposition is not a verdict and discharges no debt.
+
+  `arc findings --format sarif` reports every unresolved finding, review or
+  audit. A finding leaves it only when its applicable history has a single
+  resolved, accepted-risk, or obsolete tip; that history is the later
+  dispositions when there are any, otherwise the finding's own.
+
+  Where `forbid_self_approval` is off, an approving verdict from the identity
+  that wrote the work is recorded rather than refused, and `arc review` and
+  `arc audit` both name the match: who it was recorded as, which patchset that
+  identity wrote, and whether arc assumed the identity rather than anyone
+  declaring it. Such a
+  verdict is a review that happened, not an independent one, and it leaves an
+  independent-review debt owed. A read under a model the ledger credits as
+  implementer, recorded or observed, leaves the debt owed at any effort,
+  regardless of `forbid_self_approval`, unless the tie-break election in
+  `arc guide debt-review` applies. Where the ledger records no model for the implementer,
+  the read is judged by the actor, session and harness it records; commit
+  trailers are declared text and never supply the missing model.
+  That policy governs approval authority, not independent coverage.
+

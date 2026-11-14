@@ -1,0 +1,26 @@
+--- b405104a/commands.txt	2026-11-14 07:27:04.443534381 -0300
++++ 510e3f0a/commands.txt	2026-11-14 07:29:11.105581232 -0300
+@@ -168,6 +168,7 @@
+ workspace retire
+ workspace restore
+ journal dir
++journal bind
+ journal doctor
+ journal spool
+ journal note
+@@ -215,6 +216,7 @@
+ journal rebind
+ journal stamp
+ journal lane
++journal workbench
+ journal consume
+ journal transition
+ journal promote
+@@ -232,3 +234,7 @@
+ journal lane renew
+ journal lane close
+ journal lane list
++journal workbench list
++journal workbench link
++journal workbench close
++journal workbench adopt

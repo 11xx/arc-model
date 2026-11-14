@@ -1,0 +1,1172 @@
+diff -ruN b405104a/topics/base-passes.txt 510e3f0a/topics/base-passes.txt
+--- b405104a/topics/base-passes.txt	2026-11-14 07:27:04.451957903 -0300
++++ 510e3f0a/topics/base-passes.txt	2026-11-14 07:29:10.215390380 -0300
+@@ -20,7 +20,7 @@
+   context, execution/run IDs and digests, coordinates, command, timeout,
+   environment identity, binding and timing. Output tails and artifacts stay in
+   the original execution ledger.
+-  Reused, bypassed, attested, untimed, over-budget and dirty-waived evidence
++  Reused, bypassed, attested, untimed, excused, over-budget and dirty-waived evidence
+   cannot establish an entry. An empty baseline establishes no gate pass.
+ 
+   Each gate's first observation may use the newest retained eligible local
+diff -ruN b405104a/topics/boundaries.txt 510e3f0a/topics/boundaries.txt
+--- b405104a/topics/boundaries.txt	2026-11-14 07:27:04.451957903 -0300
++++ 510e3f0a/topics/boundaries.txt	2026-11-14 07:29:10.239292420 -0300
+@@ -46,8 +46,10 @@
+     arc records declared identities and observed models, and holds no
+       routing opinion.
+     arc records the displaced owner and the reason a claim was taken over.
+-    arc never scores the coordinates a debt records, joins them against a
+-      roster, or orders two models against each other.
++    arc holds no ranking of its own: it never scores the coordinates a debt
++      records, and joins or orders models only against the dated ladder a
++      destination commits for assessed clearance (`arc guide
++      debt-clearance`).
+     arc never infers an identity from a branch or a directory name.
+     arc never claims a recipient read anything.
+ 
+diff -ruN b405104a/topics/candidates.txt 510e3f0a/topics/candidates.txt
+--- b405104a/topics/candidates.txt	2026-11-14 07:27:04.451957903 -0300
++++ 510e3f0a/topics/candidates.txt	2026-11-14 07:29:10.018379663 -0300
+@@ -130,7 +130,8 @@
+   gate's command, timeout, and environment probe as consumed, the identity the
+   probe yielded there, the result, and command timing. Required declarations
+   include the candidate tree's additions and tightened budgets. Execution and
+-  selection judge timing against the effective budgets in `arc guide gates`.
++  selection judge timing against the effective budgets in `arc guide gates`;
++  `arc candidate verify --help` states the exit status that follows.
+ 
+   Selection is validation, never choice. The caller names the registration,
+   the destination (the change whose brief it answers), the target head it
+@@ -169,7 +170,8 @@
+   lock and the repository-events lock, never the target's, and in order:
+   refuses `basis-moved`, recording nothing, when the destination head or the
+   target differs from the basis; rejudges the selected evaluations against
+-  current budgets, refusing over-budget or unmeasured evidence; refuses a checkout of the destination with
++  current budgets under `arc guide gates`, refusing evidence rejected by the budget judge;
++  refuses a checkout of the destination with
+   tracked modifications or untracked paths in the way; commits the shipped
+   tree onto the destination head with the selector as committer and keeps it
+   at `refs/arc/candidate-promotion/<candidate>/<selection>`; moves the branch
+diff -ruN b405104a/topics/change-finalization.txt 510e3f0a/topics/change-finalization.txt
+--- b405104a/topics/change-finalization.txt	2026-11-14 07:27:04.452534586 -0300
++++ 510e3f0a/topics/change-finalization.txt	2026-11-14 07:29:09.843409722 -0300
+@@ -48,8 +48,8 @@
+   Empty list items retain their markers.
+   A project whose file follows another convention selects `renderer =
+   "command"` with a `renderer_command` argv. That command runs from the
+-  repository root without a shell, with the authority of whoever runs `arc
+-  changelog`, reads an `arc-changelog-render-request/1` document on stdin,
++  repository root without a shell, under `arc guide gate-confinement`,
++  reads an `arc-changelog-render-request/1` document on stdin,
+   and answers on stdout: the rendering for a read, and for `--write` the
+   complete replacement file, written atomically after it exits 0. It may
+   answer without reading the whole request. Its process group is killed when
+diff -ruN b405104a/topics/change-gates.txt 510e3f0a/topics/change-gates.txt
+--- b405104a/topics/change-gates.txt	2026-11-14 07:27:04.452534586 -0300
++++ 510e3f0a/topics/change-gates.txt	2026-11-14 07:29:09.821716653 -0300
+@@ -1,7 +1,8 @@
+ Gate execution and atomic review input
+ 
+-  A gate runs where its change lives. `verify`, `snapshot --verify`, `done`,
+-  and `rebase --verify` execute the command in the change's recorded worktree
++  A gate runs where its change lives, under `arc guide gate-confinement`.
++  `verify`, `snapshot --verify`, `done`, and `rebase --verify` execute the
++  command in the change's recorded worktree
+   and record the evidence at that worktree's head, whichever checkout of the
+   repository the command was typed in; the run says which tree it used when
+   that is not the one you are standing in. Which gates are required is read
+@@ -35,6 +36,14 @@
+   a timeout or group cleanup that interrupts accounting, or unavailable
+   accounting, supplies no CPU figure. Work delegated to an existing external service
+   is outside that accounting. Unavailable host observations are absent.
++
++  The busy-host rule (`arc guide gates`) keeps a loaded machine from being
++  blamed on a change; it is not proof against a change built to deceive it.
++  Work a gate hands to processes outside its tree (a service, a container
++  daemon, an emulator) counts as other load, before and during the gate. An
++  exec the counters cannot follow hides work within the checks' tolerances,
++  and a descendant that narrows its own CPU set is not seen. A pass on a
++  quiet host exposes each: nothing is excused there.
+   Attestations, bypasses and older events supply no missing measurements.
+   `arc stats` uses `run_ms`, falling back to `duration_ms` only for events
+   without command timing. These observations impose no cost limit.
+diff -ruN b405104a/topics/change-integration.txt 510e3f0a/topics/change-integration.txt
+--- b405104a/topics/change-integration.txt	2026-11-14 07:27:04.452534586 -0300
++++ 510e3f0a/topics/change-integration.txt	2026-11-14 07:29:09.829004331 -0300
+@@ -1,5 +1,14 @@
+ Replay, integration shapes and shipped evidence
+ 
++  `snapshot` and `integrate` refuse a patchset containing a commit whose raw
++  author or committer address uses .invalid, .example, .test, .localhost,
++  example.com, example.org or example.net, including subdomains. A snapshot
++  base override cannot hide introduced commits. Integration checks recorded
++  patchsets too, including provisional preparation and multi-change landings.
++  The refusal names the commit and explains how to re-author it with a real
++  identity before taking a fresh snapshot. A project's identity-health
++  exception does not permit reserved commit addresses.
++
+   `arc rebase` is what `check` names when the selected integration shape
+   requires replay onto the target. Where Git can, arc performs the replay
+   itself with `git replay`, which runs no hooks and leaves the worktree alone.
+diff -ruN b405104a/topics/change-landing.txt 510e3f0a/topics/change-landing.txt
+--- b405104a/topics/change-landing.txt	2026-11-14 07:27:04.453534608 -0300
++++ 510e3f0a/topics/change-landing.txt	2026-11-14 07:29:09.835858519 -0300
+@@ -86,8 +86,8 @@
+   attempts are outside that bound. Before authorization, every shared receipt
+   is judged against every requiring member's budget. A budgeted gate refuses
+   authorization if its selected receipt cannot be resolved on the top member.
+-  Missing run_ms or an
+-  over-budget pass refuses with the member, gate, run time and budget, leaves
++  Missing run_ms or a
++  budget refusal under `arc guide gates` names the member, gate, run time and budget, leaves
+   the target unmoved and does not trigger splitting or an implicit retry.
+   Effective budgets, totals and sources are pinned, confirmed and retained in
+   each member's authorization.
+diff -ruN b405104a/topics/debt-clearance.txt 510e3f0a/topics/debt-clearance.txt
+--- b405104a/topics/debt-clearance.txt	2026-11-14 07:27:04.455534654 -0300
++++ 510e3f0a/topics/debt-clearance.txt	2026-11-14 07:29:09.952328601 -0300
+@@ -94,7 +94,7 @@
+ 
+   Persons are exempt from model-coordinate enforcement and capability floors;
+   their identities must remain independent of the complete author set. A
+-  person's audit of ineligible-review answers the assessment requirement in
++  person's read of ineligible-review answers the assessment requirement in
+   `arc guide debt-obligations`. A clearing ladder agent needs no assessment to discharge that
+   kind. No read before the debt declaration or without required coverage
+   discharges it. An approval that only finds cannot gate integration;
+diff -ruN b405104a/topics/debt-obligations.txt 510e3f0a/topics/debt-obligations.txt
+--- b405104a/topics/debt-obligations.txt	2026-11-14 07:27:04.455534654 -0300
++++ 510e3f0a/topics/debt-obligations.txt	2026-11-14 07:29:09.936783963 -0300
+@@ -28,8 +28,8 @@
+   named read, qualifiers and assessment basis; a debt the change already
+   carries reads `debt already declared` with its event. A declaration the
+   execution would refuse is refused by the plan with the same message and
+-  exit code: an unknown qualifier, no verdict to name, an eligible assessment,
+-  a read flag on another kind. The plan never invents an approval, and a
++  exit code: an unknown qualifier, no verdict to name, an assessment under
++  which the read clears, a read flag on another kind. The plan never invents an approval, and a
+   changes-requested verdict on the exact head still refuses it. `--json`
+   carries the debt as `debt` in `arc-integration-plan/1`, with
+   `disposition` `would-declare` or `already-declared`; a plan that would
+@@ -94,28 +94,33 @@
+   `ineligible`) and `clears` (true or false); arc stores both beside
+   `independence`, and a `/1` file leaves them absent. arc keeps its
+   `independence`, `qualifiers` and `route_version`, never a tier or a model
+-  string (an audit's binding to its auditor is the one comparison made,
+-  below), and validates shape only: qualifier names from the closed set, a
++  string (it compares only the reviewer it describes with the read's model
++  and its authors with the range's coordinates, below), and validates shape only: qualifier names from the closed set, a
+   one-token route version, and answers that agree. In `/1` qualifiers are
+   present exactly when the independence is `ineligible`; in `/2` a file that
+   clears is eligible on both answers, names no qualifier and names its
+   reviewer's effort, and one that does not clear names a qualifier. An
+-  `eligible` assessment is
+-  refused on this kind, because there is no debt to record. A tier is
++  assessment under which the named read would discharge the debt is refused
++  on this kind, and one under which it would not is recorded: without
++  `review_clearance` its `independence` decides, under it the read's
++  clearance (`arc guide debt-clearance`) does, and a judgment arc cannot
++  establish records the debt. A tier is
+   routing's reading at the time it is read, so every read shows the record
+   as its route version and basis say, never as current. Within the kind,
+   `arc query --debt`, the inbox, catchup and the workspace backlog put a
+   `below-floor` read first.
+ 
+-  Under assessed ladder policy, a clearing agent audit discharges it without
++  Under assessed ladder policy, a clearing agent read discharges it without
+   an assessment. Other cases retain the assessment requirements below; the
+   clearance rule and all independent bars are in `arc guide debt-clearance`.
+ 
+-  It clears with an audit that approves or requests changes:
+-  `arc audit --assessment <file>` with `independence: eligible`, by an
+-  auditor who is also independent of the
+-  contributors and whom the assessment describes. This eligible, bound
+-  assessment is required for a person's audit too. The assessment covers the
++  It clears with a read recorded since the declaration that approves or
++  requests changes under an assessment of its own with `independence:
++  eligible`: an audit (`arc audit --assessment <file>`) or a verdict on the
++  patchset that shipped (`arc review --assessment <file>`), by a reader who
++  is also independent of the contributors and whom the assessment
++  describes. This eligible, bound assessment is required for a person's read
++  too. The assessment covers the
+   work: the `authors` it lists answer, through their `identities`,
+   to the model of every `Implemented-by` line in the integrated range, at
+   that line's effort. An author entry without an `effort` covers its model at
+@@ -143,8 +148,9 @@
+   named beside it) or `authors-unread` (the range's authors could not be read). An
+   audit without an assessment, with an `ineligible` one, or
+   whose binding is not `bound` is recorded, says why, and is listed beside the
+-  obligation, which stays open; a verdict recorded since clears it only with
+-  an eligible, bound assessment of its own (`arc review --assessment`).
++  obligation, which stays open; a verdict in the same case leaves it open,
++  listed with its reason among the findings reads where assessed clearance
++  applies (`arc guide debt-recovery`).
+   `arc query --debt`, `arc catchup`, `arc inbox`, the workspace backlog, the
+   debt advisory, `arc show` and `arc explain` show the qualifiers, the read's
+   reviewer and model as its verdict recorded them, whether the assessment
+@@ -174,9 +180,8 @@
+   kept whole, the effort that string's trailing `#suffix` names, and the
+   routing version `arc review --route-version` or `arc audit --route-version`
+   declared. Production names who set the contract, who implemented it, and
+-  the orchestrator and integrator the ledger records. Arc records coordinates
+-  and holds no opinion: no score, no roster to join them against, and no
+-  ordering between two models.
++  the orchestrator and integrator the ledger records. Arc records
++  coordinates; `arc guide boundaries` says what it never judges of them.
+ 
+   A verdict can also be owed corroboration rather than absent. `arc review
+   --verdict approved --provisional "<why>"` records one that gates like any
+diff -ruN b405104a/topics/debt-recovery.txt 510e3f0a/topics/debt-recovery.txt
+--- b405104a/topics/debt-recovery.txt	2026-11-14 07:27:04.456534676 -0300
++++ 510e3f0a/topics/debt-recovery.txt	2026-11-14 07:29:09.944322677 -0300
+@@ -43,10 +43,10 @@
+   head is its integrated commit, else the latest one recorded before the
+   closure. Only a range with no patchset at all has nothing to compare: its
+   read is recorded, and declared trailers alone neither discharge nor refuse
+-  it. Outside assessed ladder clearance, ineligible-review additionally
+-  requires an audit that approves or requests changes with an eligible,
+-  bound assessment. Persons retain that requirement
+-  under ladder clearance; `arc guide debt-obligations` owns the binding rule.
++  it. An ineligible-review debt also asks the read, audit or verdict alike,
++  for an eligible, bound assessment of its own: `arc guide debt-obligations`
++  states that rule, and `arc guide debt-clearance` the ladder agents it
++  exempts.
+ 
+   Under `review_clearance = "assessed"` (`arc guide debt-clearance`) only a
+   clearing read discharges a debt of any kind. Every other read since the
+diff -ruN b405104a/topics/debt-review.txt 510e3f0a/topics/debt-review.txt
+--- b405104a/topics/debt-review.txt	2026-11-14 07:27:04.456534676 -0300
++++ 510e3f0a/topics/debt-review.txt	2026-11-14 07:29:09.928857581 -0300
+@@ -187,20 +187,21 @@
+   `.arc/policy.toml` or the operator policy at
+   `<git-common-dir>/arc/operator-policy.toml`. Both path lists apply, so a
+   path declared dangerous by either file is dangerous. Integration reads
+-  `.arc/policy.toml` from the change's target branch, wherever it is run. A change touching a declared
+-  path needs a verdict from somebody other than its author; elsewhere a
+-  self-recorded verdict satisfies the gate. `forbid_self_approval` refuses a
+-  self-approval on those paths. `arc integrate --debt` still lands such a
+-  change and leaves its review owed. Declare no danger paths and the
+-  gate stays uniform. `arc begin --dangerous` raises a single change
++  `.arc/policy.toml` from the change's target branch, wherever it is run.
++  Under `forbid_self_approval`, a change touching a declared path needs a
++  verdict from somebody other than its author. Elsewhere authorship refuses
++  no approval, but assessed clearance gates only a clearing one, which an
++  author's own read never is under a ladder (`arc guide debt-clearance`).
++  `arc integrate --debt` still lands such a change and leaves its review
++  owed. Declare no danger paths
++  and every change is in scope. `arc begin --dangerous` raises a single change
+   whatever it turns out to touch, and nothing lowers it afterwards — a project
+   decides its own gate in advance, rather than a change deciding it under
+   pressure to ship. `arc check` names the rule that fired, and `arc doctor`
+   reports a declared literal that can never match — one that names nothing, or
+   a directory, since declared paths are matched against changed files.
+-  Gate and policy declaration files can change these integration rules, so
+-  changes touching `.arc/gates.toml` or `.arc/policy.toml` need independent
+-  review when those paths are declared dangerous.
++  Declaring `.arc/gates.toml` and `.arc/policy.toml` dangerous holds edits
++  to these rules to that bar.
+ 
+   Required booleans apply when either policy enables them, danger and safe
+   declarations combine with danger taking priority, debt thresholds use the
+diff -ruN b405104a/topics/files.txt 510e3f0a/topics/files.txt
+--- b405104a/topics/files.txt	2026-11-14 07:27:04.456534676 -0300
++++ 510e3f0a/topics/files.txt	2026-11-14 07:29:10.160831433 -0300
+@@ -32,6 +32,7 @@
+   `arc doctor` reports an unreadable or malformed policy as the problem
+   `policy-unreadable`, naming its file and error, and exits 1.
+ 
++    [git] allow_local_identity = true           identity health exception; arc guide sandbox
+     [policy] forbid_self_approval = true
+     [policy] require_declared_actor = true
+     [policy] debt_count_threshold = <n>          debt turns advisory past n
+diff -ruN b405104a/topics/gate-confinement.txt 510e3f0a/topics/gate-confinement.txt
+--- b405104a/topics/gate-confinement.txt	1969-12-31 21:00:00.000000000 -0300
++++ 510e3f0a/topics/gate-confinement.txt	2026-11-14 07:29:10.176051054 -0300
+@@ -0,0 +1,102 @@
++Kernel-enforced project writable roots
++
++GATE CONFINEMENT
++  A project declares writable roots in .arc/gates.toml:
++
++    [confine]
++    writes = ["target", "${CARGO_HOME:-~/.cargo}/registry"]
++    required = true                    default; false permits unavailable fallback
++
++  Project commands run under the committed destination's declaration:
++  gates, selectors, environment probes, preparation, slot identity, invalidate
++  and warm commands, changelog renderers, and commands in acceptance and
++  publication scratch checkouts. Every launch needs
++  an explicit destination scope; a missing scope refuses and names the site.
++  The checkout being evaluated cannot select its own authority. Without the
++  table, an explicitly scoped command retains ordinary write authority; doctor
++  advises `gates-unconfined` when gates have no confinement declaration.
++
++  Operator [confine] roots supplement destination roots; either layer can
++  require enforcement. A change can adopt confinement when the destination has
++  none, or require enforcement, but cannot widen an existing destination's
++  roots. Declaration differences name both sides. Confinement participates in
++  execution identity, so a pass under another declaration, including an
++  unconfined pass, cannot silently remain green. Measurement and budget init
++  can run working-copy commands, but use the associated open or closed change's destination
++  confinement. A free checkout can use the primary checkout's recorded owner's
++  destination, never that owner's head. An unowned primary checkout uses its
++  committed branch. Otherwise destination resolution refuses and asks for a
++  run from the destination checkout or `arc verify <change>`.
++
++  Relative roots must stay inside the evaluated checkout, through every
++  symlink and parent component. Absolute roots name destination-authorized
++  locations; an absolute path inside the checkout obeys the same containment
++  rule. `~`, `$VAR` and `${VAR}` expand using arc's environment. `${VAR:-PATH}`
++  uses PATH when VAR is unset or empty; its default can contain `~` and other
++  expansions. No shell is run. An unset variable without a default refuses.
++  An absent root is created as a directory only inside the checkout or owned
++  build storage. External roots must exist; a file root grants file writes.
++
++  A root cannot be the home directory, its immediate entries, or an ancestor
++  of home or the checkout. The checkout itself is refused; declared checkout
++  subdirectories remain usable. Git administration and everything beneath the
++  shared Git directory are refused, except the build/cache storage Arc owns
++  and configures for that command. A project's [prepare] directory is external
++  storage: it must also be covered by destination writes and never becomes an
++  implicit root merely because preparation names it. Installed executables
++  and configuration directories should not be granted as package caches.
++  Extracted sources in registry/src and git/checkouts can be compiled and run
++  by later builds outside confinement; writing them stages future code even
++  though the writes stay inside the roots. A project-specific CARGO_HOME in
++  Arc-owned storage isolates those build inputs from the operator's caches.
++
++  Arc-owned build/cache storage, /tmp and process devices /dev/null, /dev/zero,
++  /dev/random, /dev/urandom and /dev/tty are implicit. TMPDIR is writable only
++  when it does not overlap home, the checkout or Git administration; an unsafe
++  TMPDIR refuses the command. /tmp remains writable even when it contains a
++  repository: a repository kept under the temporary directory is not protected.
++  A declared directory under /dev grants the same directory rights as another
++  declared directory; individual device nodes receive file and device rights.
++
++  Suites must declare their own package caches and other outputs. For shared
++  memory, declare /dev/shm. For pseudo-terminals, declare /dev/ptmx and /dev/pts;
++  device access can still be constrained by an enclosing policy or permissions.
++  Declare the directory holding a Unix socket a test binds outside its other
++  roots. Declare individual /dev/kvm or /dev/fuse nodes for those device ioctls.
++  Setuid helpers such as fusermount3 and newuidmap cannot gain privileges under
++  no_new_privs; a write declaration cannot enable them. A test committing in
++  the checkout's own repository is denied because its Git directory is not
++  writable; create an independent fixture repository under an allowed root.
++
++  Arc queries Landlock's ABI and requires ABI 3 for truncation protection. It
++  handles supported filesystem write rights, cross-directory rename and,
++  from ABI 5, device ioctls, requesting no unsupported right. Unavailable
++  Landlock or missing required rights refuse execution. Only required = false
++  permits a labelled unconfined fallback. Installation failure before exec
++  refuses execution. The child installs its restriction before exec; every
++  descendant inherits it and cannot lift it. Nested restrictions intersect.
++
++  Confinement applies to the commands a project declares to arc. Programs Git
++  itself runs, hooks and what Git starts from configuration (filters, merge
++  and diff drivers, textconv, credential helpers, core.sshCommand), are the
++  operator's Git configuration and run with Git's authority, as they do when
++  the operator runs Git; so does the post-checkout hook arc runs in Git's place
++  when it populates a checkout. Arc keeps the authority its own Git operations
++  need to populate checkouts and record evidence. Operator-supplied
++  `watch --exec` and `events --exec` handlers are not project commands and
++  retain operator authority, subject to inherited restrictions.
++
++  Gate receipts include confinement: whether enforced, ABI, resolved writable
++  roots and identity, a SHA-256 digest of those roots and ABI. An unavailable
++  fallback records its reason. A failed confined command prints its writable
++  roots once. Declaration identity binds declared paths and the required flag;
++  receipt identity describes resolved execution, including automatic roots.
++
++  Confinement guards against a command reaching what it should not by accident
++  or by naming it outright. Reads and network access remain unrestricted. It
++  does not defeat a machine prepared in advance with hard links, bind mounts
++  or substituted configuration; metadata-only changes; already-open writable
++  descriptors; or a service outside the process tree writing on the command's
++  behalf. Existing build daemons, D-Bus, systemd, Docker and tmux can act for a
++  process through sockets.
++
+diff -ruN b405104a/topics/gate-costs.txt 510e3f0a/topics/gate-costs.txt
+--- b405104a/topics/gate-costs.txt	2026-11-14 07:27:04.457534699 -0300
++++ 510e3f0a/topics/gate-costs.txt	2026-11-14 07:29:10.184066519 -0300
+@@ -1,4 +1,4 @@
+-Cost diagnosis, check timings and the order of work
++Cost diagnosis, levers and check timings
+ 
+ GATE COSTS
+   `arc gates` in text and JSON and `arc gates over` diagnose command costs
+@@ -12,6 +12,107 @@
+   Each measure reports its sample count. Missing fields are unmeasured:
+   legacy duration_ms never substitutes for command, CPU, wait or preparation.
+ 
++  Linux counts user-space instructions across inherited descendants with a
++  holder-owned perf_event_open counter installed before exec and read after
++  the tree exits. An inherited task-clock counter supplies total tree CPU,
++  including auto-reaped children; waited user/system time stays separate.
++  CPU masks are checked at entry and the unreaped leader's exit.
++  /proc/stat busy CPU excludes idle and I/O wait; capacity is elapsed time
++  times online logical CPUs. The holder samples across the command tree's
++  lifetime. Arc also samples from invocation startup to gate spawn, subtracting
++  its process and known child-tree CPU, and excludes its measured CPU during runs.
++  Incomplete, multiplexed or refused perf counters are absent measurements.
++
++  Refusals include this change's per-change increment and maximum from its
++  destination budget, including the first observed refusal. They name command
++  time, effective budget and sources, excess, host,
++  start load averages and online cores, CPU where recorded, and excluded wait
++  and preparation. Missing observations stay missing. Load above the core count
++  may indicate possible host contention; start load alone grants no excuse.
++
++  Verify warns when the median of up to 20 matching command-time observations
++  in this change exceeds 80% of its budget; legacy total durations are excluded.
++
++  Budget shares use at most the latest 20 command-time observations for the
++  current command and declared timeout, in the newest observed environment.
++  Legacy duration_ms samples remain in the named historical distribution and
++  never enter budget shares. A median above 80% is labelled in the report.
++
++  `arc workspace gates` rows include declared total, landing median and p90,
++  and landings, paid gate time and paid preparation in 7/30 days. They sort
++  by 30-day measured gate time descending (the known lower bound when
++  incomplete), then project name; unobserved projects follow readable ones.
++
++  Landing costs use the latest 100 readable integrated changes, including
++  asserted and legacy closures and each completed stack member separately.
++  Each change pays the sum of run_ms of its executed, named integration gates
++  through closure, including failures and reruns. Reuse, selection, base passes,
++  attestation and not-admitted attempts pay nothing; publication is excluded.
++  A stack's shared execution is charged only to the member recording it.
++  Missing run_ms makes that change unmeasured; duration_ms is never substituted.
++  Median (lower middle) and p90 (nearest rank) are known only when assigning
++  every unmeasured cost zero or arbitrarily large values yields the same result;
++  otherwise that statistic and any dependent budget judgment are unmeasured.
++  The report names missing samples and the zero-execution share of all window
++  landings. Empty history has no median or share.
++  The 7/30-day windows use closure time and include every readable change
++  landed within that period, charging its complete landing cost there.
++  Paid totals are null if any such change is unmeasured; measured_ms retains
++  the known lower bound. Unreadable changes remain collection failures.
++  Preparation paid is reported beside gate time for the same landings and
++  windows, and for each gate over its runs, from prepare_ms on the same
++  receipts by the same rules: a receipt without prepare_ms leaves its
++  landing's preparation unmeasured, and a percentile is stated only when
++  known. The landing budget judges gate time alone.
++
++  Total bounds the worst-case integration suite and is enforced.
++  Landing declares typical executed cost and is advisory, reported against
++  the latest-100 median with a doctor advice finding when exceeded.
++  Declare landing = "2s" in [budget]; it needs no raise record and never
++  changes acceptance. Its value comes from the invoking change's destination
++  branch, or the current branch without a matching change, combined with the
++  operator's landing declaration by minimum; change-head additions do not bind.
++  A detached checkout without a matching destination reports it unobserved.
++  Every required integration gate needs a budget when enforcement keys exist
++  in that table; a landing-only table requires no individual budgets. That
++  includes a gate the destination declares and a change's head removes,
++  since the change still owes it. A removed gate that has a budget on the
++  destination keeps it; one that has none cannot be given one, so a change
++  cannot both remove it and declare a total. Land the replacement first
++  with no total declared, then declare budgets and the total in a following
++  change, once the destination holds only the gates it keeps; the refusal
++  names this route.
++
++  `arc gates init [--runs N] [--publication]` measures six serial rounds of
++  every gate that runs at integration, in any profile, by default. A
++  publication-only gate is skipped and named unless `--publication` asks for
++  it. A budget is worst run_ms plus spread (max minus min), at least 105% of
++  worst, rounded up to two significant digits (minimum 1ms). Total is the
++  sum of the integration gates' budgets, with no batch discount, and leaves
++  publication-only budgets out. With no integration gate it refuses. Every other byte of .arc/gates.toml is kept. Operator-only
++  gates are copied into the project. Existing budgets, failed or unmeasured
++  rounds, or declaration edits during measurement refuse without writing.
++  `arc gates over [CHANGE] [--gate G]` shows the newest measured run exceeding
++  the applicable budget, its history sources, host observations and output
++  artifact, cost kinds and slowest recorded checks, followed by the order of
++  work in `arc guide gate-rounds`.
++
++  `arc gates measure --concurrent` accepts a batch under `arc guide gates-together`.
++  `arc gates measure [--runs N] [--gate G]` runs declarations sequentially on
++  this tree, five times by default, honoring timeouts. Each round follows the
++  `exclusive` and `admission` contract in `arc guide gates`. It prints command
++  wall and tree CPU time, instructions and other processes' CPU share, with
++  admission wait separately, the wall min, max and spread, and physical and
++  logical host cores. Missing topology is unmeasured.
++  Wall far above CPU indicates waiting inside the command; a wide spread
++  indicates load sensitivity. A round not admitted prints
++  `not measured (not-admitted)` and contributes no timing sample. Summaries
++  count measured and unmeasured rounds. It records no evidence and writes no
++  ledger or output artifacts; the gate commands may write their own build
++  outputs. A failed, timed-out or unmeasured round makes the command exit 1.
++  Unknown gates and zero runs are refused. Every declared gate runs unless
++  `--gate` selects one.
++
+   Five cost kinds:
+   - waiting: paired wall/CPU medians have wall >= 100ms and wall >= twice CPU.
+     CPU is observed child user plus system time; I/O and sleeps can both wait.
+@@ -29,25 +130,20 @@
+   Waiting/real-work needs paired fields; queueing and preparation need their
+   own field and wall. Absence never means zero.
+ 
+-  The order of work, also printed by `arc gates over`:
+-  1. Get the number first.
+-  2. Measure serially.
+-  3. Remove waste.
+-  4. Rank checks by what they guard and cut from the bottom, never by cost alone.
+-  5. Make what matters fit.
+-  6. Lower concurrency until nothing fails.
+-  7. Stop at a named floor.
+-  8. Raise the budget last, within the change's allowance.
++  The order of work that `arc gates over` prints is steps 1 to 8 of a round
++  in `arc guide gate-rounds`, which also holds the rules a gate follows.
+ 
+   Levers, in order, are guidance arc states and does not automate:
+   1. Use an optimized binary for spawned tests.
+-  2. Skip durability syscalls behind an explicit test-only switch.
+-  3. Use cheaper fixtures.
+-  4. Use events in place of sleeps.
+-  5. Increase harness parallelism or remove a shared serialization point.
+-  6. Call in process where no process is needed.
+-  7. Split a suite into gates by area with `paths`.
+-  8. Cut tests on evidence of what each has ever caught, ranked by what it guards.
++  2. Build an artifact the checks share once, behind a lock.
++  3. Skip durability syscalls behind an explicit test-only switch.
++  4. Use cheaper fixtures.
++  5. Kill a throwaway process; do not ask it to exit.
++  6. Use events in place of sleeps and polls.
++  7. Increase harness parallelism or remove a shared serialization point.
++  8. Call in process where no process is needed.
++  9. Split a suite into gates by area with `paths`.
++  10. Cut tests on evidence of what each has ever caught, ranked by what it guards.
+   Cost and failures inform review; they do not choose which check to remove.
+ 
+   A gate may declare timings = "checks.tsv". Its command writes the relative
+diff -ruN b405104a/topics/gate-raises.txt 510e3f0a/topics/gate-raises.txt
+--- b405104a/topics/gate-raises.txt	2026-11-14 07:27:04.457534699 -0300
++++ 510e3f0a/topics/gate-raises.txt	2026-11-14 07:29:10.199374693 -0300
+@@ -17,7 +17,7 @@
+ 
+   The newest direct execution of that gate at the exact head must pass, be
+   observed clean and stable on that head's tree, match the destination check
+-  and current environment, exceed the destination budget and fit the proposed
++  and current environment, be unexcused, exceed the destination budget and fit the proposed
+   one. Reuse, rewritten execution coordinates, attestation, bypass and measurement
+   output cannot establish this need. Later evidence remains subject to ordinary
+   newest-evidence judgement; a raise never masks a failure.
+diff -ruN b405104a/topics/gate-rounds.txt 510e3f0a/topics/gate-rounds.txt
+--- b405104a/topics/gate-rounds.txt	1969-12-31 21:00:00.000000000 -0300
++++ 510e3f0a/topics/gate-rounds.txt	2026-11-14 07:29:10.191824107 -0300
+@@ -0,0 +1,119 @@
++Gate rules and the method of a round
++
++GATE ROUNDS
++  A gate decides whether a change may land. A round brings one project's
++  gates inside a bound the operator sets; this topic is enough to run one.
++  Declarations, selection and budget judgement are defined in
++  `arc guide gates`, cost kinds, levers and check timings in
++  `arc guide gate-costs`, and raises in `arc guide gate-raises`.
++
++  What arc does for a round, each defined in its topic:
++  - Budgets. A round declares a budget for each integration gate and a
++    `[budget] total`. `arc guide gates` defines what arc then requires and
++    how it judges a run; `arc guide gate-raises` defines raising one.
++  - Not running again. A gate should not run again for content it has
++    passed, nor for paths that cannot affect it. Exact-tree reuse and
++    selection by `paths` (`arc guide gates`) and adopted base passes
++    (`arc guide base-passes`) serve that aim; each names when the gate
++    runs anyway.
++  - Checks that never started. By convention a gate's own wrapper exits 75
++    when its checks never started, and arc records that as not run, never
++    as a pass; `arc guide change-gates` defines it and what outranks it.
++
++  The rest is judgement, which no command holds:
++  - The bound comes first. The operator names it in seconds before anything
++    is measured: a total, and a share per gate where the operator splits it.
++    A measurement over the bound is the list of what to cut or make fit,
++    never a reason to move it. Nothing is skipped to fit.
++  - A check earns its place by what it guards, not by being cheap. Rank the
++    checks by what must never break, fund those first, and give what is left
++    to the rest. Cutting by cost alone removes the slowest checks, whatever
++    they guard.
++  - A witness states one claim, runs in a few seconds, and fails first on
++    the unfixed code or a faulty variant, for the reason it names.
++  - No inventories on the landing path: no whole suite, matrix, sweep or
++    all-frame comparison runs at integration because it exists. Publication
++    is rare and off that path. It checks the artifact it ships and may run
++    the remaining suite; a failure there is fixed, or the test removed,
++    before the release. A check that guards a landing is made to fit, not
++    moved to publication.
++  - No retries. A failure fails; a flake is a defect; busy-host acceptance
++    is defined in `arc guide gates`. A check that fails only under load
++    is fixed or given less concurrency.
++  - Nothing passes with coverage owed. A check that did not run is reported
++    as not run, and a named check that was skipped or missing fails its gate.
++  - A check gets a private home, temporary directory and state. It never
++    reaches the person's own.
++  - Prefer making a defect unrepresentable. A type, a module boundary or a
++    single source of truth that rules a defect out beats any test of it. Two
++    lists of the same thing are a defect waiting to happen; derive both from
++    one.
++
++  When a defect gets through:
++  1. Reproduce it, or show the static contradiction that proves it.
++  2. Name the layer that should have caught it.
++  3. Make the bad state unrepresentable or remove the second source of
++     truth. Only when neither is possible, add the smallest witness that
++     fails first.
++  4. Record the escape, naming that layer, with
++     `arc journal incident <topic> --body-file <path>`, so the gate
++     decision's revisit trigger fires on evidence.
++  5. Delete the checks the repair supersedes.
++
++  A round is one session. It ends with every gate inside the bound and the
++  round recorded. `arc gates over` prints steps 1 to 8 as the order of work.
++  1. Get the number first. Ask the operator for the bound before measuring.
++  2. Measure serially, before changing anything: `arc gates measure`. Then
++     read `arc gates`, which sorts each gate's recorded runs into the cost
++     kinds of `arc guide gate-costs` and lists its slowest checks when the
++     gate declares `timings`. A fixed cost per check, such as starting a
++     process or a browser or waiting out a server's shutdown, shows in those
++     checks and in the test runner's per-test setup and teardown.
++  3. Remove the waste, which costs no coverage: the levers of
++     `arc guide gate-costs` in their order, up to cutting tests. Duplication
++     answers to reuse, `paths` and base passes; queueing, to fewer and
++     shorter runs holding an `exclusive` lock. A build a gate needs is
++     declared as preparation, `[prepare]` in `.arc/worktrees.toml`
++     (`arc guide files`), so `arc gates` shows its time beside the gate's
++     rather than inside it.
++  4. Rank the checks by what they guard, as above, and cut from the bottom
++     until the bound holds, never by cost alone.
++  5. Make what matters fit. Shorten the product's waits inside the test,
++     leaving whole any wait a check depends on. Start the longest checks
++     first, each on its own worker.
++  6. Lower concurrency until nothing fails under load: contention sets the
++     ceiling, not the core count. Gates share a run only as a measured batch
++     (`arc guide gates-together`).
++  7. Stop at a named floor, as below.
++  8. Raise the budget last, within the change's allowance:
++     `arc gates raise <gate> --reason <text>`.
++  9. Prove it. `arc gates init` runs six serial rounds of every integration
++     gate and writes budgets from them; a failed round writes nothing. Where budgets
++     are declared it refuses: `arc gates measure --runs 6` measures six runs
++     of each gate, every gate's worst run must fit its budget, and a budget
++     may be lowered by hand (`arc guide gate-raises`). The budgets must fit
++     the bound. Each regression check fails with its fix reverted.
++  10. Write it into the project. `.arc/gates.toml` is the one home of what
++     the round settled: `budget` per gate and `[budget] total`; `paths` for
++     each gate, with `arc gates paths` showing what no gate claims;
++     `exclusive` where two runs disturb each other; and `[selection]` with
++     `inert` for paths that affect no gate and `base_passes` for selection
++     across changes. A README points at the declaration rather than
++     repeating its numbers.
++  11. Record the round in the project's journal with
++     `arc journal conclusion <topic> --body-file <path>`: the bound, each
++     gate before and after, what was cut and what it guarded, the floors
++     named, and what surprised.
++     `arc workspace gates` is the view across projects, including those
++     with no gates or no budget yet.
++
++  When to stop:
++  - A floor is named and left: a browser's second to start, a compiler's
++    interface cascade. Fighting a floor is the rabbit hole.
++  - No infrastructure before a measurement asks for it: no result store,
++    impact planner or judge until receipts show the duplicate or the
++    misclassification it would remove.
++  - A fix that needs a second session is filed as its own work, with the
++    measurement that justifies it, by
++    `arc journal todo <topic> --body-file <path>`.
++
+diff -ruN b405104a/topics/gates.txt 510e3f0a/topics/gates.txt
+--- b405104a/topics/gates.txt	2026-11-14 07:27:04.458534722 -0300
++++ 510e3f0a/topics/gates.txt	2026-11-14 07:29:10.168178233 -0300
+@@ -21,8 +21,8 @@
+   `unclaimed_paths` counts tracked paths outside inert exclusions that no
+   explicit gate pattern names; a gate with no paths does not name a path.
+   Unreadable changes are named, readable history is retained, and a partial
+-  report exits 16. JSON is `arc-gates/1`. Cost kinds, check timings and the
+-  order of work are defined in `arc guide gate-costs`.
++  report exits 16. JSON is `arc-gates/1`, including `confine`.
++  See `arc guide gate-costs` and `arc guide gate-confinement`.
+ 
+   `arc gates paths [--json]` reports tracked paths, affected gates and why
+   coverage is mandatory, using one `git ls-files` with no ledger reads or
+@@ -32,37 +32,9 @@
+   or null; protected inputs follow `arc guide base-passes`.
+   Inert paths are not unclaimed.
+ 
+-  Budget shares use at most the latest 20 command-time observations for the
+-  current command and declared timeout, in the newest observed environment.
+-  Legacy duration_ms samples remain in the named historical distribution and
+-  never enter budget shares. A median above 80% is labelled in the report.
+-
+-  `arc gates init [--runs N]` measures six serial rounds by default. A budget
+-  is worst run_ms plus spread (max minus min), at least 105% of worst, rounded
+-  up to two significant digits (minimum 1ms). Total is their sum, with no
+-  batch discount. Every other byte of .arc/gates.toml is kept. Operator-only
+-  gates are copied into the project. Existing budgets, failed or unmeasured
+-  rounds, or declaration edits during measurement refuse without writing.
+-  `arc gates over [CHANGE] [--gate G]` shows the newest measured run exceeding
+-  the applicable budget, its history sources, host observations and output
+-  artifact, cost kinds and slowest recorded checks, followed by the order of
+-  work in `arc guide gate-costs`.
+-  `arc guide gate-raises` defines raising and its trusted counting rules.
+-
+-  `arc gates measure --concurrent` accepts a batch under `arc guide gates-together`.
+-  `arc gates measure [--runs N] [--gate G]` runs declarations sequentially on
+-  this tree, five times by default, honoring timeouts. Each round follows the
+-  `exclusive` and `admission` contract below. It prints command wall and child
+-  CPU time with admission wait separately, the wall min, max and spread, and
+-  physical and logical host cores. Missing topology is unmeasured.
+-  Wall far above CPU indicates waiting inside the command; a wide spread
+-  indicates load sensitivity. A round not admitted prints
+-  `not measured (not-admitted)` and contributes no timing sample. Summaries
+-  count measured and unmeasured rounds. It records no evidence and writes no
+-  ledger or output artifacts; the gate commands may write their own build
+-  outputs. A failed, timed-out or unmeasured round makes the command exit 1.
+-  Unknown gates and zero runs are refused. Every declared gate runs unless
+-  `--gate` selects one.
++  Budget history, initialization, measurement and overrun reports are specified
++  in `arc guide gate-costs`; the rules and method are in `arc guide gate-rounds`;
++  raises are specified in `arc guide gate-raises`.
+ 
+   `arc workspace gates [--json] [--under PATH|--here|--global] [--retired]`
+   lists each registered project's declarations and its own ledger's costs,
+@@ -99,7 +71,7 @@
+   Budget durations accept positive whole milliseconds with ms, s, m or h
+   units, including decimal forms such as 2.5s and 0.001s. Overflow and precision
+   below a millisecond are refused. A [budget] table may declare total = "15s".
+-  Every required integration gate needs a budget when that table exists.
++  Which integration gates need a budget is defined in `arc guide gate-costs`.
+   `arc guide gates-together` defines the total's profile and batch accounting.
+   The effective suite is validated after layering for every declared
+   profile and the unqualified case. A missing budget or excessive sum is a
+@@ -115,17 +87,18 @@
+   and basis digests are confirmed before integration. See `arc guide gate-raises`.
+   Budgets are outside execution identity. Reuse selects the same structurally
+   eligible receipt and then judges its command time, with no search for an
+-  older faster receipt and no implicit rerun. An over-budget selected receipt
+-  is refused until explicit verify --rerun. The integration queue stops on a
++  older faster receipt and no implicit rerun. A selected receipt refused by
++  the budget judge needs explicit verify --rerun. The integration queue stops on a
+   recorded budget refusal. Reduction and replay read structural facts only.
+ 
+   A command outcome remains pass in the ledger even when its run_ms exceeds
+-  the budget in force. Equality passes; one millisecond over fails. Ordinary
++  the budget in force. Clock equality passes. An overrun passes only under
++  the busy-host rule below. Ordinary
+   verify exits 1 for a budget refusal, including parallel preflight whose
+   receipts retain unknown cleanliness. Status, check and show project current
+   budget applicability beside the raw result. Show JSON adds gate_status beside
+   raw verifications; status gate rows carry budget.verdict, budget_ms, run_ms,
+-  excess_ms and sources. budget_rules.total is milliseconds in JSON.
++  excess_ms, sources and any busy-host excuse. budget_rules.total is milliseconds in JSON.
+   Missing run_ms is unmeasured
+   and cannot satisfy a budget, including legacy local, imported and attested
+   evidence. duration_ms never substitutes for run_ms. Explain labels historical
+@@ -134,21 +107,48 @@
+ 
+   Without a declared timeout, a budgeted command has an execution limit of
+   ten times its effective budget, computed in checked milliseconds. The clock
+-  starts with the command and includes output drain, excluding admission and
+-  preparation. Evidence keeps timeout_seconds exactly as declared, including
++  starts with the command and includes output drain and process-group cleanup,
++  excluding admission and preparation. Evidence keeps timeout_seconds exactly as declared, including
+   absence, and separately records execution_limit_ms and its origin, timeout
+   or budget-times-ten. A receipt's recorded budget is provenance; current
+   judgement uses the budget in force when the receipt is read. Timed evidence
+-  needs no recorded budget judgement to count. Verify warns when the median of
+-  up to 20 matching command-time observations in this change exceeds 80% of
+-  its budget; legacy total durations are excluded.
+-
+-  Refusals include this change's per-change increment and maximum from its
+-  destination budget, including the first observed refusal. They name command
+-  time, effective budget and sources, excess, host,
+-  start load averages and online cores, CPU where recorded, and excluded wait
+-  and preparation. Missing observations stay missing. Load above the core count
+-  may indicate possible host contention; it never changes the judgement.
++  without work references needs no recorded budget judgement to count. See
++  `arc guide gate-costs` for cost warnings.
++
++  The busy-host rule excuses an overrun only with at most 3% more user-space
++  instructions than the newest eligible reference and at least 25% unrelated
++  CPU use both before and during the gate. Before means verification startup
++  to just before spawn, at least 100 ms; subtract arc's process CPU and every
++  earlier tree it ran. During means host busy CPU less the gate tree and arc's
++  other measured CPU. Unattributed concurrent batches get no excuse. Other
++  arc invocations' parallel lanes qualify only through the prior-load condition.
++  The clock must fit reference.run_ms * (1 - reference_share) / (1 -
++  other_share), with 25% slack: each run's capacity left by other work.
++  Zero counts and instruction rates below 10% of the reference's instructions
++  per tree user-CPU second are absent evidence. Missing or incomplete counters
++  and host readings grant no excuse.
++
++  A reference is a clean, unmoved, unexcused direct pass, outside parallel
++  probes, of the same gate and declaration on the same known hostname,
++  logical CPU count and CPU model. Its tree is this run's tree or its revision
++  leads to this run's destination. Its clock must fit the budget in force.
++  Cached receipts never supply references.
++  Legitimate added work becomes its own reference after one clock-fitting pass
++  on a quiet host. A holder or leader with restricted CPUs gets no excuse.
++  Thresholds must match the named version.
++  The receipt carries its reference, rule version and thresholds. Readers use
++  those thresholds and the current budget, without replacing the reference or
++  consulting live load. A threshold change takes a new rule version. Lowering
++  the budget retires an excuse whose reference stops fitting. Excused runs never become references, raise
++  evidence or base-pass seeds, including after a raise.
++
++  Kernel instructions are uncounted. Known limit: added waiting on an
++  already busy host can fit the measured delay allowance; a quiet run exposes
++  it. `arc gates` counts excused runs and names the last; `gates measure` prints
++  instructions and other processes' share. See `arc guide gate-costs` for CPU
++  accounting. Work references, excuses and copied work adopt store format 12
++  before publication
++  or import; readers through format 11 refuse it.
+ 
+   A ledger adopts store format 9 before gate verification or reuse under any
+   budget declaration, including a total with missing individual budgets,
+@@ -160,8 +160,9 @@
+   Every path that accepts gate evidence judges it against the budget in force:
+   verify, status, integrate, accept, land, candidate selection and promotion,
+   and publication.
+-  A passing verify line says `Pass (over budget, ran ... of ...)` when over
+-  budget; its recorded outcome remains a pass.
++  A passing verify line names either its busy-host reference, work and other
++  processes' share, or `Pass (over budget, ran ... of ...)` for a refusal;
++  its recorded outcome remains a pass.
+ 
+   A gate command exits 75 (`EX_TEMPFAIL`) to say it did not run, which arc
+   records as `not-admitted`. Both are described in `arc guide change-gates`.
+@@ -230,9 +231,8 @@
+ 
+   Paths and inert exclusions participate in evidence identity. The complete
+   coverage map and dangerous patterns also participate because they determine
+-  unnamed-path fallback. Declaring nonempty coverage settings requires a fresh
+-  pass; legacy evidence without identity cannot answer a scoped declaration.
+-  A declaration without coverage settings retains its default identity. Target
++  unnamed-path fallback. Coverage and confinement require fresh identity;
++  legacy evidence answers only unconfined, unscoped declarations. Target
+   coverage stays in force until an edited declaration lands, as with selector
+   changes. Project and operator inert lists combine; differing paths for the
+   same gate conflict. Scoped run receipts retain identity, and delta receipts
+diff -ruN b405104a/topics/guide-topics.txt 510e3f0a/topics/guide-topics.txt
+--- b405104a/topics/guide-topics.txt	1969-12-31 21:00:00.000000000 -0300
++++ 510e3f0a/topics/guide-topics.txt	2026-11-14 07:29:09.673975960 -0300
+@@ -0,0 +1,32 @@
++Built-in contracts and run-time guide topics
++
++GUIDE TOPICS
++  Built-in topics describe arc's contract and ship with the executable.
++  Run-time topics hold the operator's or project's rules and method in the
++  journal. They are labelled text owned by that scope, not arc's contract.
++    arc journal pin <file.md> --guide <topic>
++    arc journal pin --global <file.md> --guide <topic>
++  The first selects the project journal; --global selects the operator
++  journal. Topic names are lowercase alphanumeric segments separated by
++  single hyphens. Built-in topic names, families and command routes are
++  reserved, including hyphen-joined command paths such as journal-pin.
++  A name can have one pinned artifact per scope. Project text takes
++  precedence over operator text with the same name; the index and search
++  label both. `arc guide` works outside a repository for operator topics;
++  project topics appear wherever the project journal resolves.
++
++  `arc guide <topic>` prints the current body exactly as `arc journal show`
++  does, including appended corrections and blocks. The index uses the title
++  as corrected and the age of the body's last file edit. `arc guide --search
++  TEXT` searches both scopes and built-in instructions; `arc guide --all`
++  prints them all. Run-time text above 16,384 UTF-8 bytes remains readable
++  with a size notice in the index and topic header.
++
++  Repeating a pin with the same reason and guide name writes nothing.
++  `arc journal pin` without --guide preserves its existing guide name;
++  supplying a different name renames the route. `arc journal unpin` removes
++  the pin and its guide route. To keep a plain standing reference, unpin
++  then pin without --guide. Use `arc journal correct` or `arc journal
++  evidence` to append corrections or blocks with history. A successor is
++  a separate artifact: unpin the predecessor and pin the successor under
++  the topic name.
+diff -ruN b405104a/topics/identity-events.txt 510e3f0a/topics/identity-events.txt
+--- b405104a/topics/identity-events.txt	2026-11-14 07:27:04.458534722 -0300
++++ 510e3f0a/topics/identity-events.txt	2026-11-14 07:29:09.697460231 -0300
+@@ -66,7 +66,7 @@
+     journal events  journal catchup  journal memories  journal pins
+     journal render  journal open  journal list  journal inventory
+     journal show  journal latest  journal discussion  journal stamp
+-    journal lane list  journal export
++    journal lane list  journal workbench list  journal export
+   `gates measure --concurrent` writes local acceptance under `arc guide gates-together`.
+   Read-only invocations read the ledger through a handle that never parses that policy,
+   refuses any append, and leaves ledger files byte-identical. Entries name complete leaf paths. Output files,
+diff -ruN b405104a/topics/identity-options.txt 510e3f0a/topics/identity-options.txt
+--- b405104a/topics/identity-options.txt	2026-11-14 07:27:04.458534722 -0300
++++ 510e3f0a/topics/identity-options.txt	2026-11-14 07:29:09.713551161 -0300
+@@ -87,6 +87,16 @@
+   phases on concurrent threads are summed, so they can total more than
+   elapsed_ms; time outside every phase is not attributed.
+ 
++  `children.git_by_site` counts Git launches by source file and line, without
++  runtime paths or argument values. Git answers are held per canonical checkout
++  and resolved administrative directory. Repository locations and immutable
++  object reads survive Git writes; branch, HEAD and ref reads expire on writes.
++  Project commands discard every held Git answer before and after execution.
++  Every lock acquisition discards held answers, including an uncontended lock.
++  Authorization boundaries start fresh mutable observations. Movement guards
++  take independent observations. Readiness target heads and merge trees must
++  agree with the destination and tree observed by the decision.
++
+   `coverage` names what the counters see. `ledger: store` counts ledger
+   files read through the store's readers, not a file a diagnostic opens on
+   its own; `children: arc` counts processes arc starts, not those a library
+diff -ruN b405104a/topics/journal-references.txt 510e3f0a/topics/journal-references.txt
+--- b405104a/topics/journal-references.txt	2026-11-14 07:27:04.459534745 -0300
++++ 510e3f0a/topics/journal-references.txt	2026-11-14 07:29:09.760635506 -0300
+@@ -8,7 +8,9 @@
+     arc journal pin <file.md> [--reason TEXT]
+                          Record a `pinned` event. The body must be in hot
+                          storage. Pinning again with the recorded reason
+-                         writes nothing; another reason replaces it.
++                         writes nothing; another reason replaces it. Add
++                         --guide TOPIC to expose it through `arc guide`;
++                         `arc guide guide-topics` defines that route.
+     arc journal unpin <file.md>
+                          Record `unpinned`; an actionable artifact returns to
+                          the queues. An artifact that is not pinned refuses.
+diff -ruN b405104a/topics/journal-resolution.txt 510e3f0a/topics/journal-resolution.txt
+--- b405104a/topics/journal-resolution.txt	2026-11-14 07:27:04.459534745 -0300
++++ 510e3f0a/topics/journal-resolution.txt	2026-11-14 07:29:09.776382959 -0300
+@@ -14,6 +14,20 @@
+      or the journal named by this directory's slug.
+   A prefix covering repositories shadows their Git journals.
+ 
++  `arc journal bind [<dir>]` creates the default-root slug journal for an
++  existing directory outside Git and records its binding. With no argument
++  it binds the current directory. The printed path resolves durably without
++  configuration. Git repositories, including unborn ones, already imply a
++  journal; a first journal write records their binding. Binding refuses an
++  existing binding or configured scope, arc's home, and journal directories
++  and their descendants. A first unanchored write names bind and its target
++  without creating them. ARC_JOURNAL_DIR writes record no binding; unset it
++  and use bind for a durable project. Bound directories without Git appear
++  in workspace backlog, report and pins with their journal holdings and no
++  ledger. Workspace list and inbox aggregate ledgers only.
++  `arc catchup` reads a journal project outside Git with ledger, replica and
++  worktrees null in its JSON view. It creates no ledger or Git repository.
++
+   `arc journal rebind <journal-dir>` adopts an existing journal and records
+   the move to this project's anchor. It refuses when both journals hold
+   content. Read `arc journal rebind --help` for its input contract.
+diff -ruN b405104a/topics/journal-workbenches.txt 510e3f0a/topics/journal-workbenches.txt
+--- b405104a/topics/journal-workbenches.txt	1969-12-31 21:00:00.000000000 -0300
++++ 510e3f0a/topics/journal-workbenches.txt	2026-11-14 07:29:09.768540518 -0300
+@@ -0,0 +1,89 @@
++Workbenches for working material
++
++WORKBENCHES (working material in the journal)
++  A workbench is a directory under the journal's `workbench/` holding an
++  index arc writes, `WORKBENCH.md`, and anything else: lane indexes and
++  reports, drafts, raw measurements, a notebook appended to across sessions.
++  Arc records the acts on it and never its content, which it reads only to
++  count files and bytes and to see when anything in it last changed. Which
++  material belongs in one is the rule in the map's KEEP WHAT YOU LEARN.
++    arc journal workbench <slug> --purpose TEXT
++                         Open `workbench/<slug>-<YYYYMMDD>/` and print its
++                         absolute path as the last line, so a caller can
++                         `cd` to it. Opening a slug already open with the
++                         same purpose prints that workbench's path and
++                         records nothing; another purpose refuses.
++    arc journal workbench link <name> (--change C | --artifact FILE)
++                         Record a change or an artifact the material serves.
++    arc journal workbench close <name> --produced C|FILE... [--note TEXT]
++                         Record what it produced: changes begun, artifacts
++                         filed. One that produced nothing says why with
++                         `--note`.
++    arc journal workbench adopt PATH --purpose TEXT [--slug SLUG]
++                         Move an existing directory, such as an entry of a
++                         journal's `loose/`, or a file, such as a notebook
++                         kept outside any journal, into a workbench by one
++                         rename, which keeps every byte. Its help names what
++                         it refuses.
++    arc journal workbench list [--all] [--json]
++                         Open workbenches, or all of them with what each
++                         produced (`arc-journal-workbenches/1`).
++    arc journal archive <name>, arc journal unarchive <name>
++                         Move a closed workbench to the cold archive, and
++                         back.
++  A subcommand names a workbench by its name, or by its slug while one
++  workbench of that slug is open. `catchup`, `journal catchup`, `journal
++  open` and `workspace backlog` list each open workbench with its purpose,
++  size and age, measured as `journal workbench list --help` says, and
++  `workspace report` gives them a section. One open 14 days with no recorded
++  act and no file in it changed is stale: the listings mark it, `catchup`
++  and `workspace backlog` count it, and the report raises `stale-workbench`,
++  as `journal filed` marks open items untouched that long.
++  Journal exchange and its bundles carry no workbench: not its directory, its
++  index, or its events. An artifact a workbench links or produced travels as
++  any artifact does, without the link, and the workbench stays with the
++  journal that holds it. Workbench commands need the journal directory
++  itself and never spool.
++  Opening, adopting, archiving and unarchiving create or move the directory,
++  only through real directories of the journal or its archive, never a
++  link, writing a new index only where no file of that name exists; then
++  they record the act. Once the directory is made or moved, nothing undoes
++  it, and the act ends one of two ways:
++    recorded              The act stands.
++    moved, not recorded   The material stays where it now is. The command
++                          exits non-zero naming that path, `journal doctor`
++                          reports the disagreement, and adopting the
++                          directory where it stands, or rerunning the
++                          archive or unarchive, records it.
++  An open says `created, not recorded`, and an act that moved nothing says
++  `nothing moved, not recorded`. When a `WORKBENCH.md` arc did not write
++  stands in the directory, one made meanwhile or an index arc began and
++  never finished, which lacks arc's marker, the message names it, and arc
++  never overwrites, moves or renames it: move or rename it yourself, then
++  adopt the directory where it stands. After every move arc confirms that
++  what arrived is what it checked and that the directory it moved into is
++  still the journal's; otherwise it stops, names where the material went,
++  and records nothing. These guards stop mistakes, links, repositories,
++  journals, another arc writer and files appearing while arc works; they
++  do not defeat a process that deliberately swaps directory entries during
++  the call, which no rename here can prevent. A record prepared but not yet published is
++  the second until the next journal write publishes it. A later act rewrites the index only while it
++  is the one arc wrote, and leaves any other `WORKBENCH.md` as it is. The
++  rewrite is written beside it, under a name beginning
++  `.WORKBENCH.md.arc-draft` that no other attempt uses, readable by its
++  owner alone until written, then given exactly the index's mode and access
++  ACL, none when it has none, and renamed over it, so a reader finds the old
++  index or the new one whole; other extended attributes are not kept. A
++  later rewrite removes the drafts interrupted ones left, which are empty or
++  begin with part of arc's marker, and leaves any other file of those names
++  alone. Arc reads a file in a workbench only as a regular file, opened
++  without waiting, so a pipe or a device there never holds it.
++  Adopting, closing, archiving and unarchiving refuse before reading or
++  moving anything where `/dev/fd` or `/proc/self/fd` is missing, through
++  which arc reads and names the directories it opens; a listing then gives
++  each open workbench's size as unknown, naming the missing one.
++  `journal doctor` reports a recorded workbench whose directory is gone, in
++  the other storage, or reached through a link out of the journal, a
++  `workbench/` or an archive root that is a link, and a directory under
++  `workbench/` that no event records; `adopt` records one where it stands.
++
+diff -ruN b405104a/topics/journal.txt 510e3f0a/topics/journal.txt
+--- b405104a/topics/journal.txt	2026-11-14 07:27:04.459534745 -0300
++++ 510e3f0a/topics/journal.txt	2026-11-14 07:29:09.736046939 -0300
+@@ -2,4 +2,5 @@
+   arc guide journal-lookup                 Artifact lookup, archival and project queues
+   arc guide journal-records                Keeping facts during work
+   arc guide journal-references             Pinned references, living documents and published pages
++  arc guide journal-workbenches            Workbenches for working material
+   arc guide journal-resolution             Journal directory resolution and anchors
+diff -ruN b405104a/topics/overview.txt 510e3f0a/topics/overview.txt
+--- b405104a/topics/overview.txt	2026-11-14 07:27:04.459534745 -0300
++++ 510e3f0a/topics/overview.txt	2026-11-14 07:29:09.667104541 -0300
+@@ -16,4 +16,5 @@
+ waiting for a session.
+ Run `arc guide` for indexed topics, `arc guide <topic>` for depth, or
+ `arc guide --search <text>` to find a topic or command-help route.
++`arc guide guide-topics` explains editable operator and project guide topics.
+ 
+diff -ruN b405104a/topics/sandbox.txt 510e3f0a/topics/sandbox.txt
+--- b405104a/topics/sandbox.txt	2026-11-14 07:27:04.461534790 -0300
++++ 510e3f0a/topics/sandbox.txt	2026-11-14 07:29:09.783820640 -0300
+@@ -1,6 +1,28 @@
+ Destructive rehearsals
+ 
+ SANDBOX (rehearse something destructive)
++  Commands arc runs on a project's behalf inherit no Git repository selectors
++  or command-scoped configuration: GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
++  GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_COMMON_DIR,
++  GIT_NAMESPACE, GIT_PREFIX, GIT_CONFIG, GIT_CONFIG_COUNT and its numbered
++  keys and values, and GIT_CONFIG_PARAMETERS are removed. Gates, selectors,
++  probes, preparation, slot warming, renderers, explicit checkout hooks and
++  scratch-checkout commands share this boundary. Global and system Git
++  configuration still apply. A hook parent's GIT_DIR and GIT_WORK_TREE locate
++  arc's checkout once; subsequent Git calls use explicit directories. This
++  protects against inherited redirection, not commands that choose another
++  repository themselves. `arc guide gate-confinement` defines kernel-enforced
++  writable roots for project commands.
++
++  Git configuration health is reported as problems by `arc doctor`, in one
++  line by `arc catchup`, and per registered project by `arc workspace report`.
++  Local user.name and user.email require [git] allow_local_identity = true
++  in the checkout's .arc/policy.toml. A checkout or linked worktrees with
++  core.bare = true, including inherited settings, and local commit.gpgsign or
++  tag.gpgsign = false overriding
++  global signing, are problems regardless of that exception. Config includes
++  and worktree scope are inspected together; diagnostics never repair config.
++
+   arc doctor             Reports the build commit and tracked-tree state
+                          (clean, dirty, or unknown) in text and JSON.
+                          Opens with the roots this invocation reads and
+@@ -27,8 +49,9 @@
+   The repository arc was pointed at is still read and written as a Git
+   repository, which is why a rehearsal runs in a clone rather than beside the
+   original. A clone carries committed state: uncommitted work is not copied,
+-  and an open change's recorded checkout is the source's until one is made in
+-  the sandbox. The prefix bounds recorded paths too: a checkout outside it is
++  nor a workbench's content unless `clone --workbench-content` asks, and an
++  open change's recorded checkout is the source's until one is made in the
++  sandbox. The prefix bounds recorded paths too: a checkout outside it is
+   refused by name rather than run in, so gates and `rebase` say to make one
+   inside with `git worktree add`.
+ 
+diff -ruN b405104a/topics/schemas.txt 510e3f0a/topics/schemas.txt
+--- b405104a/topics/schemas.txt	2026-11-14 07:27:04.462534813 -0300
++++ 510e3f0a/topics/schemas.txt	2026-11-14 07:29:10.231377558 -0300
+@@ -23,7 +23,7 @@
+     `arc-assurance/1`                arc query --assurance --json
+     `arc-check/4`                    arc check --json
+     `arc-inbox/11`                   arc inbox --json
+-    `arc-catchup/12`                 arc catchup --json
++    `arc-catchup/12`                 arc catchup --json; git_health config problems
+     `arc-journal-catchup/9`          arc journal catchup --json
+     `arc-resume/8`                   arc resume --json
+     `arc-explain/2`                  arc explain --json
+@@ -43,6 +43,7 @@
+     `arc-journal-entry/1`            arc journal show <entry address> --json
+     `arc-journal-open/1`             arc journal open --json
+     `arc-journal-pins/1`             arc journal pins --json
++    `arc-journal-workbenches/1`      arc journal workbench list --json
+     `arc-journal-render/1`           arc journal render --json
+     `arc-journal-inventory/6`        arc journal inventory --json
+     `arc-rescue/5`                   arc rescue --json
+@@ -71,12 +72,12 @@
+     `arc-perf/1`                     ARC_TRACE=1, one line on stderr at exit
+     `arc-workspace/2`                arc workspace list|inbox --json
+     `arc-workspace-backlog/19`       arc workspace backlog --json
+-    `arc-workspace-report/3`         arc workspace report|watch; optional projects[].library
++    `arc-workspace-report/3`         arc workspace report|watch; projects[].git_health; optional library
+     `arc-workspace-inventory/2`      arc workspace inventory --json
+     `arc-workspace-pins/1`           arc workspace pins --json
+     `arc-workspace-retirement/1`     arc workspace retire|restore --json
+     `arc-writability/1`              arc config --check-writable --json
+-    `arc-sandbox-clone/1`            arc sandbox clone --json
++    `arc-sandbox-clone/2`            arc sandbox clone --json
+     `arc-sandbox-diff/1`             arc sandbox diff --json
+     `arc-replica-id/1`               arc replica id --json
+     `arc-replica/2`                  arc replica status --json
+@@ -144,11 +145,16 @@
+   `arc-journal-bundle/1`.
+   Their absent model provenance stays absent.
+ 
++  A `pinned` event may carry an optional `guide` topic name. This additive
++  input field keeps `journal-events/2`; pins without it remain valid.
++
+   A journal event omits the harness or session key nobody established.
+   Owned claim and lane lifecycle events require their complete identities;
+   an event lacking one is unsupported and cannot change ownership state.
+   `journal-events/2` covers that and the `evidence`, `relocated`,
+-  `redacted`, `pinned`, `unpinned`, and `published` kinds; `journal-events/1`
++  `redacted`, `pinned`, `unpinned`, `published`, and `workbench-opened`,
++  `-adopted`, `-linked`, `-closed`, `-archived` and `-unarchived` kinds,
++  which name a workbench and no artifact `file`; `journal-events/1`
+   events, which carry both keys, are read alongside it, and a value of
+   `unknown` in either reads as absent. A journal bundle and a journal spool
+   (`arc-journal-spool/1` or current) carry events of either version. A reader
+@@ -165,6 +171,7 @@
+     store format 9                   .git/arc/config.json and the change ledger
+     store format 10                  base-pass baselines and reuse evidence
+     store format 11                  measured batches and their authorization
++    store format 12                  busy-host work references and excuses
+     `arc-accept-checkout/1`           local administrative allocation recovery
+     `arc-landing-intent/1`            landing-intents/<attempt>.json recovery
+     `arc-import-batch/1`             local atomic change import and authorization

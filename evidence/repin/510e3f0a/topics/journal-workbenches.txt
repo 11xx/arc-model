@@ -1,0 +1,89 @@
+Workbenches for working material
+
+WORKBENCHES (working material in the journal)
+  A workbench is a directory under the journal's `workbench/` holding an
+  index arc writes, `WORKBENCH.md`, and anything else: lane indexes and
+  reports, drafts, raw measurements, a notebook appended to across sessions.
+  Arc records the acts on it and never its content, which it reads only to
+  count files and bytes and to see when anything in it last changed. Which
+  material belongs in one is the rule in the map's KEEP WHAT YOU LEARN.
+    arc journal workbench <slug> --purpose TEXT
+                         Open `workbench/<slug>-<YYYYMMDD>/` and print its
+                         absolute path as the last line, so a caller can
+                         `cd` to it. Opening a slug already open with the
+                         same purpose prints that workbench's path and
+                         records nothing; another purpose refuses.
+    arc journal workbench link <name> (--change C | --artifact FILE)
+                         Record a change or an artifact the material serves.
+    arc journal workbench close <name> --produced C|FILE... [--note TEXT]
+                         Record what it produced: changes begun, artifacts
+                         filed. One that produced nothing says why with
+                         `--note`.
+    arc journal workbench adopt PATH --purpose TEXT [--slug SLUG]
+                         Move an existing directory, such as an entry of a
+                         journal's `loose/`, or a file, such as a notebook
+                         kept outside any journal, into a workbench by one
+                         rename, which keeps every byte. Its help names what
+                         it refuses.
+    arc journal workbench list [--all] [--json]
+                         Open workbenches, or all of them with what each
+                         produced (`arc-journal-workbenches/1`).
+    arc journal archive <name>, arc journal unarchive <name>
+                         Move a closed workbench to the cold archive, and
+                         back.
+  A subcommand names a workbench by its name, or by its slug while one
+  workbench of that slug is open. `catchup`, `journal catchup`, `journal
+  open` and `workspace backlog` list each open workbench with its purpose,
+  size and age, measured as `journal workbench list --help` says, and
+  `workspace report` gives them a section. One open 14 days with no recorded
+  act and no file in it changed is stale: the listings mark it, `catchup`
+  and `workspace backlog` count it, and the report raises `stale-workbench`,
+  as `journal filed` marks open items untouched that long.
+  Journal exchange and its bundles carry no workbench: not its directory, its
+  index, or its events. An artifact a workbench links or produced travels as
+  any artifact does, without the link, and the workbench stays with the
+  journal that holds it. Workbench commands need the journal directory
+  itself and never spool.
+  Opening, adopting, archiving and unarchiving create or move the directory,
+  only through real directories of the journal or its archive, never a
+  link, writing a new index only where no file of that name exists; then
+  they record the act. Once the directory is made or moved, nothing undoes
+  it, and the act ends one of two ways:
+    recorded              The act stands.
+    moved, not recorded   The material stays where it now is. The command
+                          exits non-zero naming that path, `journal doctor`
+                          reports the disagreement, and adopting the
+                          directory where it stands, or rerunning the
+                          archive or unarchive, records it.
+  An open says `created, not recorded`, and an act that moved nothing says
+  `nothing moved, not recorded`. When a `WORKBENCH.md` arc did not write
+  stands in the directory, one made meanwhile or an index arc began and
+  never finished, which lacks arc's marker, the message names it, and arc
+  never overwrites, moves or renames it: move or rename it yourself, then
+  adopt the directory where it stands. After every move arc confirms that
+  what arrived is what it checked and that the directory it moved into is
+  still the journal's; otherwise it stops, names where the material went,
+  and records nothing. These guards stop mistakes, links, repositories,
+  journals, another arc writer and files appearing while arc works; they
+  do not defeat a process that deliberately swaps directory entries during
+  the call, which no rename here can prevent. A record prepared but not yet published is
+  the second until the next journal write publishes it. A later act rewrites the index only while it
+  is the one arc wrote, and leaves any other `WORKBENCH.md` as it is. The
+  rewrite is written beside it, under a name beginning
+  `.WORKBENCH.md.arc-draft` that no other attempt uses, readable by its
+  owner alone until written, then given exactly the index's mode and access
+  ACL, none when it has none, and renamed over it, so a reader finds the old
+  index or the new one whole; other extended attributes are not kept. A
+  later rewrite removes the drafts interrupted ones left, which are empty or
+  begin with part of arc's marker, and leaves any other file of those names
+  alone. Arc reads a file in a workbench only as a regular file, opened
+  without waiting, so a pipe or a device there never holds it.
+  Adopting, closing, archiving and unarchiving refuse before reading or
+  moving anything where `/dev/fd` or `/proc/self/fd` is missing, through
+  which arc reads and names the directories it opens; a listing then gives
+  each open workbench's size as unknown, naming the missing one.
+  `journal doctor` reports a recorded workbench whose directory is gone, in
+  the other storage, or reached through a link out of the journal, a
+  `workbench/` or an archive root that is a link, and a directory under
+  `workbench/` that no event records; `adopt` records one where it stands.
+

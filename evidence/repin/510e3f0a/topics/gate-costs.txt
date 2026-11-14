@@ -1,0 +1,185 @@
+Cost diagnosis, levers and check timings
+
+GATE COSTS
+  `arc gates` in text and JSON and `arc gates over` diagnose command costs
+  from receipts. Indicators can overlap; they suggest what to measure and do
+  not establish a cause or alter gate acceptance. Time distributions use at
+  most the latest 20 executed runs matching the current command and declared
+  timeout, in the newest recorded environment. Medians use the lower middle.
+  `gates over` uses the selected overrun's effective declarations, including
+  gates declared only on its change, from any checkout. Without an overrun it
+  uses the invoking checkout's declarations.
+  Each measure reports its sample count. Missing fields are unmeasured:
+  legacy duration_ms never substitutes for command, CPU, wait or preparation.
+
+  Linux counts user-space instructions across inherited descendants with a
+  holder-owned perf_event_open counter installed before exec and read after
+  the tree exits. An inherited task-clock counter supplies total tree CPU,
+  including auto-reaped children; waited user/system time stays separate.
+  CPU masks are checked at entry and the unreaped leader's exit.
+  /proc/stat busy CPU excludes idle and I/O wait; capacity is elapsed time
+  times online logical CPUs. The holder samples across the command tree's
+  lifetime. Arc also samples from invocation startup to gate spawn, subtracting
+  its process and known child-tree CPU, and excludes its measured CPU during runs.
+  Incomplete, multiplexed or refused perf counters are absent measurements.
+
+  Refusals include this change's per-change increment and maximum from its
+  destination budget, including the first observed refusal. They name command
+  time, effective budget and sources, excess, host,
+  start load averages and online cores, CPU where recorded, and excluded wait
+  and preparation. Missing observations stay missing. Load above the core count
+  may indicate possible host contention; start load alone grants no excuse.
+
+  Verify warns when the median of up to 20 matching command-time observations
+  in this change exceeds 80% of its budget; legacy total durations are excluded.
+
+  Budget shares use at most the latest 20 command-time observations for the
+  current command and declared timeout, in the newest observed environment.
+  Legacy duration_ms samples remain in the named historical distribution and
+  never enter budget shares. A median above 80% is labelled in the report.
+
+  `arc workspace gates` rows include declared total, landing median and p90,
+  and landings, paid gate time and paid preparation in 7/30 days. They sort
+  by 30-day measured gate time descending (the known lower bound when
+  incomplete), then project name; unobserved projects follow readable ones.
+
+  Landing costs use the latest 100 readable integrated changes, including
+  asserted and legacy closures and each completed stack member separately.
+  Each change pays the sum of run_ms of its executed, named integration gates
+  through closure, including failures and reruns. Reuse, selection, base passes,
+  attestation and not-admitted attempts pay nothing; publication is excluded.
+  A stack's shared execution is charged only to the member recording it.
+  Missing run_ms makes that change unmeasured; duration_ms is never substituted.
+  Median (lower middle) and p90 (nearest rank) are known only when assigning
+  every unmeasured cost zero or arbitrarily large values yields the same result;
+  otherwise that statistic and any dependent budget judgment are unmeasured.
+  The report names missing samples and the zero-execution share of all window
+  landings. Empty history has no median or share.
+  The 7/30-day windows use closure time and include every readable change
+  landed within that period, charging its complete landing cost there.
+  Paid totals are null if any such change is unmeasured; measured_ms retains
+  the known lower bound. Unreadable changes remain collection failures.
+  Preparation paid is reported beside gate time for the same landings and
+  windows, and for each gate over its runs, from prepare_ms on the same
+  receipts by the same rules: a receipt without prepare_ms leaves its
+  landing's preparation unmeasured, and a percentile is stated only when
+  known. The landing budget judges gate time alone.
+
+  Total bounds the worst-case integration suite and is enforced.
+  Landing declares typical executed cost and is advisory, reported against
+  the latest-100 median with a doctor advice finding when exceeded.
+  Declare landing = "2s" in [budget]; it needs no raise record and never
+  changes acceptance. Its value comes from the invoking change's destination
+  branch, or the current branch without a matching change, combined with the
+  operator's landing declaration by minimum; change-head additions do not bind.
+  A detached checkout without a matching destination reports it unobserved.
+  Every required integration gate needs a budget when enforcement keys exist
+  in that table; a landing-only table requires no individual budgets. That
+  includes a gate the destination declares and a change's head removes,
+  since the change still owes it. A removed gate that has a budget on the
+  destination keeps it; one that has none cannot be given one, so a change
+  cannot both remove it and declare a total. Land the replacement first
+  with no total declared, then declare budgets and the total in a following
+  change, once the destination holds only the gates it keeps; the refusal
+  names this route.
+
+  `arc gates init [--runs N] [--publication]` measures six serial rounds of
+  every gate that runs at integration, in any profile, by default. A
+  publication-only gate is skipped and named unless `--publication` asks for
+  it. A budget is worst run_ms plus spread (max minus min), at least 105% of
+  worst, rounded up to two significant digits (minimum 1ms). Total is the
+  sum of the integration gates' budgets, with no batch discount, and leaves
+  publication-only budgets out. With no integration gate it refuses. Every other byte of .arc/gates.toml is kept. Operator-only
+  gates are copied into the project. Existing budgets, failed or unmeasured
+  rounds, or declaration edits during measurement refuse without writing.
+  `arc gates over [CHANGE] [--gate G]` shows the newest measured run exceeding
+  the applicable budget, its history sources, host observations and output
+  artifact, cost kinds and slowest recorded checks, followed by the order of
+  work in `arc guide gate-rounds`.
+
+  `arc gates measure --concurrent` accepts a batch under `arc guide gates-together`.
+  `arc gates measure [--runs N] [--gate G]` runs declarations sequentially on
+  this tree, five times by default, honoring timeouts. Each round follows the
+  `exclusive` and `admission` contract in `arc guide gates`. It prints command
+  wall and tree CPU time, instructions and other processes' CPU share, with
+  admission wait separately, the wall min, max and spread, and physical and
+  logical host cores. Missing topology is unmeasured.
+  Wall far above CPU indicates waiting inside the command; a wide spread
+  indicates load sensitivity. A round not admitted prints
+  `not measured (not-admitted)` and contributes no timing sample. Summaries
+  count measured and unmeasured rounds. It records no evidence and writes no
+  ledger or output artifacts; the gate commands may write their own build
+  outputs. A failed, timed-out or unmeasured round makes the command exit 1.
+  Unknown gates and zero runs are refused. Every declared gate runs unless
+  `--gate` selects one.
+
+  Five cost kinds:
+  - waiting: paired wall/CPU medians have wall >= 100ms and wall >= twice CPU.
+    CPU is observed child user plus system time; I/O and sleeps can both wait.
+  - queueing: median wait_ms >= 100ms and >= 10% of median command wall time.
+  - duplication: executions on integrated changes divided by integrated changes
+    exceed one. The numerator matches the current command and timeout across
+    environments; the denominator is every readable integrated change in the
+    ledger, including changes answered entirely by reuse. Reuse, selection,
+    base passes, attestation and not-admitted attempts contribute no executions.
+    Changes without an execution still count in the denominator; no integrations is
+    unmeasured, not a zero-cost claim.
+  - preparation: median prepare_ms >= 100ms and >= 10% of median command wall.
+  - real-work: paired wall/CPU measurements exist and the waiting threshold
+    is not met. This is an indicator of command work, not proof of useful work.
+  Waiting/real-work needs paired fields; queueing and preparation need their
+  own field and wall. Absence never means zero.
+
+  The order of work that `arc gates over` prints is steps 1 to 8 of a round
+  in `arc guide gate-rounds`, which also holds the rules a gate follows.
+
+  Levers, in order, are guidance arc states and does not automate:
+  1. Use an optimized binary for spawned tests.
+  2. Build an artifact the checks share once, behind a lock.
+  3. Skip durability syscalls behind an explicit test-only switch.
+  4. Use cheaper fixtures.
+  5. Kill a throwaway process; do not ask it to exit.
+  6. Use events in place of sleeps and polls.
+  7. Increase harness parallelism or remove a shared serialization point.
+  8. Call in process where no process is needed.
+  9. Split a suite into gates by area with `paths`.
+  10. Cut tests on evidence of what each has ever caught, ranked by what it guards.
+  Cost and failures inform review; they do not choose which check to remove.
+
+  A gate may declare timings = "checks.tsv". Its command writes the relative
+  file inside its worktree on each execution. Separate gates use separate files.
+  Arc never deletes it. A file unchanged since the attempt began is stale.
+  The file must be regular, with no final symlink and no parent outside the
+  worktree. Ignore generated timings in Git to keep execution evidence clean.
+  Missing or inaccessible files, stale files, and malformed or oversized input
+  produce an advisory receipt error, never a gate failure.
+
+  The UTF-8 line format is `arc-check-timings/1` on the first line, followed
+  by one check per line: name<TAB>milliseconds<TAB>pass|fail. Names are unique,
+  nonempty, at most 128 UTF-8 bytes, and contain no control characters.
+  Milliseconds are unsigned whole decimal integers. At least one check is
+  required. Outcomes describe observations; the command's exit status decides
+  the gate outcome. For example, with literal tab characters:
+
+    arc-check-timings/1
+    parse-config	12	pass
+    reject-corruption	230	fail
+
+  Input is bounded to 65,536 bytes and 512 check entries. An exceeded limit or
+  any malformed entry discards the whole file with an error. Each run keeps
+  at most 32 checks, failures first, then slowest within each outcome, with
+  name as the tie break. Its receipt names the number dropped. These optional
+  check_timings fields travel with command timing through replay and reuse;
+  absence stays absent and older receipts remain valid. The path stays outside
+  declaration identity and declaration-conflict checks: it observes a command
+  and changes nothing the command checks or what its existing evidence proves.
+
+  Reports aggregate direct executions of the current command and timeout in
+  the newest environment. They show the ten slowest retained check names by
+  median cost, participation count, and changes on which the check failed.
+  A check with no retained failure prints "never failed in N runs, costs M
+  seconds". N counts only runs retaining that check, not reuses or missing
+  observations. This is recorded history, not proof that a check caught nothing
+  or that it can be cut. Dropped checks and invalid or absent timings are
+  counted explicitly. Arc builds no result store, impact planner or diff judge.
+

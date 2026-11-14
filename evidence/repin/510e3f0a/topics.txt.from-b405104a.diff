@@ -1,0 +1,48 @@
+--- b405104a/topics.txt	2026-11-14 07:27:04.451534563 -0300
++++ 510e3f0a/topics.txt	2026-11-14 07:29:09.659157269 -0300
+@@ -1,5 +1,6 @@
+ Workflow topics:
+   arc guide overview               Arc and Git ownership
++  arc guide guide-topics           Built-in contracts and run-time guide topics
+   arc guide identity               Identity, attribution and sessions
+     arc guide identity-basics      Attribution and model evidence
+     arc guide identity-events      Event ordering, cursors and read-only commands
+@@ -11,6 +12,7 @@
+     arc guide journal-lookup       Artifact lookup, archival and project queues
+     arc guide journal-records      Keeping facts during work
+     arc guide journal-references   Pinned references, living documents and published pages
++    arc guide journal-workbenches  Workbenches for working material
+     arc guide journal-resolution   Journal directory resolution and anchors
+   arc guide sandbox                Destructive rehearsals
+   arc guide questions              Discussions, questions and decisions
+@@ -62,7 +64,9 @@
+   arc guide exit-codes             Exit codes and blocker precedence
+   arc guide files                  Configuration, build storage and retention
+   arc guide gates                  Gate declarations and selection
+-  arc guide gate-costs             Cost diagnosis, check timings and the order of work
++  arc guide gate-confinement       Kernel-enforced project writable roots
++  arc guide gate-costs             Cost diagnosis, levers and check timings
++  arc guide gate-rounds            Gate rules and the method of a round
+   arc guide gate-raises            Budget raises and trusted growth counting
+   arc guide gates-together         Measured concurrent batches and host-local acceptance
+   arc guide base-passes            Project adoption, baseline proofs and publication audits
+@@ -258,6 +262,7 @@
+   arc fr --help
+   arc journal --help
+   arc journal dir --help
++  arc journal bind --help
+   arc journal doctor --help
+   arc journal spool --help
+   arc journal note --help
+@@ -309,6 +314,11 @@
+   arc journal lane renew --help
+   arc journal lane close --help
+   arc journal lane list --help
++  arc journal workbench --help
++  arc journal workbench list --help
++  arc journal workbench link --help
++  arc journal workbench close --help
++  arc journal workbench adopt --help
+   arc journal consume --help
+   arc journal transition --help
+   arc journal promote --help

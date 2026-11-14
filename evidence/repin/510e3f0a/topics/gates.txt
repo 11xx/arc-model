@@ -1,0 +1,250 @@
+Gate declarations and selection
+
+GATES
+  `arc gates [--json]` lists every declaration on this tree beside its cost
+  across changes, from per-change verification events. Declarations include
+  `exclusive` and `admission_ms`, the effective admission limit when a lock is
+  named or an explicitly declared limit. Both are null when omitted without a
+  lock. Gate rows include budget_ms, sources, command-time budget share and the
+  last measured over-budget run. The report includes the declared total and
+  the unqualified integration sum; profile violations are listed separately.
+  Runs, base passes, exact-tree reuses and selector skips are counted separately; attested
+  evidence and not-admitted attempts are separate from runs and timings.
+  History groups gates by name across declarations. Median (lower middle),
+  p90 (nearest rank) and worst use command `run_ms`; only older events without
+  it use `duration_ms`, including preparation and waiting. The report names
+  how many such samples it uses. `ever_failed` describes observed runs;
+  `last_failed_first` is the latest change whose first observed verification
+  failure was this gate, with its time and event. Dedicated publication
+  receipts are outside this per-change history.
+  Each declaration includes `paths` and its effective `inert` exclusions.
+  `unclaimed_paths` counts tracked paths outside inert exclusions that no
+  explicit gate pattern names; a gate with no paths does not name a path.
+  Unreadable changes are named, readable history is retained, and a partial
+  report exits 16. JSON is `arc-gates/1`, including `confine`.
+  See `arc guide gate-costs` and `arc guide gate-confinement`.
+
+  `arc gates paths [--json]` reports tracked paths, affected gates and why
+  coverage is mandatory, using one `git ls-files` with no ledger reads or
+  per-path commands. JSON `arc-gate-paths/1` has `paths` rows (`path`, `gates`,
+  `inert`, `unclaimed`, `all_gates_reason`) and `unclaimed_paths` names.
+  Reasons are `unclaimed`, `dangerous`, `protected-arc`, `selection-input`,
+  or null; protected inputs follow `arc guide base-passes`.
+  Inert paths are not unclaimed.
+
+  Budget history, initialization, measurement and overrun reports are specified
+  in `arc guide gate-costs`; the rules and method are in `arc guide gate-rounds`;
+  raises are specified in `arc guide gate-raises`.
+
+  `arc workspace gates [--json] [--under PATH|--here|--global] [--retired]`
+  lists each registered project's declarations and its own ledger's costs,
+  including projects without gates. Global is the default. Scope and the
+  collection manifest follow `arc workspace backlog`: retired registrations
+  are counted without observation, `--retired` lists them, orphaned anchors
+  are failures, and empty unresolved registrations count as empty. Partial
+  collection retains readable rows and exits 16. JSON is
+  `arc-workspace-gates/1`. These commands record no events and their ledger
+  reads do not require a parseable append policy.
+
+  Gates are `[gates.<name>]` tables in `.arc/gates.toml` or the operator
+  policy:
+
+    command = "<shell command>"
+    profiles = ["<profile>"]            omitted: required for every profile
+    events = ["integration"]           omitted: integration and publication
+    timeout = "10m"                     s, m, or h; omitted: no declared timeout
+    budget = "2.5s"                     command wall limit for acceptance
+    timings = "checks.tsv"             optional observations; guide gate-costs
+    paths = ["src/", "tests/"]           omitted or empty: every non-inert path
+    concurrent = true                   measured batch; arc guide gates-together
+    exclusive = "host"                  host-wide lock name; omitted: no lock
+    admission = "60s"                   lock wait limit; omitted: 60s
+    environment = "<probe command>"     evidence counts only where the probe
+                                        prints the same output, run against
+                                        the content being evaluated
+    binds = "commit"                    a pass answers for its commit, not
+                                        its tree; omitted: "tree", as an
+                                        older arc reads it
+
+  A `bypass` key has no effect: doctor reports it and check warns to remove it.
+
+  Budget durations accept positive whole milliseconds with ms, s, m or h
+  units, including decimal forms such as 2.5s and 0.001s. Overflow and precision
+  below a millisecond are refused. A [budget] table may declare total = "15s".
+  Which integration gates need a budget is defined in `arc guide gate-costs`.
+  `arc guide gates-together` defines the total's profile and batch accounting.
+  The effective suite is validated after layering for every declared
+  profile and the unqualified case. A missing budget or excessive sum is a
+  doctor finding and independently blocks check, accept, integrate and land, even
+  when every gate row is green or the active profile requires no gate.
+
+  The budget in force is the minimum of every applicable selected destination,
+  committed change-head, operator and provisional staging declaration. Absence
+  never loosens a budget or total. Every higher repository declaration needs an
+  applicable raise record even when execution fits the old budget. An accepted
+  raise substitutes only its named destination constraint; independent operator,
+  staging and other-member minima remain binding. These constraints, raise IDs
+  and basis digests are confirmed before integration. See `arc guide gate-raises`.
+  Budgets are outside execution identity. Reuse selects the same structurally
+  eligible receipt and then judges its command time, with no search for an
+  older faster receipt and no implicit rerun. A selected receipt refused by
+  the budget judge needs explicit verify --rerun. The integration queue stops on a
+  recorded budget refusal. Reduction and replay read structural facts only.
+
+  A command outcome remains pass in the ledger even when its run_ms exceeds
+  the budget in force. Clock equality passes. An overrun passes only under
+  the busy-host rule below. Ordinary
+  verify exits 1 for a budget refusal, including parallel preflight whose
+  receipts retain unknown cleanliness. Status, check and show project current
+  budget applicability beside the raw result. Show JSON adds gate_status beside
+  raw verifications; status gate rows carry budget.verdict, budget_ms, run_ms,
+  excess_ms, sources and any busy-host excuse. budget_rules.total is milliseconds in JSON.
+  Missing run_ms is unmeasured
+  and cannot satisfy a budget, including legacy local, imported and attested
+  evidence. duration_ms never substitutes for run_ms. Explain labels historical
+  authorization apart from applicability under the current destination and operator declarations;
+  a later reduction does not rewrite closure or the recorded authorization.
+
+  Without a declared timeout, a budgeted command has an execution limit of
+  ten times its effective budget, computed in checked milliseconds. The clock
+  starts with the command and includes output drain and process-group cleanup,
+  excluding admission and preparation. Evidence keeps timeout_seconds exactly as declared, including
+  absence, and separately records execution_limit_ms and its origin, timeout
+  or budget-times-ten. A receipt's recorded budget is provenance; current
+  judgement uses the budget in force when the receipt is read. Timed evidence
+  without work references needs no recorded budget judgement to count. See
+  `arc guide gate-costs` for cost warnings.
+
+  The busy-host rule excuses an overrun only with at most 3% more user-space
+  instructions than the newest eligible reference and at least 25% unrelated
+  CPU use both before and during the gate. Before means verification startup
+  to just before spawn, at least 100 ms; subtract arc's process CPU and every
+  earlier tree it ran. During means host busy CPU less the gate tree and arc's
+  other measured CPU. Unattributed concurrent batches get no excuse. Other
+  arc invocations' parallel lanes qualify only through the prior-load condition.
+  The clock must fit reference.run_ms * (1 - reference_share) / (1 -
+  other_share), with 25% slack: each run's capacity left by other work.
+  Zero counts and instruction rates below 10% of the reference's instructions
+  per tree user-CPU second are absent evidence. Missing or incomplete counters
+  and host readings grant no excuse.
+
+  A reference is a clean, unmoved, unexcused direct pass, outside parallel
+  probes, of the same gate and declaration on the same known hostname,
+  logical CPU count and CPU model. Its tree is this run's tree or its revision
+  leads to this run's destination. Its clock must fit the budget in force.
+  Cached receipts never supply references.
+  Legitimate added work becomes its own reference after one clock-fitting pass
+  on a quiet host. A holder or leader with restricted CPUs gets no excuse.
+  Thresholds must match the named version.
+  The receipt carries its reference, rule version and thresholds. Readers use
+  those thresholds and the current budget, without replacing the reference or
+  consulting live load. A threshold change takes a new rule version. Lowering
+  the budget retires an excuse whose reference stops fitting. Excused runs never become references, raise
+  evidence or base-pass seeds, including after a raise.
+
+  Kernel instructions are uncounted. Known limit: added waiting on an
+  already busy host can fit the measured delay allowance; a quiet run exposes
+  it. `arc gates` counts excused runs and names the last; `gates measure` prints
+  instructions and other processes' share. See `arc guide gate-costs` for CPU
+  accounting. Work references, excuses and copied work adopt store format 12
+  before publication
+  or import; readers through format 11 refuse it.
+
+  A ledger adopts store format 9 before gate verification or reuse under any
+  budget declaration, including a total with missing individual budgets,
+  before writing budget-bearing evidence or authorization, or when an
+  import consumes budget declarations, evidence or authorization. Older
+  executables supporting formats through 8 refuse that ledger. Reads alone do
+  not adopt it; budget-free writes retain the ordinary event envelope and
+  ledger format.
+  Every path that accepts gate evidence judges it against the budget in force:
+  verify, status, integrate, accept, land, candidate selection and promotion,
+  and publication.
+  A passing verify line names either its busy-host reference, work and other
+  processes' share, or `Pass (over budget, ran ... of ...)` for a refusal;
+  its recorded outcome remains a pass.
+
+  A gate command exits 75 (`EX_TEMPFAIL`) to say it did not run, which arc
+  records as `not-admitted`. Both are described in `arc guide change-gates`.
+
+  An exclusive name admits one command at a time across checkouts and projects
+  in the account. `host` conventionally reserves the machine; another name
+  can reserve a browser or port. Locks live under
+  `~/.local/ai/arc/exclusive`, independently of repository and ledger paths;
+  a sandbox prefix supplies that home when sandboxing. A holder retains the
+  lock until the command's last descendant exits, including detached children
+  and after the launching arc exits. There is no queue order or role queue.
+  A waiter prints the holding project, change, gate and elapsed hold time.
+  Admission expiry starts no command and records `not-admitted`, not a gate
+  failure. `wait_ms` includes exclusive admission and is separate from `run_ms`.
+  Admission accepts positive durations such as `500ms`, `2.5s`, `2m` or `1h`.
+  Both keys are outside evidence identity: they govern admission, not the check.
+  Either declaration may require a lock; an omitted key cannot remove one.
+  Matching lock names take the shortest admission limit, including the default.
+  Different names conflict between project and operator policy; between target
+  and change they report a divergence and the target's lock stays in force.
+
+  `arc verify --all --event integration|publication` selects the event's
+  gates. Evidence identifies its event, tree, command and environment;
+  a publication pass does not satisfy an integration requirement.
+  Historical verification evidence with no recorded event is integration
+  evidence. An omitted event on a gate declaration applies to both events.
+  `arc publication --target <branch> --profile <profile>` runs the complete
+  publication tier at that branch's head. Fresh and cached publication receipts
+  must satisfy current budgets; publication-only gates are outside the
+  integration total. --skip-green keeps the newest structurally matching
+  receipt and its command timing, refusing a budget failure without executing
+  it again. Publication confirms effective budgets, total rules and sources
+  after checking the content. Repository budgets come from a recorded integration
+  destination or the associated open change's destination, plus the publication
+  tree's additions and tightenings and current operator policy. --change selects
+  the open change owning the publication branch; otherwise a unique matching
+  change is inferred. Without a recorded destination or associated change,
+  repository budget authority is unavailable; operator-only budgets still bind.
+  Push and release tooling can use
+  `--revision <full-commit-id>` to require the exact revision queued by the
+  caller and use its exit status as a local guard. Arc makes no network
+  request and installs no hook implicitly. A failed publication names the integrations since the
+  most recent successful publication pass.
+
+  `[selection] inert = ["**/*.md"]` declares paths that affect no gate.
+  Patterns use `policy::glob_match`, as path policy does: `*` stays within a
+  segment, `**` crosses segments, `**/` includes zero directories, and a
+  trailing `/` includes everything beneath that directory. Patterns are
+  case-sensitive and match repository-relative paths.
+
+  A path affects gates whose `paths` match it. Inert paths affect none. A path
+  no explicit gate pattern names affects every gate. Dangerous policy paths
+  affect every gate, including those beneath inert exclusions. A gate without
+  paths is affected by every non-inert path. Renames check both old and new
+  paths. The inventory includes gates from every profile and event.
+
+  Integration selection needs an earlier pass in the same change, with the
+  same declaration and environment. Project adoption of base passes permits
+  cross-change reuse under `arc guide base-passes`. Commit-bound gates do not select
+  across trees. Arc emits `arc-gate-selection/1` as selector `arc:paths` when
+  paths prove the gate unaffected. It asks a declared script only when the
+  gate remains affected; unnamed and dangerous paths cannot be cleared by a
+  script while path selection is declared. An uncertain delta runs the gate.
+  An unreadable danger declaration affects every path; inspection remains
+  available when append policy cannot be parsed.
+
+  Paths and inert exclusions participate in evidence identity. The complete
+  coverage map and dangerous patterns also participate because they determine
+  unnamed-path fallback. Coverage and confinement require fresh identity;
+  legacy evidence answers only unconfined, unscoped declarations. Target
+  coverage stays in force until an edited declaration lands, as with selector
+  changes. Project and operator inert lists combine; differing paths for the
+  same gate conflict. Scoped run receipts retain identity, and delta receipts
+  retain the acknowledged request, answer and its digest for replay.
+
+  A gate's `selector` reads `arc-gate-delta/1` JSON: `source_tree`,
+  `target_tree`, `paths` and `gates`. Its `arc-gate-selection/1` answer
+  includes `complete: true`, `request` equal to the complete input object,
+  and `gates` naming affected checks. A successful stdin write does not prove
+  consumption. Missing, failed, malformed, incomplete, unknown or mismatched
+  answers run the required checks. Selection applies to integration;
+  publication checks every required gate on a changed tree. Reuse receipts
+  retain the passing source tree, target tree, selector and declarations;
+  they grant no result to another event or environment.
+

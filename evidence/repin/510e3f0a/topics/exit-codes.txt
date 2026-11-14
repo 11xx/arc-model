@@ -1,0 +1,109 @@
+Exit codes and blocker precedence
+
+EXIT CODES
+  forge observe exits 0 for admitted complete, truncated or failed reads and
+  identical retries, whatever the availability of their content. Invalid
+  input, conflicting read IDs or a refused --custody-dir exit 1; CLI usage
+  errors exit 2. forge link policy/tuple/host mismatches exit 10.
+
+  `arc check` is the integration preflight and its code names the blocker.
+  `integrate` and `rebase` refuse in the same vocabulary, and a queue exits
+  with the code of the member that stopped it, so one table reads the same
+  way whether one change was integrated or twenty.
+
+    `arc check` exits 0 when the change is ready under the integration shape
+      resolved for its target. --shape ff-only|no-ff evaluates an explicit
+      alternative; status uses the resolved default.
+    `arc check` exits 2 while a blocking finding is open.
+    `arc check` exits 3 when no valid approval covers the current head.
+    `arc check` exits 4 while a hold is active.
+    `arc check` exits 5 when a required gate is not green at the head or its
+      effective budget declarations are invalid (`arc guide gates`).
+    `arc check` exits 6 for a closed change, a missing branch, or a target
+      branch that cannot be resolved.
+    `arc check` exits 7 while a prerequisite change is unresolved.
+    `arc check` exits 19 while a must-land-together partner is open or
+      closed without integrating; the change lands only with `arc land`.
+    `arc check` exits 20 while a pending landing attempt holds the change;
+      `arc land --recover <attempt>` finishes it.
+    `arc check` exits 11 when the target conflicts or ff-only ancestry
+      requires rebasing; it shadows 14 when both are present.
+    `arc check` exits 12 when a declared acceptance probe is not
+      discriminating.
+    `arc check` exits 13 while the change declares it is iterating.
+    `arc check` exits 14 when the tree a merge would ship has no gate
+      evidence; a `not-admitted` run is none.
+    `arc check` exits 15 when the change's branch is a fork's: fork work is
+      unintegrated by intent, and the boundary binds to the change rather
+      than to the directory the command runs in.
+    `arc check --tag` exits with the code of the first blocked change it
+      lists, and 0 when every match is ready or closed.
+    Arc exits 17 when a paired replica does not hold integration authority;
+      the refusal names the holder or an offer in flight.
+
+  Human blocker reports add exact topic routes beside their existing facts.
+  A refusal lists its blockers, then `Next step:`: the command that does
+  what comes next, with the change filled in and the `next_action` code in
+  parentheses, as in `arc verify <change> --gate test (run_gate:test)`.
+  Where no single command does it, the line says what to do and names the
+  command that records it; an approval rejection prints the policy's reason
+  in place of a code. `status`, `show`, `review`, `resume`, and `rescue`
+  print the same line, and `--json` carries the code alone.
+
+  Codes 1 and 2 are also reachable without a blocker at all: `arc` exits 1 on
+  an internal error and 2 on a usage error, which argument parsing decides
+  before any command runs. A signal that interrupts a gate or probe ends arc
+  with that signal rather than an exit code; see `arc guide change-gates`.
+
+  The other commands a script branches on:
+
+    `arc claim`, `arc stage`, and `arc release-claim` exit 8 on a claim or
+      stage ownership conflict.
+    arc exits 9 when the execution role refused the command, before it takes
+      a lock or writes an event.
+    `arc is-blocked` exits 0 when the change is ready, 1 when it is blocked,
+      and 2 when the lookup or ledger read failed.
+    `arc watch` exits 0 when its condition is reached and 2 on a timeout.
+    `arc take` exits 2 when no change is ready.
+    `arc env` exits 1 and prints the export template when no harness is
+      detected.
+    Both import commands exit 18 for publishing authorization refusals,
+      including missing provenance, digest mismatch, exporter/origin mismatch,
+      missing capability, forbidden actor claims, and authorization movement.
+      Exit 1 reports invalid bundles, enrollment, replay, or publication failures.
+      An admission batch publishes change facts, repository facts and its local
+      authorization receipt together. Admission batches require store format 7.
+      Temporary batches are invisible. Receipts
+      are private admission evidence and never exported as a trust grant.
+      Retention failures after publication name the published admission.
+    `arc import` exits 1 and writes nothing when an event conflicts.
+    `arc changelog --write` exits 1 and writes nothing when the renderer
+      cannot perform the write, naming the target and the reason on stderr.
+    `arc changelog` exits 1 and leaves the target byte-identical when a
+      command renderer cannot start, exits non-zero, overruns its timeout,
+      prints more than 16 MiB or output that is not UTF-8, or prints nothing
+      for `--write`.
+    `arc import` refuses a delta bundle whose prefix this store does not
+      hold, and writes nothing.
+    `arc forge link` exits 10 when the observed tuple or the declared policy
+      does not match, appending no event.
+    `arc history resolve` exits 2 when nothing moved the revision.
+    `arc candidate retire` exits 1 and writes nothing while a root reaches
+      the candidate, naming the root.
+    `arc restack --advise` exits 0 when the change has no dependents.
+    `arc workspace backlog` exits 16 when any selected project's observation
+      failed; the rows that were read still print.
+    `arc journal render --json` exits 16 when any address failed to render;
+      its entry carries the error and the other pages still render.
+    `arc doctor` exits 1 when problems are present and 0 for a clean or
+      advice-only ledger; a ledger it cannot read also exits 1, with the
+      error on stderr and no report.
+    `arc journal doctor` exits 1 when problems are present and 0 for a clean
+      or advice-only journal; a journal it cannot read also exits 1, with the
+      error on stderr and no report.
+    A rejected self-approval follows the no-valid-approval path and exits 3.
+    An arc-managed Git hook always exits 0, so it can never block a commit.
+    A repeat of a recorded source item writes nothing, prints the existing
+      entry, and exits 0.
+    A spooled write prints `spooled: <path>` and exits 0.
+

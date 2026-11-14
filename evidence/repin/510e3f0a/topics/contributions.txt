@@ -1,0 +1,88 @@
+Contribution roles and canonical Git trailers
+
+CONTRIBUTION TRAILERS
+    arc roles <change> --planned-by [<value>] --orchestrated-by [<value>]
+                       Assert roles on an open change. Both flags repeat;
+                       at least one assertion or withdrawal is required.
+                       --withdraw <role>=<value> withdraws an exact assertion.
+                       Values use the convention's agent or person form.
+                       A flag with no value stands for the invoking
+                       identity: a declared Name <email> actor's own form,
+                       else harness:model from the resolved harness and
+                       model, under a declared actor or one derived from the
+                       harness session. A role assertion is no approval, so
+                       a derived actor may make one. An identity assumed
+                       from git config, or an unresolved harness or model,
+                       refuses: omit the role or pass a real coordinate.
+                       A value, typed or resolved, that carries a
+                       placeholder or a session id refuses; withdrawal takes
+                       any recorded value.
+                       Assertions are explicit; event ancestry grants none.
+                       begin's two role flags and brief --planned-by take the
+                       same forms. Put the change first when a role flag has
+                       no value, or attach an explicit coordinate with
+                       --planned-by=<value> or --orchestrated-by=<value>.
+                       A role value resolving to a repository change refuses.
+                       begin records the assertions directly
+                       after opening, brief when writing a contract.
+    arc trailers <change> [--json]
+                       Print Planned-by and Orchestrated-by assertions and
+                       Implemented-by from recorded patchset contributors,
+                       or the snapshot subject when none are listed, in
+                       convention order. Duplicate lines print once.
+                       The subject is --on-behalf-of when set, else the actor.
+                       A subject that is a fresh harness:model[#effort] or
+                       Name <email> supplies itself. Retained replay or
+                       bound-run author coordinates take precedence over
+                       session names. The recorder's harness and model apply
+                       only to the recorder's own work, on a snapshot that declared its attribution: a declared
+                       actor, --solo, --contributors or --on-behalf-of. A
+                       recorder inferred from its harness session or Git
+                       configuration is not credited, since who ran snapshot
+                       is not proof of who wrote the diff.
+                       No line carries a placeholder or a session id. What
+                       cannot be attributed is omitted and named in a note
+                       with the value, why (placeholder, session id,
+                       unresolved, undeclared) and the remedy; no coordinate
+                       is guessed. A note on a session-form contributor may
+                       name the one model this change's own records by that
+                       actor carry, as a suggestion that is never projected.
+                       An asserted role that is no fresh coordinate becomes
+                       a note naming arc roles --withdraw.
+                       Review snapshots and squash use the same rule;
+                       rewrites retain patchset attribution.
+                       Review credit stays in the ledger: Reviewed-by is
+                       never projected or backfilled into commits.
+                       --json emits arc-trailers/1 with trailers and notes.
+    check and integrate advise when a commit in target..head lacks an
+    asserted line, under missing-contribution-trailers, naming arc rewrite
+    trailers --from <rev> --append <line>; only an assertion that is a fresh
+    coordinate is advised. They advise when a commit's role line carries a
+    placeholder or a session id, or a person without an email, under
+    placeholder-contribution-trailers, naming each commit and line and arc
+    rewrite trailers --from <rev> --edits <file>, whose `arc-trailer-edits/1`
+    lines drop or replace exactly those lines and leave the valid lines under
+    the same key. Neither advice blocks
+    integration or changes ready or the exit code; rewrite before
+    integration. Appending complete role entries keeps the approval or
+    declared debt, and the appended text is a declaration, not a verdict;
+    any other message rewrite requires fresh snapshot and approval or
+    declared debt (`arc guide rewrites-evidence`). Post-integration audits
+    stay in the ledger.
+    arc instructions git [--check <file>]
+                       Print the portable contribution-trailer convention
+                       `arc-contribution-trailers/2`: `Planned-by`,
+                       `Implemented-by`, `Reviewed-by`, and `Orchestrated-by`
+                       name material contributions in agent
+                       `harness:model[#effort]` or human `Name <email>` form.
+                       A placeholder or a session id is not a coordinate;
+                       its line is omitted.
+                       Agent harness, model and supplied effort segments
+                       must be nonempty.
+                       `--check <file>` reports malformed role values,
+                       placeholder role values (a placeholder or session-id
+                       segment, or a person without an email), and keys
+                       outside the convention. It never rewrites a message,
+                       and exits 1 when a role key carries a malformed or
+                       placeholder value.
+

@@ -1,0 +1,780 @@
+--- b405104a/help.txt	2026-11-14 07:27:04.447534472 -0300
++++ 510e3f0a/help.txt	2026-11-14 07:29:11.104395004 -0300
+@@ -148,7 +148,7 @@
+ ===== arc guide --help =====
+ Read indexed workflow topics or search instruction text without project state
+ 
+-With no topic, list topic and command-help routes. A topic exceeding 16,384 bytes lists its exact child routes; --all prints the complete guide. --search performs literal, case-insensitive search over topics and command help, showing each matching route once with compact context. Unknown topics refuse naming `arc guide`. Reads work outside a repository, under every role and with broken configuration, recording nothing.
++With no topic, list topic and command-help routes. A topic exceeding 16,384 bytes lists its exact child routes; --all prints the complete guide. --search performs literal, case-insensitive search over topics and command help, showing each matching route once with compact context. Run-time journal topics are labelled operator or project text; see `arc guide guide-topics`. Project topics take precedence over operator topics with the same name. Unknown topics refuse naming `arc guide`. Reads work outside a repository, under every role and with broken configuration, recording nothing.
+ 
+ Usage: arc guide [OPTIONS] [TOPIC]
+ 
+@@ -778,7 +778,7 @@
+ ===== arc gates --help =====
+ Declared gates and their measured cost across changes
+ 
+-Lists declarations (arc guide gates), with runs, exact-tree reuses and selector skips counted separately. Timings prefer run_ms; older duration_ms samples are identified and excluded from budget shares. Lists budgets, totals, the latest over-budget run and receipt cost kinds (arc guide gate-costs). Reads record no events and do not require a parseable append policy. JSON: arc-gates/1.
++Lists declarations (arc guide gates), with runs, exact-tree reuses and selector skips counted separately. Timings prefer run_ms; older duration_ms samples are identified and excluded from budget shares. Lists budgets, totals, recent landing costs with the preparation they paid, the latest over-budget run and receipt cost kinds (arc guide gate-costs). Reads record no events and do not require a parseable append policy. JSON: arc-gates/1.
+ 
+ Usage: arc gates [OPTIONS] [COMMAND]
+ 
+@@ -1168,7 +1168,7 @@
+ 
+ A repository declares that it keeps no changelog with `none = "<reason>"` in `.arc/changelog.toml`. The reason must be non-empty and not a placeholder. `none` conflicts with explicit target, renderer, renderer_command, and renderer_timeout keys. The invoking checkout's declaration silences the advisory, including integration advice, and refuses entry recording and --write. Per-change --none --reason remains valid and is unnecessary; reads remain available. Without the file, the target is CHANGELOG.md.
+ 
+-The projection is rendered by the renderer `.arc/changelog.toml` selects: the built-in `keep-a-changelog`, or `command`, whose `renderer_command` argv runs from the repository root without a shell, with the authority of whoever runs arc changelog. It reads an arc-changelog-render-request/1 document on stdin and answers on stdout; `renderer_timeout` bounds it (default 60s), and its process group is killed at the deadline. `--json` never runs it. The request's projection is the text-side view: each entry's recorded session is null and its id is masked as [session] in the other recorded values, with or without --provenance.
++The projection is rendered by the renderer `.arc/changelog.toml` selects: the built-in `keep-a-changelog`, or `command`, whose `renderer_command` argv runs from the repository root without a shell, under the write confinement in `arc guide gate-confinement`. It reads an arc-changelog-render-request/1 document on stdin and answers on stdout; `renderer_timeout` bounds it (default 60s), and its process group is killed at the deadline. `--json` never runs it. The request's projection is the text-side view: each entry's recorded session is null and its id is masked as [session] in the other recorded values, with or without --provenance.
+ 
+ Read-only projections name unreadable changes with their errors on stderr and retain readable entries. --write requires every change to be readable; an unreadable selected change fails
+ 
+@@ -1926,7 +1926,7 @@
+           Start replay with IDs strictly greater than this cursor. Local IDs are totally ordered by issuance across processes; imports keep origin IDs. Follow emits all subsequently discovered events, including imports below the cursor. To recover older imports already present at restart, replay without --since and deduplicate by event ID. Replay withholds IDs at or above unresolved provisional reservations; a cursor crossing one refuses and names the boundary
+ 
+       --exec <EXEC_COMMAND>
+-          Run `sh -c <cmd>` for every emitted event, with its NDJSON line on stdin and ARC_EVENT_ID, ARC_EVENT_TYPE, and ARC_CHANGE_ID set. A handler may exit without reading its line. A failing handler is a warning and never stops the stream
++          Run an operator command `sh -c <cmd>` for every emitted event, with its NDJSON line on stdin and ARC_EVENT_ID, ARC_EVENT_TYPE, and ARC_CHANGE_ID set. A handler may exit without reading its line. A failing handler is a warning and never stops the stream. Project write confinement does not apply to this operator handler
+ 
+       --role <ROLE>
+           Execution boundary; see `arc guide identity-options`
+@@ -1998,7 +1998,7 @@
+           Fail with exit 2 after this many seconds. Each Git probe a check runs, and any other child it waits for without a timeout of its own, shares this deadline with its pipe cleanup: the child's process group is killed when the deadline passes, and unfinished pipe workers are detached. A child that dies or closes its input mid-check fails the check, and a check failing after the deadline reports the timeout
+ 
+       --exec <EXEC_COMMAND>
+-          Run `sh -c <cmd>` once when a condition is reached, with the reached `arc-watch/1` document `--json` prints on stdin and ARC_EVENT_TYPE set to `watch-reached`. ARC_EVENT_ID and ARC_CHANGE_ID carry the document's values, empty where it names none. The hook may exit without reading its stdin; a hook that fails is a warning, and the watch still exits 0
++          Run an operator command `sh -c <cmd>` once when a condition is reached, with the reached `arc-watch/1` document `--json` prints on stdin and ARC_EVENT_TYPE set to `watch-reached`. ARC_EVENT_ID and ARC_CHANGE_ID carry the document's values, empty where it names none. The hook may exit without reading its stdin; a hook that fails is a warning, and the watch still exits 0. Project write confinement does not apply to this operator handler
+ 
+       --on-behalf-of <ON_BEHALF_OF>
+           Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
+@@ -2668,7 +2668,7 @@
+ ===== arc snapshot --help =====
+ Record the current branch head as a patchset with explicit base and brief binding.
+ 
+-Accept preserves the delivered binding and contributor declaration through signature-only preparation; snapshots record evidence, never a judgment. A head whose rewrite invalidated approval requires a fresh patchset, even when the latest patchset's mapped head already matches the branch. Re-approval requires a verdict on that fresh patchset. The replay `arc rebase` performs itself carries a matching patchset's author coordinates, or completed bound-run attribution established at the original head before replay; the replaying session is not its implementer. That replay runs where the project's configuration cannot define a merge driver or filter, and arc reads its result from the ref Git updated, not from command output. Ordinary snapshots derive executor authorship from completed, bound runs when no --contributors, --solo or --on-behalf-of is supplied; the exact evidence and conservative fallback rule is in `arc guide debt-review`. Explicit attribution takes precedence. At unchanged content, an explicit --on-behalf-of (also supplied by ARC_ON_BEHALF_OF) differing from the latest effective author records a fresh patchset. An equal or omitted subject preserves that patchset and its attribution; the unchanged output names the effective subject. Earlier verdicts remain bound to their original patchsets.
++Refuses reserved-domain author or committer addresses in introduced commits, regardless of --base; see `arc guide change-integration` for the domains and re-authoring. Accept preserves the delivered binding and contributor declaration through signature-only preparation; snapshots record evidence, never a judgment. A head whose rewrite invalidated approval requires a fresh patchset, even when the latest patchset's mapped head already matches the branch. Re-approval requires a verdict on that fresh patchset. The replay `arc rebase` performs itself carries a matching patchset's author coordinates, or completed bound-run attribution established at the original head before replay; the replaying session is not its implementer. That replay runs where the project's configuration cannot define a merge driver or filter, and arc reads its result from the ref Git updated, not from command output. Ordinary snapshots derive executor authorship from completed, bound runs when no --contributors, --solo or --on-behalf-of is supplied; the exact evidence and conservative fallback rule is in `arc guide debt-review`. Explicit attribution takes precedence. At unchanged content, an explicit --on-behalf-of (also supplied by ARC_ON_BEHALF_OF) differing from the latest effective author records a fresh patchset. An equal or omitted subject preserves that patchset and its attribution; the unchanged output names the effective subject. Earlier verdicts remain bound to their original patchsets.
+ 
+ Usage: arc snapshot [OPTIONS] [CHANGE]
+ 
+@@ -3429,7 +3429,7 @@
+ ===== arc verify --help =====
+ Run a declared gate (or ad hoc command) and record the evidence.
+ 
+-Gate evidence only counts at the change's own head, so the command runs in the change's recorded worktree whichever checkout it was typed in; `--attest` records evidence arc did not run, and `--after-integration` keeps an integrated change's later check as a receipt that is never gate evidence. Acceptance executes local head gates even when imported evidence passed, and selects probes from the delivered patchset's bound brief. Baselines run in scratch checkouts. Declared timeouts also bound output-pipe cleanup after the shell exits. Arc kills the process group and does not wait for escaped descendants; unfinished readers supply no output tail, diagnostic artifact or environment identity. A gate's process group is killed when it ends, so nothing left in it outlives the run. SIGINT, SIGTERM or SIGHUP during a gate kills its group, records nothing from the run and ends arc with that signal. Executed gates capture combined stdout and stderr as private local artifacts: the first 16 MiB per run, retaining 16 completed captures. Events and status carry the producing store, relative path, retained and observed SHA-256 digests and sizes, and truncation or capture errors. Exports carry metadata only; expired files are unavailable diagnostics. Attested evidence carries no output capture. Configured path-stable build storage is leased through preparation, environment probes and gates. Probes never prepare or compile; unavailable storage supplies no environment identity. Storage reuse never supplies a passing gate result. A result whose evidence a busy ledger lock kept from being recorded prints as `not recorded:` and is not evidence; see `arc guide rules-claims`. A command exiting 75 within its timeout records `not-admitted`; see `arc guide change-gates`. Executed receipts separate `wait_ms`, `prepare_ms`, and command `run_ms`; `duration_ms` spans execution, including slot acquisition and in-run preparation. `prepare_ms` also includes preparation before environment probes; a batch charges shared preparation to its first executed command. `cpu_user_ms` and `cpu_system_ms` exclude the holder and are absent unless every descendant was accounted for. `load_average` and `core_count` describe the host at command start. These fields appear in `show --json` and `status`; attestations carry none. Budgets judge command run_ms under arc guide gates. An over-budget raw pass exits 1; reuse refuses it until --rerun. Untimed evidence is unmeasured. Declared timeout_seconds and effective execution_limit_ms are recorded apart. See `arc guide change-gates` for accounting boundaries.
++Gate evidence only counts at the change's own head, so the command runs in the change's recorded worktree whichever checkout it was typed in; `--attest` records evidence arc did not run, and `--after-integration` keeps an integrated change's later check as a receipt that is never gate evidence. Acceptance executes local head gates even when imported evidence passed, and selects probes from the delivered patchset's bound brief. Baselines run in scratch checkouts. Declared timeouts also bound output-pipe cleanup after the shell exits. Arc kills the process group and does not wait for escaped descendants; unfinished readers supply no output tail, diagnostic artifact or environment identity. A gate's process group is killed when it ends, so nothing left in it outlives the run. SIGINT, SIGTERM or SIGHUP during a gate kills its group, records nothing from the run and ends arc with that signal. Executed gates capture combined stdout and stderr as private local artifacts: the first 16 MiB per run, retaining 16 completed captures. Events and status carry the producing store, relative path, retained and observed SHA-256 digests and sizes, and truncation or capture errors. Exports carry metadata only; expired files are unavailable diagnostics. Attested evidence carries no output capture. Configured path-stable build storage is leased through preparation, environment probes and gates. Probes never prepare or compile; unavailable storage supplies no environment identity. Storage reuse never supplies a passing gate result. A result whose evidence a busy ledger lock kept from being recorded prints as `not recorded:` and is not evidence; see `arc guide rules-claims`. A command exiting 75 within its timeout records `not-admitted`; see `arc guide change-gates`. Executed receipts separate `wait_ms`, `prepare_ms`, and command `run_ms`; `duration_ms` spans execution, including slot acquisition and in-run preparation. `prepare_ms` also includes preparation before environment probes; a batch charges shared preparation to its first executed command. `cpu_user_ms` and `cpu_system_ms` exclude the holder and are absent unless every descendant was accounted for. `load_average` and `core_count` describe the host at command start. These fields appear in `show --json` and `status`; attestations carry none. Budgets judge command run_ms under arc guide gates. An over-budget raw pass exits 1 unless the busy-host rule accepts it; a refusal needs --rerun. Untimed evidence is unmeasured. Declared timeout_seconds and effective execution_limit_ms are recorded apart. See `arc guide change-gates` for accounting boundaries.
+ 
+ Usage: arc verify [OPTIONS] [CHANGE]
+ 
+@@ -4289,7 +4289,7 @@
+ ===== arc integrate --help =====
+ Explicit --provisional prepares one unsigned no-ff merge into an unchecked staging ref under refs/heads/arc/provisional/<local-replica>/<recorded-target>. Canonical policy, review and gate requirements apply. Publication and closure remain owed to the recipient, defaulting to the known authority holder. Recipient flags route an obligation and grant no authority. Provisional prerequisites satisfy local preparation only; authority publication requires canonical closures. Replacing provisional ancestry requires a content replay, a new patchset and fresh review or explicit debt. An unapplied retained reservation on an abandoned change is released by recovery only when the saved refs prove no transition occurred; the intent remains evidence. ID cursors wait until publication or this abandonment. Guarded integration of one change, or of a dependency-ordered queue named by several changes or by --tag.
+ 
+-Integration runs where the target is checked out. That checkout's tracked modifications refuse, staged or unstaged. Untracked or ignored paths integration does not write are left in place and named in the report; a path integration would write that is already there without being tracked is refused by name. A head the target already contains closes at the target revision that holds it, without a merge commit. When no checkout holds the target, integration takes over the change's own checkout if it still holds the change branch and leaves it on the target. Integration in a slot requires exclusive use before takeover or merge and retains it through the slot's release; a busy slot refuses before either checkout or target changes. A gate's declared environment probe runs against the content being integrated: in this checkout or the change's worktree when either holds it clean, otherwise in a checkout made for it and removed before the merge or the refusal. Probe-only checkouts skip build preparation. The integration event records when the command started on the change (`started_at`), which `arc stats --round-trip` times its integration phase from. The integrated revision and closure event are printed before retention cleanup. A retention cleanup failure, including a ref lock or a hook rejecting deletion, warns with the ref prefixes that may still hold pins and does not fail the recorded integration. Style and history constraints are validated under the target and change locks against each authorization policy reading, retaining the original flags and enforcing the destination's declared actor requirement. Contribution trailers are advisory only: a missing asserted line, or a role line carrying a placeholder or a session id, is advice to rewrite with arc rewrite trailers before integration. Review credit stays in the ledger. Approval clearance and debt derivation use destination plus operator policy; the invoking checkout's unmerged clearance setting does not apply. Destination declarations are pinned to the transition's observed revision; their actor requirement and agreement with authorization are required. Configuration disagreement refuses before merging. A queue's summary includes style and history refusals and all unattempted members. Known history, style, divergence and lifecycle constraints refuse before queue replay or gate preparation, including invoking-store and destination declared-actor requirements. Each member opens the landing store afresh, so earlier landings govern its append policy. Review refusals name the required local or external reviewer's next decision. The integrating role is this command's actor; `--on-behalf-of` records a ceremony subject beside it and never becomes the displayed integrator. Destination names select local branch refs even when a tag has the same name. Ready-to-send reuse requires matching patchset, destination branch and revision, contribution history and authorization. Its event and state retain those coordinates. Fast-forwards bind the ref update to the observed revision and update the checkout with read-tree; checkout failure attempts a guarded ref rollback. Both shapes isolate merge-shaping Git defaults. Transition failure, including checkout takeover, reports ref, HEAD, index and checkout state and preserves local and competing work. Fast-forwards changing initialized submodules refuse before Git mutation regardless of Git submodule ignore settings; use --shape no-ff or integrate manually with submodule updates. Closure publication failure reports whether the event is published, absent or unreadable; inspect publication and durability before retrying. An active claim warns as foreign unless the caller supplies a complete matching actor, harness, and session; absent or empty coordinates cannot match its owner. A change in a slot (arc guide slots) keeps its checkout under any cleanup setting: after recording, arc detaches the clean slot at the landed commit, deletes the merged branch with git branch -d, records slot-released and frees the lease; a slot in use or holding work keeps its lease and the output names the release command. With [slots] warm_after_integrate = true, a successful integration then starts one detached `arc slots warm --limit 1` when no slot's use lock is held, writing its output to warm.log in the pool root; it never blocks or fails the integration, and the output says what it started or why not.
++Refuses recorded patchsets with reserved-domain author or committer addresses; see `arc guide change-integration` for the domains and re-authoring. Integration runs where the target is checked out. That checkout's tracked modifications refuse, staged or unstaged. Untracked or ignored paths integration does not write are left in place and named in the report; a path integration would write that is already there without being tracked is refused by name. A head the target already contains closes at the target revision that holds it, without a merge commit. When no checkout holds the target, integration takes over the change's own checkout if it still holds the change branch and leaves it on the target. Integration in a slot requires exclusive use before takeover or merge and retains it through the slot's release; a busy slot refuses before either checkout or target changes. A gate's declared environment probe runs against the content being integrated: in this checkout or the change's worktree when either holds it clean, otherwise in a checkout made for it and removed before the merge or the refusal. Probe-only checkouts skip build preparation. The integration event records when the command started on the change (`started_at`), which `arc stats --round-trip` times its integration phase from. The integrated revision and closure event are printed before retention cleanup. A retention cleanup failure, including a ref lock or a hook rejecting deletion, warns with the ref prefixes that may still hold pins and does not fail the recorded integration. Style and history constraints are validated under the target and change locks against each authorization policy reading, retaining the original flags and enforcing the destination's declared actor requirement. Contribution trailers are advisory only: a missing asserted line, or a role line carrying a placeholder or a session id, is advice to rewrite with arc rewrite trailers before integration. Review credit stays in the ledger. Approval clearance and debt derivation use destination plus operator policy; the invoking checkout's unmerged clearance setting does not apply. Destination declarations are pinned to the transition's observed revision; their actor requirement and agreement with authorization are required. Configuration disagreement refuses before merging. A queue's summary includes style and history refusals and all unattempted members. Known history, style, divergence and lifecycle constraints refuse before queue replay or gate preparation, including invoking-store and destination declared-actor requirements. Each member opens the landing store afresh, so earlier landings govern its append policy. Review refusals name the required local or external reviewer's next decision. The integrating role is this command's actor; `--on-behalf-of` records a ceremony subject beside it and never becomes the displayed integrator. Destination names select local branch refs even when a tag has the same name. Ready-to-send reuse requires matching patchset, destination branch and revision, contribution history and authorization. Its event and state retain those coordinates. Fast-forwards bind the ref update to the observed revision and update the checkout with read-tree; checkout failure attempts a guarded ref rollback. Both shapes isolate merge-shaping Git defaults. Transition failure, including checkout takeover, reports ref, HEAD, index and checkout state and preserves local and competing work. Fast-forwards changing initialized submodules refuse before Git mutation regardless of Git submodule ignore settings; use --shape no-ff or integrate manually with submodule updates. Closure publication failure reports whether the event is published, absent or unreadable; inspect publication and durability before retrying. An active claim warns as foreign unless the caller supplies a complete matching actor, harness, and session; absent or empty coordinates cannot match its owner. A change in a slot (arc guide slots) keeps its checkout under any cleanup setting: after recording, arc detaches the clean slot at the landed commit, deletes the merged branch with git branch -d, records slot-released and frees the lease; a slot in use or holding work keeps its lease and the output names the release command. With [slots] warm_after_integrate = true, a successful integration then starts one detached `arc slots warm --limit 1` when no slot's use lock is held, writing its output to warm.log in the pool root; it never blocks or fails the integration, and the output says what it started or why not.
+ 
+ Usage: arc integrate [OPTIONS] [CHANGE]...
+ 
+@@ -4384,7 +4384,7 @@
+           Integrate without an independent verdict, recording the review this change still owes. One change only: the reason binds to one patchset, so it has nothing to say about a queue. It stands in for a verdict nobody recorded — and for a self-approval policy would reject — in the same invocation. The waiver binds to the patchset's review head, following only signature-only and role-addition rewrites; any other message or content rewrite requires a fresh snapshot and declaration. The debt's production record names the ledger's planner, implementer, orchestrator and integrator. It also keeps the `Implemented-by` values of the commits in the range verbatim as a projection for comparison; a range naming none records an empty list. Trailers never decide a role. It never overrules a reviewer who read this patchset and asked for changes: that is a verdict, not a missing one. The obligation survives closure and `arc query --debt` finds it; discharge it with `arc audit`. A refused integration keeps the debt it declared, and a retry with the same reason reuses it, including a debt held in an import batch. Reuse confirms its backing publication. Divergence observed under the target and change locks refuses before declaration. External Git moving the target after that observation can retain debt. With `--dry-run` nothing is declared: the plan shows the debt. A provisional execution that refuses after the declaration ends its text output with `debt event <id> <written|reused> publication=<state>`; `--json` carries the same receipt
+ 
+       --kind <DEBT_KIND>
+-          What kind of deficit the debt records. Omitted, arc derives it from the ledger; a declared kind wins, because arc cannot tell a merge resolution from a repair. `ineligible-review` records that a read happened by a reviewer routing does not count as independent of the author: arc never derives it, and it takes why from `--assessment` or `--qualifier`, and the read from `--read`. `replayed-unread` is the reverse: only `arc land` derives it, and declaring it is refused
++          What kind of deficit the debt records. Omitted, arc derives it from the ledger; a declared kind wins, because arc cannot tell a merge resolution from a repair. `ineligible-review` records that a read happened by a reviewer routing does not count as independent of the author. Declared, it takes why from `--assessment` or `--qualifier`, and the read from `--read`; arc derives it only under `review_clearance = "assessed"`, for an approval that finds without clearing. `replayed-unread` is only derived: `arc land` records it, and declaring it is refused
+ 
+           Possible values:
+           - nothing-read:            No verdict on any patchset of the change
+@@ -4399,7 +4399,7 @@
+           The verdict event of the read an `ineligible-review` debt names. Omitted, the latest verdict on the patchset the debt covers. Refused when the patchset has no verdict, or the event is not one of its verdicts
+ 
+       --assessment <FILE>
+-          Why routing did not count that read: an `agent-routing assess --json` file (schema `agent-routing-assessment/1`) whose independence is `ineligible`. arc keeps its qualifiers, route version and independence, and never its tiers; it validates the shape and computes no family, tier or floor. The record reads as assessed. An eligible assessment is refused: there is no debt to record
++          Why routing did not count that read: an `agent-routing assess --json` file (schema `agent-routing-assessment/1` or `/2`). arc keeps its qualifiers, route version and independence, and never its tiers; it validates the shape and computes no family, tier or floor. The record reads as assessed. A file under which that read would discharge the debt is refused: without `review_clearance` its independence decides, under it the read's clearance does
+ 
+       --qualifier <QUALIFIER>
+           A qualifier named by hand, repeatable: `same-model`, `same-family`, `below-floor`, `floor-unknown`, `reviewer-unseated`. The record reads as declared, which nothing corroborates
+@@ -4528,7 +4528,7 @@
+           [env: ARC_HARNESS]
+ 
+       --kind <KIND>
+-          What kind of deficit this records. Omitted, arc derives it from the ledger; a declared kind wins, because arc cannot tell a merge resolution from a repair. `ineligible-review` records that a read happened by a reviewer routing does not count as independent of the author: arc never derives it, and it takes why from `--assessment` or `--qualifier`, and the read from `--read`. `replayed-unread` is the reverse: only `arc land` derives it, and declaring it is refused
++          What kind of deficit this records. Omitted, arc derives it from the ledger; a declared kind wins, because arc cannot tell a merge resolution from a repair. `ineligible-review` records that a read happened by a reviewer routing does not count as independent of the author. Declared, it takes why from `--assessment` or `--qualifier`, and the read from `--read`; arc derives it only under `review_clearance = "assessed"`, for an approval that finds without clearing. `replayed-unread` is only derived: `arc land` records it, and declaring it is refused
+ 
+           Possible values:
+           - nothing-read:            No verdict on any patchset of the change
+@@ -4548,7 +4548,7 @@
+           [env: ARC_SESSION]
+ 
+       --assessment <FILE>
+-          Why routing did not count that read: an `agent-routing assess --json` file (schema `agent-routing-assessment/1`) whose independence is `ineligible`. arc keeps its qualifiers, route version and independence, and never its tiers; it validates the shape and computes no family, tier or floor. The record reads as assessed. An eligible assessment is refused: there is no debt to record
++          Why routing did not count that read: an `agent-routing assess --json` file (schema `agent-routing-assessment/1` or `/2`). arc keeps its qualifiers, route version and independence, and never its tiers; it validates the shape and computes no family, tier or floor. The record reads as assessed. A file under which that read would discharge the debt is refused: without `review_clearance` its independence decides, under it the read's clearance does
+ 
+       --session-link <SESSION_LINK>
+           Private acting-session link; see `arc guide identity-options`
+@@ -5521,9 +5521,9 @@
+ ===== arc doctor --help =====
+ Check the append-only ledger for malformed or stale state (read-only)
+ 
+-Reports the build commit and tracked-tree clean/dirty state in text and arc-doctor/6 JSON; builds outside Git report unknown. An unreadable or malformed project or operator policy is the problem `policy-unreadable`, naming the file and error. Unfinished provisional transitions report their merge, refs, event state, retained intent and exact recovery command as problems. A `refs/arc/retained` ref whose object is gone is the problem `retained-object-missing`; a commit the ledger cites as a patchset head or a verdict's revision, that a forge fact records as the provider's own, or that a checkpoint names, that no ref reaches is the advice `unretained-commit`, with the `git update-ref` that holds it. A custody file whose bytes do not hash to its name is the advice `custody-content-mismatch`, and a temporary file an interrupted custody write left over an hour ago is the advice `custody-temp-orphaned`; neither is removed. A receipt a read cites whose bytes custody does not hold is the advice `receipt-unavailable`, one whose held bytes fail verification `receipt-corrupt`, and a receipt reference that records no byte length `receipt-length-unrecorded`; each names the read, its change, the receipt key and digest. An unreadable custody directory, or one that is a symlink, is the problem `custody-unreadable`. A failed reachability walk is the problem `retention-reachability-failed`; the report retains all findings collected before that failure. A change whose events fail to reduce is the problem `unreplayable-change`, naming the change with the reduction error. Admitted active rewrites prove falsification identity without advancing recorded revisions; dangling revision diagnostics still inspect the recorded objects, a checkpoint's revision and recorded change heads among them, each finding naming the checkpoint. A reference replay set aside because only a withdrawn rewrite map carried it is the advice `set-aside-reference`, naming the change, the event, both revisions and the recovery. A hold release that names no active hold is the advice `hold-release-names-no-hold`; a change already reported with a problem is not checked for one. Under `[policy] review_clearance = "assessed"`, a debt it leaves owed that a read would discharge without it is the advice `clearance-keeps-debt-owed`, naming the change, the debt, that read and the debt's findings reads.
++Reports the build commit and tracked-tree clean/dirty state in text and arc-doctor/6 JSON; builds outside Git report unknown. An unreadable or malformed project or operator policy is the problem `policy-unreadable`, naming the file and error. Unfinished provisional transitions report their merge, refs, event state, retained intent and exact recovery command as problems. A `refs/arc/retained` ref whose object is gone is the problem `retained-object-missing`; a commit the ledger cites as a patchset head or a verdict's revision, that a forge fact records as the provider's own, or that a checkpoint names, that no ref reaches is the advice `unretained-commit`, with the `git update-ref` that holds it. A custody file whose bytes do not hash to its name is the advice `custody-content-mismatch`, and a temporary file an interrupted custody write left over an hour ago is the advice `custody-temp-orphaned`; neither is removed. A receipt a read cites whose bytes custody does not hold is the advice `receipt-unavailable`, one whose held bytes fail verification `receipt-corrupt`, and a receipt reference that records no byte length `receipt-length-unrecorded`; each names the read, its change, the receipt key and digest. An unreadable custody directory, or one that is a symlink, is the problem `custody-unreadable`. A failed reachability walk is the problem `retention-reachability-failed`; the report retains all findings collected before that failure. A change whose events fail to reduce is the problem `unreplayable-change`, naming the change with the reduction error. Admitted active rewrites prove falsification identity without advancing recorded revisions; dangling revision diagnostics still inspect the recorded objects, a checkpoint's revision and recorded change heads among them, each finding naming the checkpoint. A reference replay set aside because only a withdrawn rewrite map carried it is the advice `set-aside-reference`, naming the change, the event, both revisions and the recovery. A hold release that names no active hold is the advice `hold-release-names-no-hold`; a change already reported with a problem is not checked for one. Under `[policy] review_clearance = "assessed"`, a debt it leaves owed that a read would discharge without it is the advice `clearance-keeps-debt-owed`, naming the change, the debt, that read and the debt's findings reads. Where gates declare budgets and `.arc/worktrees.toml` declares a `[prepare]` command that no dangerous path names, the advice `preparation-unguarded` names the policy line to add: preparation is read from the evaluated checkout, so a change could move gate work into it, outside every budget.
+ 
+-Exits 0 when the ledger is clean or carries only advice, and 1 when it reports a problem. A ledger that cannot be read at all also exits 1, with the error on stderr and no report; a usage error exits 2. Records no events; ledger reads do not require a parseable append policy.
++Git identity, bare checkout and signing problems are included; the scoped project exception and shared orientation views are defined in `arc guide sandbox`. Exits 0 when the ledger is clean or carries only advice, and 1 when it reports a problem. A ledger that cannot be read at all also exits 1, with the error on stderr and no report; a usage error exits 2. Records no events; ledger reads do not require a parseable append policy.
+ 
+ Usage: arc doctor [OPTIONS]
+ 
+@@ -5688,7 +5688,7 @@
+ Usage: arc workspace [OPTIONS] <COMMAND>
+ 
+ Commands:
+-  gates      Gate declarations and costs from each registered project's own ledger
++  gates      Gate declarations and landing costs, ranked by paid time in 30 days, from each registered project's own ledger
+   list       Per-repo open-change rows across the data_root
+   inbox      The inbox rollup for every registered project, including the count of open actionable filings untouched for more than 14 days
+   pins       Pinned journal artifacts across projects: each project's standing references as `arc journal pins` lists them, grouped by project, with the operator journal's last when no scope narrows the view
+@@ -5805,7 +5805,7 @@
+ 
+ Recent activity without filed artifacts or a naming handoff/conclusion is marked unfiled. Filing counts include direct writes and published transition successors, with import and spool provenance. Stale filings name the `journal filed` query; plain reads record no activity. Project memories precede global memory titles with their ages in days; bodies are read on demand with journal show --global. An unavailable journal carries its own warning, including global_memory_error or project_journal_error in JSON; readable sources remain in the output. Each recording backend is queried once with an unrestricted candidate window. Backend scan bounds and failures appear in session_discovery_errors; readable rows remain ranked by recorded activity. Pending transitions carry a diagnostic and do not count as filings or naming handoffs/conclusions. Publication requires the supersedes link and a complete staged body match or the source's recorded retirement; a readable successor prefix is insufficient. Text warns when the running build differs from HEAD in an arc-ledger checkout: older for an ancestor, differs otherwise, with dirty builds identified. Other projects and unknown build revisions have no warning. Unreadable changes are named with their errors on stderr; readable changes remain in the output The worktree filesystem is measured at the configured worktree root; a configuration that cannot be loaded measures the current checkout and warns on stderr Provisional integration obligations have a separate section and do not count as review debt. Recorded producer models that are missing, placeholders or session ids print as model not recorded. JSON production identities and review coverage retain raw values with model_recorded: false; valid models omit the flag. JSON recent sessions retain raw models with model_recorded: false when the model is missing, a placeholder or a session id; valid models omit it.
+ 
+-Human ledger sections name guide topics for the blockers already observed.
++Human ledger sections name guide topics for the blockers already observed. A journal project outside Git reports its journal without a ledger; ledger, replica and worktrees are null in JSON.
+ 
+ Each intake configured as `[intake.<name>]` in the user config adds one line, `intake: <name>: <n> open items`, and the JSON field `intake` lists `{name, open}` per intake. Catchup only counts: it never reads, prints, or triages an item. A command that cannot start, exits non-zero, overruns 2 s, or prints no top-level integer `total` gives `intake: <name>: unavailable (<reason>)` and `{name, unavailable}`, and leaves the exit code alone. Nothing configured prints no intake line.
+ 
+@@ -5951,12 +5951,13 @@
+ ===== arc journal --help =====
+ Cross-harness project and operator journals over plain Markdown.
+ 
+-Events replay in append order; timestamps record observation time. Project reads also resolve from their journal directory; project writes name the checkout they need. --global works from any directory.
++Events replay in append order; timestamps record observation time. Project reads also resolve from their journal directory; project writes name the checkout they need. --global works from any directory. Outside Git, `journal bind` creates a durable project. ARC_JOURNAL_DIR writes record no project binding.
+ 
+ Usage: arc journal [OPTIONS] <COMMAND>
+ 
+ Commands:
+   dir              Print the resolved journal directory (creates nothing)
++  bind             Create and record a durable journal binding for a directory outside Git
+   doctor           Check the journal for malformed or stale state (read-only)
+   spool            List journal writes parked in the repository-local outbox, for a caller that could not reach the journal directory
+   note             Write a timestamped artifact and append its journal line
+@@ -5978,7 +5979,7 @@
+   evidence         Append an evidence block to a live artifact of any kind and emit a typed `evidence` event [alias: append]
+   verified         Record that an artifact was checked against the project's source at the current anchor revision
+   pin              Pin an artifact as a standing reference and emit a typed `pinned` event
+-  unpin            Remove an artifact's pin and emit a typed `unpinned` event, returning an actionable artifact to the queues
++  unpin            Remove an artifact's pin and emit a typed `unpinned` event, returning an actionable artifact to the queues and removing its run-time guide route, if any
+   pins             List pinned artifacts, most recently active first: title, reason, the count of appended blocks and the newest one, and storage when the body is not hot, and the published copy (arc-journal-pins/1)
+   render           Render an artifact as a standalone HTML page for reading away from the terminal: its title as corrected, its body, every appended block under its title, and a table of contents, which a narrow screen shows folded when it has more than eight entries
+   published        Record where a rendered copy of an artifact lives and emit a typed `published` event; the latest one is in force
+@@ -6004,11 +6005,12 @@
+   rebind           Adopt an existing journal for this project, recording the move
+   stamp            Print the current UTC timestamp in the journal house format (read-only) Records no events; ledger reads do not require a parseable append policy
+   lane             Manage advisory session work lanes
++  workbench        Open a workbench: a directory in the journal for working material that outlives a session
+   consume          Mark an artifact consumed so it leaves the `open` queue
+   transition       Change a live artifact's workflow kind without rewriting history: a typed successor is written, linked back with `supersedes`, and the source is retired as superseded
+   promote          Promote a live project memory into the operator journal
+   archive          Move artifacts to the cold sibling archive without deleting history
+-  unarchive        Restore one archived artifact to hot storage
++  unarchive        Restore one archived artifact, or one archived workbench, to hot storage
+   relocate         Move artifacts out of this journal into a directory arc does not read, leaving a tombstone
+   redact           Replace passages in one artifact's body in place, hot or archived
+   export           Export selected journal artifacts as a versioned bundle for another replica
+@@ -6175,7 +6177,7 @@
+ ===== arc gates init --help =====
+ Write budgets with headroom from serial rounds; see `arc guide gates`
+ 
+-Prints each gate's min, worst, spread and written budget. Operator policy is untouched and no verification evidence is recorded.
++Prints each gate's min, worst, spread and written budget, and names each publication-only gate it skipped. Operator policy is untouched and no verification evidence is recorded.
+ 
+ Usage: arc gates init [OPTIONS]
+ 
+@@ -6193,6 +6195,9 @@
+           
+           [env: ARC_HARNESS]
+ 
++      --publication
++          Also measure and budget publication-only gates, outside the total
++
+       --session <SESSION>
+           Native acting session; see `arc guide identity-options`
+           
+@@ -6285,7 +6290,7 @@
+ ===== arc gates measure --help =====
+ Measure declared gates; accept a concurrent batch after five successful rounds
+ 
+-Prints command wall and child CPU time, spread, and physical/logical host cores. Wall far above CPU indicates waiting inside the command; spread indicates load sensitivity. Execution and admission follow arc guide gates. Runs every gate unless --gate selects one. --concurrent follows arc guide gates-together and records local acceptance. Writes no ledger events or captured output files. Gate commands may write their own build outputs. Exits 1 if any run fails or is not measured.
++Prints command wall and tree CPU time, instructions, other processes' CPU share, spread, and physical/logical host cores. Wall far above CPU indicates waiting inside the command; spread indicates load sensitivity. Execution and admission follow arc guide gates. Runs every gate unless --gate selects one. --concurrent follows arc guide gates-together and records local acceptance. Writes no ledger events or captured output files. Gate commands may write their own build outputs. Exits 1 if any run fails or is not measured.
+ 
+ Usage: arc gates measure [OPTIONS]
+ 
+@@ -8044,7 +8049,7 @@
+ ===== arc candidate verify --help =====
+ Evaluate a candidate: run the required gates of its brief's change, as that change's target declares them, against the candidate's tree.
+ 
+-The tree is checked out in a scratch worktree, removed afterwards, and each gate's environment probe runs there first. Each gate records `candidate-verified` as a repository event keyed by the tree, with the gate, its command, timeout, and environment probe as declared when it ran, the environment identity the probe yielded, and the result; `evaluation: <event>` names it for `select --evaluation`. A hostname that cannot be read is recorded as `unknown`. These are the only evaluations: evidence received from an external execution is recorded by `register --evidence-file` and is no evaluation. Diagnostic capture follows verify: private combined stdout and stderr, 16 MiB per file and 16 completed files, with digests, sizes and explicit truncation or capture errors in the event. Exports carry metadata only. A gate command that exits 75 records `not-admitted`, as a change gate does: nothing ran, so it is no passing evaluation and is reported as unrun rather than failed. Exits 0 when every gate run passes and 1 otherwise. Refused: `unknown-candidate`; `unknown-gate` for a --gate the change is not required to pass; `target-unreadable` when the target cannot be read
++The tree is checked out in a scratch worktree, removed afterwards, and each gate's environment probe runs there first. Each gate records `candidate-verified` as a repository event keyed by the tree, with the gate, its command, timeout, and environment probe as declared when it ran, the environment identity the probe yielded, and the result; `evaluation: <event>` names it for `select --evaluation`. A hostname that cannot be read is recorded as `unknown`. These are the only evaluations: evidence received from an external execution is recorded by `register --evidence-file` and is no evaluation. Diagnostic capture follows verify: private combined stdout and stderr, 16 MiB per file and 16 completed files, with digests, sizes and explicit truncation or capture errors in the event. Exports carry metadata only. A gate command that exits 75 records `not-admitted`, as a change gate does: nothing ran, so it is no passing evaluation and is reported as unrun rather than failed. Exits 0 when every gate run passes and the budget judge of `arc guide gates` accepts its command time, and 1 otherwise: an over-budget or unmeasured pass is recorded as a pass, its line names the refusal, and selection refuses it as an evaluation. Refused: `unknown-candidate`; `unknown-gate` for a --gate the change is not required to pass; `target-unreadable` when the target cannot be read
+ 
+ Usage: arc candidate verify [OPTIONS] <ID>
+ 
+@@ -10096,6 +10101,8 @@
+ ===== arc sandbox clone --help =====
+ Copy this project — repository with its ledger, journal, registry entry, and configuration — into the prefix, so the copy answers `arc catchup` the way the source does
+ 
++Each workbench of the journal is made in the copy as its directory with arc's index, so its records and directories agree; its content, which arc never reads, stays in the source unless `--workbench-content` copies it, and the report says how much that is. A copied workbench keeps every link as the link it is. Every file a clone copies is readable by its owner alone until its content is in it, then takes exactly the source's mode and access ACL. A workbench in the copy without its content lists the size and staleness of what the copy holds. The cold archive is not copied. Versioned `arc-sandbox-clone/2`.
++
+ Usage: arc sandbox clone [OPTIONS] <PREFIX>
+ 
+ Arguments:
+@@ -10106,14 +10113,17 @@
+       --actor <ACTOR>
+           Acting identity; see `arc guide identity-options`
+ 
+-      --json
+-          Emit the report as structured JSON
++      --workbench-content
++          Copy each workbench's content too, not only its directory and index
+ 
+       --harness <HARNESS>
+           Acting harness; see `arc guide identity-options`
+           
+           [env: ARC_HARNESS]
+ 
++      --json
++          Emit the report as structured JSON
++
+       --session <SESSION>
+           Native acting session; see `arc guide identity-options`
+           
+@@ -10462,9 +10472,9 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc workspace gates --help =====
+-Gate declarations and costs from each registered project's own ledger
++Gate declarations and landing costs, ranked by paid time in 30 days, from each registered project's own ledger
+ 
+-Uses --under/--here/--global scope and the workspace collection manifest. Retired registrations are counted without observation; --retired lists them. Unreachable registrations and unreadable gates or ledgers are named, retaining readable rows and exiting 16 on partial collection. Lists budgets and declared totals. Records no events; append policy need not parse. JSON: arc-workspace-gates/1.
++Uses --under/--here/--global scope and the workspace collection manifest. Retired registrations are counted without observation; --retired lists them. Unreachable registrations and unreadable gates or ledgers are named, retaining readable rows and exiting 16 on partial collection. Lists budgets and declared totals, and preparation paid beside gate time. Records no events; append policy need not parse. JSON: arc-workspace-gates/1.
+ 
+ Usage: arc workspace gates [OPTIONS]
+ 
+@@ -10781,7 +10791,7 @@
+ ===== arc workspace backlog --help =====
+ Ledger and journal backlog across every project, ranked by what is blocked on a decision rather than on work.
+ 
+-Debt rows carry their verbatim `reason` and optional `patchset_id`, and list only debt that is owed: one declared on a change that has not integrated, or already discharged, is not backlog. A partial collection keeps the projects it did read, names each failure, and exits 16. A retired registration is counted as `collection.retired`, never observed, failed, or unreachable Change observations name unreadable changes with their errors on stderr and retain readable changes Records no events; ledger reads do not require a parseable append policy. Recorded producer models that are missing, placeholders or session ids print as model not recorded. JSON production identities and review coverage retain raw values with model_recorded: false; valid models omit the flag.
++Debt rows carry their verbatim `reason` and optional `patchset_id`, and list only debt that is owed: one declared on a change that has not integrated, or already discharged, is not backlog. Each project lists its open workbenches with purpose, size, age and staleness, as `journal workbench list` measures them, whatever `--since` says. A partial collection keeps the projects it did read, names each failure, and exits 16. A retired registration is counted as `collection.retired`, never observed, failed, or unreachable Change observations name unreadable changes with their errors on stderr and retain readable changes Records no events; ledger reads do not require a parseable append policy. Recorded producer models that are missing, placeholders or session ids print as model not recorded. JSON production identities and review coverage retain raw values with model_recorded: false; valid models omit the flag.
+ 
+ Usage: arc workspace backlog [OPTIONS]
+ 
+@@ -10863,7 +10873,7 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc workspace report --help =====
+-The backlog classified by named rules: each artifact's status, the section it belongs to, and the facts that deserve attention. Review-owed rows carry the effective `kind`, declared `reason`, nullable `patchset_id`, `declared_at`, and `declared_by`. Versioned `arc-workspace-report/3`. With `--previous`, tallies carry their earlier values when both collections are complete, new rows are marked when their project was observed both times, and every artifact that left the backlog is listed with its recorded reason. The baseline must have the same schema and scope. Every failed component read, including the report's ledger read, enters the collection manifest and makes the command exit 16. A retired registration is counted as `collection.retired`, never observed or failed, so its missing anchor neither fails the collection nor raises attention. Attention facts, listed below by rule, never change the exit code. The report writes nothing. Change observations name unreadable changes with their errors on stderr and retain readable changes
++The backlog classified by named rules: each artifact's status, the section it belongs to, and the facts that deserve attention. Review-owed rows carry the effective `kind`, declared `reason`, nullable `patchset_id`, `declared_at`, and `declared_by`. Open workbenches form their own section with purpose, size, age and staleness, null when the listing's walk stopped short. Versioned `arc-workspace-report/3`. With `--previous`, tallies carry their earlier values when both collections are complete, new rows are marked when their project was observed both times, and every artifact that left the backlog is listed with its recorded reason. The baseline must have the same schema and scope. Every failed component read, including the report's ledger read, enters the collection manifest and makes the command exit 16. A retired registration is counted as `collection.retired`, never observed or failed, so its missing anchor neither fails the collection nor raises attention. Attention facts, listed below by rule, never change the exit code. The report writes nothing. Change observations name unreadable changes with their errors on stderr and retain readable changes
+ 
+ Records no events; ledger reads do not require a parseable append policy. A separate provisional integration section carries recipient, age, refusal and reconciliation evidence. Unfinished transitions have a separate section with refs, event publication and recovery commands. Debt implementers print as model not recorded when their model is absent, a placeholder or a session id. JSON retains the raw implementer beside model_recorded: false; valid models omit the flag.
+ 
+@@ -10946,13 +10956,14 @@
+   unreachable-anchor        A registered project whose anchor is gone and whose registration is not retired
+   unreachable-scratch       Registered journals whose temporary or scratch anchors are gone, folded into one fact; `arc workspace retire` retires each
+   candidates-unjudged       A promoted candidate whose sibling registrations, answering the same brief version, nobody has judged
++  stale-workbench           An open workbench with no recorded act and no file in it changed for longer than 14 days
+ 
+ ===== arc workspace watch --help =====
+ Emit the workspace report as one JSON line, then again each time arc records something that changes it
+ 
+ Each line is `arc-workspace-report/3` as `report --json` prints it, on one line. The watch follows the workspace feed (`arc guide workspace`): once the feed has been quiet for 250 ms, or 2 s after a notice, it reads again only the projects the notices name, and emits the report when anything but its observation times changed. Between notices it sleeps on one inotify watch and holds no Git process.
+ 
+-Only arc's own writes reach the feed. A commit made outside arc, a moved branch, or a vanished anchor shows at the next refresh, and ages count from the read that gave each project's row.
++Only arc's own writes reach the feed. A commit made outside arc, a moved branch, Git configuration change, or a vanished anchor shows at the next refresh, and ages count from the read that gave each project's row.
+ 
+ Each standard input line is one `arc-workspace-watch-request/1` JSON object carrying `"schema"` and one request: `"previous": FILE` compares every later report with that earlier report, which must have the same schema and scope; `"previous": null` stops comparing; `"refresh": true` forgets every held read and reads every project again. A request is answered at once. One that cannot be honored is named on stderr and changes nothing.
+ 
+@@ -11026,7 +11037,7 @@
+ 
+ The registry is derived from journal directories, so a probe repository, deleted worktree, or scratch directory leaves a registration whose anchor no longer exists, and every workspace view counts it as a failed collection. Retiring it appends a `retired` binding with the reason to the journal's `bindings.jsonl`; the directory, its events, its cold archive, and any ledger stay where they are. `backlog`, `report`, and `inventory` then count it as `collection.retired` instead of a failure and list it under `--retired`; `list` and `inbox` skip it.
+ 
+-It first shows what the project still holds: unconsumed actionable artifacts (with their open questions), open claims, unfinished transitions or storage moves, and the open changes and owed debts of a ledger kept under `data_root` (a ledger inside the project's Git directory went with the anchor). It refuses while the anchor exists, a ledger holds open changes or owed debts, a transition or storage move is unfinished, or a claim is active. Unresolved artifacts refuse it unless `--archive-unresolved` moves each to the cold archive, shelved as `unresolved` with the reason as its note and its expired claims ended. The final check and the binding share the journal's events lock, so an artifact filed meanwhile refuses the retirement. A refusal writes nothing and exits 1.
++It first shows what the project still holds: unconsumed actionable artifacts (with their open questions), open claims, unfinished transitions or storage moves, open workbenches with their purpose, size and age, and the open changes and owed debts of a ledger kept under `data_root` (a ledger inside the project's Git directory went with the anchor). An open workbench refuses nothing: it stays in the journal directory with its records, where `ARC_JOURNAL_DIR` reaches it. It refuses while the anchor exists, a ledger holds open changes or owed debts, a transition or storage move is unfinished, or a claim is active. Unresolved artifacts refuse it unless `--archive-unresolved` moves each to the cold archive, shelved as `unresolved` with the reason as its note and its expired claims ended. The final check and the binding share the journal's events lock, so an artifact filed meanwhile refuses the retirement. A refusal writes nothing and exits 1.
+ 
+ History stays readable: with `ARC_JOURNAL_DIR` naming the journal directory, `arc journal show <file>` reads hot, then archived artifacts, and `arc journal events` streams the log, from any directory. `arc workspace restore` ends the retirement, and so does any journal write from a checkout that resolves to this journal, which re-registers it; archived artifacts stay archived until `arc journal unarchive`. Versioned `arc-workspace-retirement/1`.
+ 
+@@ -11156,7 +11167,7 @@
+ 
+ Use it when a filesystem path is required. To read an artifact whose filename is known, `arc journal show <file.md>` needs no path, and searching the filesystem for the name is never the way to find it.
+ 
+-Directory precedence and stable anchors: `arc guide journal-resolution`. Records no events; ledger reads do not require a parseable append policy.
++Directory precedence and stable anchors: `arc guide journal-resolution`. `arc journal bind [<dir>]` creates a durable project outside Git. ARC_JOURNAL_DIR selects a directory; writes under it record no binding. Records no events; ledger reads do not require a parseable append policy.
+ 
+ Usage: arc journal dir [OPTIONS]
+ 
+@@ -11212,6 +11223,63 @@
+   -h, --help
+           Print help (see a summary with '-h')
+ 
++===== arc journal bind --help =====
++Create and record a durable journal binding for a directory outside Git
++
++Prints <ai-home>/journals/<directory-path-slug>. The directory must exist and must be outside arc's home and every journal. Git repositories, including those with no commits, already imply a journal and refuse. Existing bindings and configured journal scopes refuse with their path. ARC_JOURNAL_DIR writes do not record bindings; use bind without the override to establish a durable project. --global is not supported.
++
++Usage: arc journal bind [OPTIONS] [DIR]
++
++Arguments:
++  [DIR]
++          Directory to bind (defaults to the current directory)
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --change <change_flag>
++          Change selection; see `arc guide identity-options`
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
+ ===== arc journal doctor --help =====
+ Check the journal for malformed or stale state (read-only)
+ 
+@@ -12680,7 +12748,7 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc journal pin --help =====
+-Pin an artifact as a standing reference and emit a typed `pinned` event. A pin is a fact about an artifact of any kind, consumed or not, so a research note, a finished plan, or a discussion can each be one. `catchup` lists pins first; a pinned artifact never enters `open` or the queues read from it, is never stale in `filed`, is skipped by `archive --consumed`, and refuses `archive` and `relocate` until unpinned. The artifact must be in hot storage. Pinning again with the recorded reason writes nothing; another reason replaces it
++Pin an artifact as a standing reference and emit a typed `pinned` event. A pin is a fact about an artifact of any kind, consumed or not, so a research note, a finished plan, or a discussion can each be one. `catchup` lists pins first; a pinned artifact never enters `open` or the queues read from it, is never stale in `filed`, is skipped by `archive --consumed`, and refuses `archive` and `relocate` until unpinned. The artifact must be in hot storage. Pinning again with the recorded reason and guide name writes nothing. `--guide` gives the pin a run-time guide route; see `arc guide guide-topics`. Omitting `--guide` preserves an existing guide name
+ 
+ Usage: arc journal pin [OPTIONS] <FILENAME>
+ 
+@@ -12698,6 +12766,9 @@
+       --reason <REASON>
+           One line saying why the artifact stays visible
+ 
++      --guide <TOPIC>
++          Kebab-case guide topic, distinct from built-in topics and command routes
++
+       --harness <HARNESS>
+           Acting harness; see `arc guide identity-options`
+           
+@@ -12738,7 +12809,7 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc journal unpin --help =====
+-Remove an artifact's pin and emit a typed `unpinned` event, returning an actionable artifact to the queues. An artifact that is not pinned refuses
++Remove an artifact's pin and emit a typed `unpinned` event, returning an actionable artifact to the queues and removing its run-time guide route, if any. An artifact that is not pinned refuses
+ 
+ Usage: arc journal unpin [OPTIONS] <FILENAME>
+ 
+@@ -13684,7 +13755,7 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc journal catchup --help =====
+-Newest-first artifacts plus the most recently appended journal tail (read-only) Incomplete successors carry availability `pending-transition` in arc-journal-catchup/9. Text warns when the running build revision differs from an arc checkout. Records no events; ledger reads do not require a parseable append policy. Recorded models that are missing, placeholders or session ids print as model not recorded, qualified by the harness when it is established. JSON production identities retain raw models with model_recorded: false when missing, placeholders or session ids; valid models omit the flag
++Newest-first artifacts plus the most recently appended journal tail (read-only) Incomplete successors carry availability `pending-transition` in arc-journal-catchup/9. Open workbenches are listed beside the lanes, as `journal workbench list` lists them; `--archived` lists none. Text warns when the running build revision differs from an arc checkout. Records no events; ledger reads do not require a parseable append policy. Recorded models that are missing, placeholders or session ids print as model not recorded, qualified by the harness when it is established. JSON production identities retain raw models with model_recorded: false when missing, placeholders or session ids; valid models omit the flag
+ 
+ Usage: arc journal catchup [OPTIONS]
+ 
+@@ -14332,6 +14403,76 @@
+   -h, --help
+           Print help (see a summary with '-h')
+ 
++===== arc journal workbench --help =====
++Open a workbench: a directory in the journal for working material that outlives a session
++
++`arc journal workbench <slug> --purpose TEXT` creates `workbench/<slug>-<YYYYMMDD>/` under the journal with an index file, `WORKBENCH.md`, records a `workbench-opened` event, and prints the directory's absolute path as its last line. Anything may be written inside it. Arc records opening, adopting, linking, closing and archiving, never the content, and reads the content only to count files and bytes and to see when anything in it last changed. It rewrites the index from those records at each one.
++
++Opening a slug already open with the same purpose records nothing and prints that workbench's path; another purpose refuses. A second workbench of one slug and day takes a numeric suffix. `catchup` and `journal open` list open workbenches with purpose, size and age, and mark one stale once neither a record nor a file in it has changed for 14 days. `journal archive <name>` moves a closed workbench to the cold archive and `journal unarchive <name>` brings it back. The subcommands below name a workbench by its name, or by its slug while one workbench of that slug is open. Journal exchange carries no workbench: `arc guide journal-workbenches`
++
++Usage: arc journal workbench [OPTIONS] --purpose <PURPOSE> <SLUG>
++       arc journal workbench <COMMAND>
++
++Commands:
++  list   List open workbenches with purpose, size and age (arc-journal-workbenches/1)
++  link   Link a workbench to a change or to an artifact of this journal
++  close  Close a workbench, naming what it produced
++  adopt  Adopt an existing directory or file as a workbench, moving it into the journal
++  help   Print this message or the help of the given subcommand(s)
++
++Arguments:
++  <SLUG>
++          Kebab-case slug; the workbench is named `<slug>-<YYYYMMDD>`
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --purpose <PURPOSE>
++          One line saying what the workbench is for
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --change <change_flag>
++          Change selection; see `arc guide identity-options`
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
+ ===== arc journal consume --help =====
+ Mark an artifact consumed so it leaves the `open` queue
+ 
+@@ -14542,13 +14683,13 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc journal archive --help =====
+-Move artifacts to the cold sibling archive without deleting history. A pinned artifact refuses until `journal unpin`
++Move artifacts to the cold sibling archive without deleting history. A pinned artifact refuses until `journal unpin`. A closed workbench's name moves its whole directory there by one rename; an open one refuses until `journal workbench close`, and `--consumed` moves artifacts only
+ 
+ Usage: arc journal archive [OPTIONS] [FILENAME]
+ 
+ Arguments:
+   [FILENAME]
+-          Artifact filename inside the hot dir (a name, not a path)
++          Artifact filename inside the hot dir (a name, not a path), or a closed workbench's name
+ 
+ Options:
+       --actor <ACTOR>
+@@ -14612,13 +14753,13 @@
+           Print help (see a summary with '-h')
+ 
+ ===== arc journal unarchive --help =====
+-Restore one archived artifact to hot storage
++Restore one archived artifact, or one archived workbench, to hot storage
+ 
+ Usage: arc journal unarchive [OPTIONS] <FILENAME>
+ 
+ Arguments:
+   <FILENAME>
+-          Archived artifact filename inside the journal dir (a name, not a path)
++          Archived artifact filename inside the journal dir (a name, not a path), or an archived workbench's name
+ 
+ Options:
+       --actor <ACTOR>
+@@ -15371,6 +15512,261 @@
+ 
+       --session <SESSION>
+           Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --change <change_flag>
++          Change selection; see `arc guide identity-options`
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
++===== arc journal workbench list --help =====
++List open workbenches with purpose, size and age (arc-journal-workbenches/1)
++
++`--all` adds closed and archived workbenches with what each produced. An open workbench is measured from its directory entries; a closed one reports the size recorded when it was closed or last moved. An open workbench is stale once 14 days pass with no recorded act and no file in it changed. The walk of an open workbench stops after 100,000 entries: its size is then a lower bound, shown as `at least` and marked by `size_partial`, and its staleness is unknown, `stale` null and shown as `staleness unknown`, since what the walk did not see may have changed. Records no events; ledger reads do not require a parseable append policy.
++
++Usage: arc journal workbench list [OPTIONS]
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --all
++          Include closed and archived workbenches
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --json
++          Emit structured JSON instead of text
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --change <change_flag>
++          Change selection; see `arc guide identity-options`
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
++===== arc journal workbench link --help =====
++Link a workbench to a change or to an artifact of this journal
++
++Records a `workbench-linked` event; a link already recorded records nothing. A change is named by its ID or a unique prefix in this project's ledger, an artifact by its filename in this journal, live or archived. Links are listed with the workbench and written to its index
++
++Usage: arc journal workbench link [OPTIONS] <--change <change_flag>|--artifact <ARTIFACT>> <WORKBENCH>
++
++Arguments:
++  <WORKBENCH>
++          The workbench's name, or its slug while one workbench of that slug is open
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --change <change_flag>
++          A change of this project's ledger
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --artifact <ARTIFACT>
++          An artifact filename of this journal
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
++===== arc journal workbench close --help =====
++Close a workbench, naming what it produced
++
++Each `--produced` names a change of this project's ledger or an artifact of this journal; they are recorded on a `workbench-closed` event with the workbench's size. A workbench that produced nothing says why with `--note`; a close needs one of the two. A closed workbench leaves `catchup` and `journal open` and keeps its directory; `journal workbench list --all` lists it with what it produced, and `journal archive <name>` moves it to the cold archive. Closing twice refuses
++
++Usage: arc journal workbench close [OPTIONS] <WORKBENCH>
++
++Arguments:
++  <WORKBENCH>
++          The workbench's name, or its slug while one workbench of that slug is open
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --produced <CHANGE|ARTIFACT>
++          A change or artifact the workbench produced; repeat for each
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --note <NOTE>
++          One line on the outcome; required when nothing was produced
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
++          
++          [env: ARC_SESSION]
++
++      --session-link <SESSION_LINK>
++          Private acting-session link; see `arc guide identity-options`
++          
++          [env: ARC_SESSION_LINK]
++
++      --model <MODEL>
++          Declared model and effort; see `arc guide identity-options`
++
++      --on-behalf-of <ON_BEHALF_OF>
++          Represented subject; an empty declared model or effort refuses; see `arc guide identity-options`
++          
++          [env: ARC_ON_BEHALF_OF]
++
++      --role <ROLE>
++          Execution boundary; see `arc guide identity-options`
++          
++          [env: ARC_ROLE]
++
++      --change <change_flag>
++          Change selection; see `arc guide identity-options`
++
++      --sandbox <SANDBOX>
++          Home-directory prefix; see `arc guide identity-options`
++          
++          [env: ARC_SANDBOX]
++
++  -h, --help
++          Print help (see a summary with '-h')
++
++===== arc journal workbench adopt --help =====
++Adopt an existing directory or file as a workbench, moving it into the journal
++
++A directory is renamed into `workbench/` whole; a file is moved into a workbench directory of its own. A rename keeps every byte, mode and time of the material, and arc adds only the index. The workbench is named `<slug>-<YYYYMMDD>`: the slug defaults to the path's name without its extension, and a name ending in `-YYYYMMDD` keeps that date. Records a `workbench-adopted` event with where the material was, its files and its bytes, and prints the new path as the last line.
++
++The material is opened, without following a link, once the journal's transition lock is held, and every check reads that opened object. Every refusal is decided before anything moves, and leaves the material as it was. By what the path names, adoption refuses a path that does not exist; a symbolic link, with or without a trailing slash; anything but a file or a directory; a filesystem root or a mount point; a file named `WORKBENCH.md`; and a path its record cannot state on one line of text.
++
++By where it lies: the current directory, the home directory, or a directory holding either; anything inside a `.git` or `.arc` directory; a path on another filesystem than the journal, which no rename can move atomically; a path a Git repository tracks, its name read literally; anything inside a Git repository's own directory or inside a journal; and a path that holds, or lies inside, storage arc keeps: this journal's own records, artifacts and archive, another journal, or arc's home.
++
++By what it holds: a Git repository, bare or not; a journal, registered or not, known by its bindings, its locks, or an event log beside artifacts; a mount point; a relative symbolic link leading out of it, which would point elsewhere once moved; and a `WORKBENCH.md` at its top that arc did not write. A slug already open refuses too.
++
++The move is one rename that replaces nothing, made only while the material's path still leads to the object checked; material changed after its checks refuses, and a kernel or filesystem with no such rename refuses the move. A system without `/dev/fd` or `/proc/self/fd`, through which arc reads and names the directories it opens, refuses before anything is read. `arc guide journal-workbenches` says what follows when the move is made and its record is not.
++
++A directory of the journal arc does not own, such as an entry of `loose/`, may be adopted. A directory under `workbench/` that no event records is adopted where it stands
++
++Usage: arc journal workbench adopt [OPTIONS] --purpose <PURPOSE> <PATH>
++
++Arguments:
++  <PATH>
++          The directory or file to move into the journal
++
++Options:
++      --actor <ACTOR>
++          Acting identity; see `arc guide identity-options`
++
++      --global
++          Target the operator journal at <ai-home>/arc/journals/global, from any directory. All journal kinds share this scope. With promote, the source is a project memory and the destination is global
++
++      --purpose <PURPOSE>
++          One line saying what the workbench is for
++
++      --harness <HARNESS>
++          Acting harness; see `arc guide identity-options`
++          
++          [env: ARC_HARNESS]
++
++      --slug <SLUG>
++          Kebab-case slug, when the path's name is not one
++
++      --session <SESSION>
++          Native acting session; see `arc guide identity-options`
+           
+           [env: ARC_SESSION]
+ 

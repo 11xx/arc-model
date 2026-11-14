@@ -1,0 +1,80 @@
+Pinned references, living documents and published pages
+
+STANDING REFERENCES (what a project keeps coming back to)
+  A research note, a finished plan or an argued discussion can outlive the
+  work that produced it. Pin it to keep it in view and out of the queues.
+  A pin is a fact about one artifact of any kind, consumed or not, never a
+  kind of its own.
+    arc journal pin <file.md> [--reason TEXT]
+                         Record a `pinned` event. The body must be in hot
+                         storage. Pinning again with the recorded reason
+                         writes nothing; another reason replaces it. Add
+                         --guide TOPIC to expose it through `arc guide`;
+                         `arc guide guide-topics` defines that route.
+    arc journal unpin <file.md>
+                         Record `unpinned`; an actionable artifact returns to
+                         the queues. An artifact that is not pinned refuses.
+    arc journal pins [--json]
+                         Pinned artifacts, most recently active first: title,
+                         reason, appended block count and the newest block,
+                         and storage when the body is not hot. `--global`
+                         reads the operator journal; `arc workspace pins`
+                         reads every registered project and the operator
+                         journal.
+  `catchup` and `journal catchup` list pins first in the journal section. A
+  pinned artifact never enters `journal open`, nor the inbox, backlog and
+  report tiers read from it; `journal filed` never marks it stale; `journal
+  archive --consumed` keeps it and names it on stderr; an explicit `journal
+  archive` or `journal relocate` refuses until it is unpinned.
+
+  A living document grows by appended sections, not by successors:
+    arc journal append <file.md> --body-file - [--title TEXT]
+                         `journal evidence` under the name that fits. The
+                         title is one line, written after the heading's
+                         writer and time (`### Evidence <id> (<who>, <ts>):
+                         <title>`) and recorded on the event, so every reader
+                         still keys on the ID. `journal correct --target
+                         <evd-id> --field title` amends it; corrections and
+                         retractions are not counted as appended blocks.
+
+  A page is the readable copy of one artifact away from the terminal:
+    arc journal render <address> [--out FILE] [--strip-private|--keep-private]
+                         One standalone HTML page: the corrected title, the
+                         body, each appended block under its title and
+                         anchored by its ID, and a contents list (a rail on a
+                         wide screen; folded on a narrow one past eight
+                         entries). Corrections
+                         and retractions show where they apply rather than as
+                         sections. No scripts and no referrer: raw HTML shows
+                         as code, links keep http(s), mailto and in-page
+                         anchors, images load only over https. Takes the
+                         addresses `show` takes.
+                         A home-directory path, a path under a directory arc
+                         knows is local (home, arc's data home, the journal,
+                         the checkout), a private, shared or link-local
+                         address, or a `.local`, `.lan`, `.home.arpa` or
+                         `.ts.net` host refuses with each line and text;
+                         `--strip-private` replaces them in the page,
+                         `--keep-private` renders them for a page that stays
+                         on its owner's network, and `journal redact` removes
+                         them from the artifact.
+    arc journal render <address>... --json [--fragment]
+                         Many pages in one run, each journal's log read once:
+                         `arc-journal-render/1` carries the stylesheet, then
+                         per address its file, title, kind, block count, the
+                         sha256 and length of the body as read, and its HTML,
+                         or the error that stopped it (exit 16; the rest still
+                         render). `--fragment` drops the document shell, the
+                         stylesheet and the dated footer, for a host page that
+                         draws its own around the markup; the stylesheet
+                         honors `data-theme="light|dark"` on the root element.
+    arc journal published <file.md> --url URL
+                         Record where a published copy lives (`published`
+                         event; the latest is in force). Arc never publishes
+                         or fetches. `render`, `pins` and `catchup` name it.
+  An artifact address in a page (`<project>::<file.md>`, a filename, an entry
+  ID, or `<file.md>#<entry-id>`) links to the target's published copy, and an
+  entry ID of a block on the same page to its anchor; anything else stays
+  text. Rendering to the same `--out` path each time lets a publisher that
+  maps a path to a copy update that copy.
+

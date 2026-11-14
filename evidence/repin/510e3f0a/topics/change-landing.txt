@@ -1,0 +1,176 @@
+Landings and must-land-together relations
+
+  Some changes must reach their target together or not at all. `arc metadata
+  <a> --lands-with <b>` records that two open changes with one target land
+  together; `--remove-lands-with <b> --reason <why>` withdraws it. Each is one
+  repository event, written under the graph lock, so both ends see it at once.
+  The relation is symmetric, and a component is every change it joins
+  transitively. `status`, `show` and `check` list a change's component with
+  each member's state.
+
+  No integration path takes a member alone. `integrate`, a queue of `integrate
+  a b` (its members are gated and moved one at a time), provisional
+  integration, and `close --assert-integrated` refuse while another member is
+  open, with blocker `lands-with` (exit 19) and the remedy `arc land` naming
+  every open member. An integrated member satisfies its part. A member
+  abandoned or superseded wedges the rest with the same blocker until the
+  relation is withdrawn, and the remedy names that withdrawal.
+
+  `arc land <change>... [--target T] [--debt <why>] [--dry-run [--json]]`
+  installs several changes in one guarded transition. Members land in
+  dependency order: each after every member it is `blocked_by`, ties in the
+  order given; a cycle refuses. An earlier member satisfies a prerequisite,
+  which the basis records as `landing <attempt>`. A member whose recorded
+  base is the revision before it (the target for the first, the previous
+  member's landed head after) lands as it is. When every member does, the
+  landing is a stack and nothing is replayed. Otherwise it is composed:
+  every other member is replayed onto that revision with `git replay`, run
+  as `arc rebase` runs it, after the intent is written. The composed head is
+  pinned by `refs/arc/landing/<attempt>` until the target holds it or the
+  attempt ends. Each member's original commits and the commits they landed
+  as are recorded in the intent alone. No `history-rewritten` event is
+  written, so no revision resolution ever follows a member to a trial
+  commit. A replay that conflicts stops the attempt and closes nothing,
+  naming the member and `arc rebase <member>` (exit 11).
+
+  Every open member of each component is named. Each member keeps its own
+  approval, judged against the destination's policy at the revision the
+  landing starts from. A replayed member whose approval read its exact
+  patchset on its recorded base refuses (exit 3) unless `--debt`. With it,
+  the member carries `replayed-unread`, naming that approval, its base and
+  the parent it landed on (`arc guide debt-obligations`). With `--debt`, a
+  member no approval covers carries the debt `integrate --debt` would
+  declare. Each debt is carried inside the completion, including an
+  ineligible read's event, findings reason, qualifiers and assessment basis.
+  A target that integrates with no-ff or receives contributions refuses, and
+  `integration.history = squash` refuses more than one commit. `--dry-run`
+  prints the plan, as `arc-landing-plan/1` with `--json`: the shape, the
+  members and their pins (patchset, base, head, whether it is replayed and
+  the approval a replay outruns, brief digest, approval or debt basis,
+  holds, findings, component, prerequisites, gates and budget constraints,
+  policy, danger scope), the combined total, the components, and the gate
+  union, each gate with its binding and the
+  members requiring it. A composed plan names no head: the replay that
+  makes it runs only once the attempt is under way.
+
+  Both planning and execution refuse an empty required-gate union (exit 5),
+  for a stack or a composed landing, before any attempt is prepared.
+
+  The intent is written to `landing-intents/<attempt>.json` in the ledger
+  directory, and a `landing-prepared` event names the attempt. Until it
+  finishes, its members show `pending landing <attempt>` (blocker
+  `landing-pending`, exit 20) and refuse every other terminal transition,
+  naming `arc land --recover <attempt>`. The gates every member requires
+  run once, with no ledger or change lock held, and their evidence carries
+  `landing: <attempt>`. A stack runs the planned gate union at its top head,
+  using the selected destination even when its recorded target differs;
+  a gate two members declare differently, `binds` included, or one the top
+  head does not declare the same way, refuses. A composed landing runs every member's
+  gates at the composed head, recorded on its last member. They run in a
+  checkout the attempt owns: a slot it leases when the repository declares
+  `[slots]`, else a worktree of its own under the worktrees directory. The
+  slot is released, or the worktree removed, once the gates have run; a
+  lease the attempt still holds names it, and recovering or abandoning the
+  attempt frees it, its checkout left detached. Reuse
+  follows each gate's binding: a tree-bound pass by tree, a commit-bound
+  pass only at the gated head's own commit. A failed gate abandons the
+  attempt, closes nothing and drops the pin.
+
+  Both landing forms fold the minimum gate budgets and total across every
+  member's effective destination, head and operator obligations. Budget-only
+  differences do not conflict in execution identity. The combined suite must
+  satisfy the strictest total, even when each member's gate rows are green.
+  Every gate in that suite counts once regardless of its requiring profile.
+  `arc guide gates-together` defines batch scheduling and its total discount
+  within one attempt; preparation, admission, replay and additional split
+  attempts are outside that bound. Before authorization, every shared receipt
+  is judged against every requiring member's budget. A budgeted gate refuses
+  authorization if its selected receipt cannot be resolved on the top member.
+  Missing run_ms or a
+  budget refusal under `arc guide gates` names the member, gate, run time and budget, leaves
+  the target unmoved and does not trigger splitting or an implicit retry.
+  Effective budgets, totals and sources are pinned, confirmed and retained in
+  each member's authorization.
+
+  Commit takes replica authority, the target, the graph, each member's
+  transition lock in change-ID order, then repository events, and reads
+  everything pinned again; any difference refuses naming the field and
+  abandons the attempt. The exact completion and its basis are saved
+  (`authorized`), then one ref transaction moves the target from its old
+  revision and creates `refs/arc/landing-applied/<attempt>`; the target
+  checkout follows (`applied`); one `landing-completed` event is appended
+  (`published`); the applied ref goes once cleanup is done. Each member's
+  closure derives from that event: integrated via the landing, with
+  `target_before` the revision the landing started from, which every
+  declaration and policy reader keeps reading, and `range_base` and
+  `integrated_commit` its own landed range in the installed history (for a
+  replayed member, the commits it landed as), which `diff --integrated`,
+  audits, `stats` and cost attribution read. The shared gate run is counted
+  once, on the top member. Every reader of a closure sees a member closed
+  by its landing: `doctor`, import admission, `accept` preflight, receipts
+  after integration, and a cost `--footprint` of the lander. `--at` a point
+  before the completion replays without it, so the member reads open. A
+  member's export carries the completion that closed it; an attempt still
+  pending is not exported.
+
+  `--max-attempts N` (default 1, the first attempt included) bounds a
+  landing's attempts. When a gate fails and more remain, arc splits it.
+  Each must-land-together component contracts to one node over the
+  members' `blocked_by`; a cycle among the nodes makes the landing
+  unsplittable, and arc says so. The nodes' dependency order is cut into a
+  prefix child and a suffix child. Each is a new attempt whose intent and
+  `landing-prepared` event name its parent and its exact members, planned
+  and gated afresh on the target as it then stands. The suffix runs only
+  once every member of the prefix landed; otherwise it is reported
+  blocked. A child whose gate fails splits the same way while the budget
+  lasts. A failed attempt closes nothing, only the members of children
+  that landed close, and arc reports every attempt with its parent,
+  members and outcome. Finding every failing one of n components takes
+  at most 2n-1 attempts. With a budget of 1, a failed landing names the
+  option and that bound.
+
+  `arc land --recover <attempt>` finishes an interrupted attempt. It
+  publishes a saved `authorized` completion whose applied ref exists, after
+  bringing a target checkout still at the old tree to the new one; it
+  abandons an attempt whose applied ref is absent and whose target never
+  moved; anything else it reports as movement arc did not authorize, and
+  closes nothing. Run again, it changes nothing. `arc land --abandon
+  <attempt> --reason <why>` abandons an attempt whose target arc did not
+  move. Once the attempt is finished, either frees each slot leased to it,
+  leaving the checkout detached where it stands, and touches no other
+  lease; a slot still in use or left dirty keeps its lease, and arc prints
+  the `arc slots release` to run once it is resolved.
+
+  A member exported alone carries every finished landing's events: a
+  completion and the gate evidence it names reproduce the member's closure
+  via the landing wherever it is imported, with its own range. Admitting a
+  completion needs the capabilities `arc guide replicas` lists. Import
+  refuses a completion naming a member at a patchset, or a source head, that
+  the member's ledger there does not hold, naming the member and the
+  patchset, and writes nothing: the change the bundle carries is checked
+  against every completion naming it, and each other member already held
+  against a completion the bundle brings. Both follow the same combined
+  repository history, including rewrites arriving with that completion; a
+  signature-only successor needs no newer partner patchset. A member
+  exported at a later patchset is imported before a partner whose bundle carries the
+  completion. Gate evidence
+  recorded at a composed head is pinned by
+  `refs/arc/tree/<change>/landing-<commit>` until the member closes, so a
+  failed attempt's evidence still names content both stores can hold; no
+  rewrite map ever names a trial commit, on either side.
+
+  A change whose commits reached its target as other commits that arc did
+  not produce (a cherry-pick, a rebase elsewhere) closes with `arc close
+  <change> --assert-integrated <rev> --target-before <before>
+  --correspondence <file>`. The file (`arc-correspondence/1`, shape in `arc
+  close --help`) stands in for the asserted revision containing the source
+  head, and for nothing else. It names the change, the closed patchset and
+  its head, `<before>` and `<rev>`, each of which must match, and maps every
+  commit of the patchset, oldest first, to one commit in `<before>..<rev>`:
+  one to one, each landed commit descending from the previous one, with
+  equal stable Git patch ids. A merge or an empty commit on either side
+  has no ordinary patch identity and refuses. Each refusal names the commit
+  and the rule it broke. The closure stays asserted, never via a landing,
+  carries no gate evidence, and records the pairs, which `status`, `show`,
+  `explain` and an export carry.
+

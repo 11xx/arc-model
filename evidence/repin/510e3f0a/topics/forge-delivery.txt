@@ -1,0 +1,127 @@
+Forge identity, delivery and disclosure
+
+FORGE
+  query --forge PROVIDER:HOST/OWNER/REPO#NUMBER searches all recorded identities,
+  including superseded links, returning every matching change. Arc never
+  contacts a provider. forge show CHANGE [--history] [--observation OBS]
+  [--body GENERATION] [--json] reconstructs held evidence. The alternate
+  forge show --provider P --host H --repo OWNER/REPO --pr N returns all matches.
+  arc-forge-view/1 includes observations, generations, coverage, custody
+  availability, patchsets, candidates, runs, acceptance and review bindings.
+  show, status, log and explain carry the same reconstruction facts, including
+  local changes with delivery, disclosure or candidate/manual-origin records.
+  Provider lookup traverses their explicit reference and adoption relationships.
+  Related workflows retain their local closure alongside provider lifecycle;
+  neither a context relationship nor public closure supplies an approval.
+  Deliveries, disclosures and candidate context retain typed records. Their
+  source_availability distinguishes valid, conflicting and unresolved references;
+  byte_references names current receipt/outgoing custody separately from reported
+  outcomes. Source read failures degrade those references. Selected Git support
+  and private ledger records retain their access-basis labels and current availability.
+  Exact coalesced event aliases and read IDs use the same source selector as
+  review bindings. New bindings refuse unusable sources; a later conflicting
+  read preserves earlier declarations and exposes their current source conflict.
+  Local workflow records and current related workflows are separately named
+  reads; --observation bounds provider content and lifecycle, not local acceptance.
+  show --json and status keep recorded forge state in forge and current reads
+  in forge_view. Exact provider lookup requires a recorded provider identity;
+  a legacy link without one does not establish a provider coordinate.
+  --observation names an exact event or read ID and freezes forge content and
+  its acquisition-history frontier. Links, lifecycle facts and the checks
+  rollup are those bound to observations in that history;
+  local_resolution.checks is the last such rollup, null only when none was
+  recorded there, and a review binding's later_observations counts only the
+  reads inside it. A provider lookup applies it to the changes that hold the
+  read, shows the others without it, and refuses only when none does. Local
+  rewrite resolution and current byte availability are
+  separate reads. Change and repository event frontiers and reader options
+  are included. With --at, show, status and explain stop the change events,
+  run references, local records and their source and byte references at that
+  event; repository history, rewrite resolution and retained bytes are
+  current reads.
+  Freshness names the last successful read, latest attempt, age and clock
+  anomalies. A failed acquisition does not erase a successful retained read;
+  recording time never establishes present provider agreement.
+  --body emits exact verified retained bytes to stdout with metadata on stderr.
+  JSON carries base64 bytes or null with an availability diagnostic. Missing
+  bytes weaken only claims that need them; they imply neither empty content,
+  zero cost nor a missing judgment. forge show records nothing and creates
+  no ledger directories, refs, reports or snapshots.
+  The local round trip joins recorded forge generations to declared preparation
+  origins or candidate parent/adoption paths, recorded selection/promotion,
+  accepting patchset and local closure. `show --json` names these under
+  round_trip; its candidate_paths retain origin changes and exact promotion
+  patchsets/revisions. The local_integration_revision and provider lifecycle are
+  independent: closed is closed-unmerged; merged names the observed merge SHA.
+  A local cherry-pick, accepted candidate or public closure proves no forge
+  merge or independent approval. Manual preparation declares its origin with
+  `context declare --forge-origin CHANGE:OBSERVATION:GENERATION`. Only a
+  change with the forge profile, recorded forge facts or such records carries
+  forge_view and a Forge round trip section in its text; any other change,
+  integrated or not, carries neither.
+
+  `message CHANGE --type note --summary TEXT --delivery-file FILE` admits
+  arc-forge-delivery/1: message_id, attempt_id, evidence_id, optional
+  previous_evidence, run, transport_request, sources and separate delivery,
+  acknowledgement and acted_on objects. Sources name change_id, observation
+  event ID and generation. Each outcome has standing (observed, uncertain,
+  not-observed), detail, evidence RetainedContentRefs and source generations.
+  Observed outcomes require evidence. Identical attempt/evidence and message
+  retries return the original event; conflicting reuse refuses. A later outcome
+  names previous_evidence on the same immutable attempt; earlier uncertainty
+  remains recorded. A transport request cannot name two attempts. A delivered
+  message never implies acknowledgement, action, paid execution or authority.
+  Messages and all imported evidence remain non-authorizing.
+
+  `context declare --disclosure-file FILE [--custody-dir DIR]` admits
+  arc-disclosure/1 privately. It records disclosure_id, optional
+  previous_disclosure, selected source generations/fields with access_basis
+  (accessible-git, accessible-forge, withheld-private-assertion), allowlist_version,
+  validator_version, author, optional reviewer/editor, discloser (each a
+  participant: a placeholder or a session id is refused, and absence is
+  null), recipient_access_basis, omissions, outgoing RetainedContentRef and exact
+  readback source generation. A selected source names a forge generation,
+  a ledger event (change_id/event), or Git support (change_id/commit); Git
+  support uses a full lowercase held commit ID, never a tag or blob, is pinned
+  under refs/arc/retained/ before the declaration is recorded, and travels with
+  the object closure where this repository holds the commit.
+  Repository-scoped ledger sources name change_id=repository and travel with
+  repository events rather than a related change.
+  Outgoing and readback digests and lengths must
+  agree, and verified exact bytes must be in custody before append. A missing
+  or corrupt file refuses a local declaration. Import preserves the historical
+  manifest when bytes are unavailable; current availability remains separate.
+  Arc records evidence of actual bytes, never renders or publishes externally,
+  and a validator version is an attributed assertion, not a security proof.
+
+  An optional comment object retains comment_id, act_id, material authors,
+  optional source_frontiers/source_statements and roles, renderer_version and an optional
+  opaque cost reference. Each author names the original act and either a human
+  name or optional harness/model/effort with act-specific model_observation.
+  Absent effort has no guessed suffix. Supplied agent coordinates follow the
+  shared coordinate rules: placeholders and malformed separators refuse; missing
+  model/harness evidence degrades the projection without inventing a coordinate. Material synthesis names each author
+  and its source statements; quoted, transported and implementation participants
+  remain roles and never become authors automatically; a role's participant
+  follows the same participant rule. Corrections name an
+  editor and previous_disclosure, preserve original authors, and bind the
+  outgoing/readback generation independently of the original judgment. A comment
+  identity has one original disclosure; later annotations link its lineage.
+  Local readers can project one compact line: Author: harness:model#effort ·
+  Review cost: unmeasured. A recorded cost reference reads Review cost: <basis>
+  as of <as_of> instead; arc invents no amount. Multiple material authors use Authors. Missing model
+  evidence reads model not recorded. A cost reference carries reference, as_of,
+  scope=review-exchange, basis, coverage and source_frontier; it is separately
+  owned evidence, not a number or a whole-session/implementation allocation.
+  Arc never infers monetary amounts or numerical zero. A later reconciliation
+  is another linked annotation/disclosure, preserving its disclosed frontier.
+
+  Export includes flat full related_changes histories for source/context and
+  candidate adoption and explicit predecessor-record closure, plus their custody
+  references and held Git objects.
+  Related members share the root custody manifest. Import validates every
+  member before publication, then admits each through normal guarded imports.
+  Publication is atomic per change; an interruption can leave already-admitted
+  related histories, and an identical retry completes the remaining members.
+  Missing bytes degrade only dependent claims. Export never initializes a replica.
+

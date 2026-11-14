@@ -1,0 +1,77 @@
+Finding repair and bounded rounds
+
+REVIEW AND REPAIR
+  finding and review accept repeatable --forge-source OBS:GENERATION. Exact
+  references must name a usable recorded observation and one of its generations;
+  canonical observation event IDs and generation IDs remain immutable. Inline
+  findings accept forge_sources as an array of OBS:GENERATION strings and
+  inherit the review's sources. A local verdict retains the forge frontier
+  present when recorded. Later observations expose drift without superseding
+  or invalidating that verdict. A verdict without a recorded frontier has
+  unknown drift. A received public review creates no local
+  verdict; only an explicit local judgment does. Integration authority remains
+  governed by local verdicts, findings and gates.
+  Before a repair path is chosen, a finding carries the trigger and the wrong
+  observable behavior, the violated contract and its source, the constraints
+  a correction must preserve, and discriminating acceptance evidence in the
+  existing finding or brief shape. Its probe must fail against the affected
+  revision for the predicted reason; a structural finding carries the
+  counterexample and the check that separates compliance.
+
+  A stable, nontrivial finding goes to an executor, who owns the edit and may
+  dispute the diagnosis, refuse ambiguous correctness, or show the probe
+  passing before any fix. Where plausible fixes imply different contracts,
+  name them and the observation that separates them.
+
+  A bounded local repair needs governing instructions that allow it and a
+  recorded reason its handoff would cost more; name the local scope and the
+  handoff avoided, and let stricter instructions control.
+
+  Record who authored a correction and who examined the behavior it produced:
+  an author cannot independently assess their own correction, while a lead
+  that did not author it can. Delegating the edit discharges no review; a
+  further independent pass answers to policy, a request, or the cost of a
+  wrong approval — an escalation, not the default.
+
+  A round is bounded on purpose: its brief carries the findings that matter
+  now, because the implementation's shape decides what the next review can
+  see and a repair raises findings no earlier pass could name. What it leaves
+  is recorded before it closes — as debt or a journal deferral.
+
+  An executor arguing back is the point: a brief says a disputed finding is
+  worth arguing, not complying with. The executor holds the code, and the
+  best returns are a finding shown worse than stated, or a fix shown the
+  weaker of two options — neither reachable by a reader who has not written
+  the diff.
+
+RECEIPTS
+  A delegated reader that cannot write to the ledger returns its reading as
+  an `arc-review-receipt/1` file. `arc receipt template --verdict <change>...`
+  or `--audit <change>...` pins each item's subject and frontier before
+  dispatch; the reader fills in its identity, verdict, findings,
+  dispositions and, on an audit item, the `extent` it read, and copies each
+  `key` and `subject` unchanged. `arc review
+  --receipt` records verdict items and `arc audit --receipt` audit items, each
+  as the read `--verdict` records: the reader is the represented subject, the
+  invoker the writer, and the event names the receipt item and the digest
+  and length of its file, whose bytes the ledger keeps in custody. An export's
+  custody sidecar carries them as it carries other custody bytes, and `arc
+  doctor` names a cited receipt the ledger does not hold. Independence,
+  clearance and assessment binding judge an item exactly as they judge a
+  hand-recorded read.
+
+  A receipt-wide error refuses everything and writes nothing. An item error
+  refuses that item alone, and the exit is 1 when any item was refused. An
+  item is refused when its subject no longer matches, when a verdict, finding
+  or disposition was recorded after the template, or when it contradicts
+  itself; a contradiction is refused, never repaired by editing the report.
+  A read that clears nothing is recorded and reports its bar. Dispositions
+  publish inside the read's own event, which stamps store format 7. Rerunning
+  a receipt prints the event of each identical item published by the same
+  represented reviewer and model and writes nothing for it, so an interrupted
+  batch resumes. Both the declared model and the binding model must match:
+  the session store's observed model where present, otherwise the declared
+  model. A retry with changed content, reviewer identity or either model is
+  refused, naming the recorded and submitted coordinates. `arc receipt --help`
+  holds the shape and the refusal codes.
+
