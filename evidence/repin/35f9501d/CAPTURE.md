@@ -1,7 +1,7 @@
 # Public documentation capture
 
 The clean installed binary reports source/build revision
-`12dd52f5d003434fa07eb77908ea26af3c39af9d`. `binary.sha256` identifies
+`35f9501d9c17d1fcd46a3b49bec19310aa55c179`. `binary.sha256` identifies
 the executable copied before capture. `../capture.py` ran inside
 `arc-model-sandbox`; every arc subprocess inherited its sealed environment.
 
@@ -17,10 +17,15 @@ This work began against the installed build
 `510e3f0a680bbc5252a28bbd23fee268f7bff4ab` (SHA-256
 `47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`), whose
 capture this directory first held. `guide.txt.from-510e3f0a.diff` and
-`topics.from-510e3f0a.diff` retain the whole step to 12dd52f5: one paragraph
-of `change-gates`. Recursive help and every other route are byte-identical
-between the two builds. The comparisons run against 510e3f0a are kept under
-`at-510e3f0a/`.
+`topics.from-510e3f0a.diff` retain the whole step to the next installed
+build, 12dd52f5d003434fa07eb77908ea26af3c39af9d (SHA-256
+`ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a`): one
+paragraph of `change-gates`. Recursive help and every other route are
+byte-identical between those two builds. The 35f9501d capture is
+byte-identical to the 12dd52f5 capture in the guide, every route, the index,
+the overview and all 240 help surfaces; only `version.txt`, `build.txt` and
+`binary.sha256` differ. The comparisons run against 510e3f0a and 12dd52f5
+are kept under `at-510e3f0a/` and `at-12dd52f5/`.
 
 No arc implementation or checkout was read. The current public README is
 not exposed by the installed binary and is not captured here.

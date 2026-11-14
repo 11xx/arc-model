@@ -1,0 +1,11 @@
+Produced against arc build 12dd52f5d003434fa07eb77908ea26af3c39af9d, SHA-256 ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a.
+
+channel decision: 181 cases: 158 agreed, 10 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel execution: 187 cases: 154 agreed, 20 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+channel candidate: 73 cases: 47 agreed, 3 adjudicated, 23 skipped, 0 disagreed, 0 failed to replay
+
+All four exits: 0. Seed 20260907, channel defaults, every named history.
+repin-replay.py (this re-pin): 15 / 15 claims agreed, sandbox exit 0
+../gate-tier-replay.py (retained publication): 6 / 6 claims agreed, sandbox exit 0
+../b405104a/repin-replay.py (retained modeled-change): 8 / 8 claims agreed, sandbox exit 0
