@@ -24,7 +24,7 @@ def run(args, cwd=repo, expected=0):
 
 
 def git(*args, cwd=repo):
-    return run(["git", "-c", "user.name=Tester", "-c", "user.email=tester@example.invalid",
+    return run(["git", "-c", "user.name=Tester", "-c", "user.email=tester@arc-model.internal",
                 "-c", "commit.gpgsign=false", *args], cwd=cwd)
 
 
