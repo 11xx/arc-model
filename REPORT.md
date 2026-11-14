@@ -1184,13 +1184,18 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 comparisonRevision names source revision
-b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b. The clean installed
-executable has build revision `b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b`.
-Its SHA-256 is `1b16bfcd7e1d923e063b1928b939faad4cef0bc1e7a2aa0106778d204ff3ef42`. The public interface capture is retained under
-[evidence/repin/b405104a](evidence/repin/b405104a); no arc source or build
+510e3f0a680bbc5252a28bbd23fee268f7bff4ab. The clean installed
+executable has build revision `510e3f0a680bbc5252a28bbd23fee268f7bff4ab`.
+Its SHA-256 is `47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`.
+The public interface capture is retained under
+[evidence/repin/510e3f0a](evidence/repin/510e3f0a); no arc source or build
 checkout was used.
 
 The prior pin is source/build revision
+b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b, clean, with SHA-256
+`1b16bfcd7e1d923e063b1928b939faad4cef0bc1e7a2aa0106778d204ff3ef42`; its
+capture is retained under [evidence/repin/b405104a](evidence/repin/b405104a).
+The pin before it is source/build revision
 6e7f9dfbba9f9c2f3430272986e388b43b776a7b, clean, with SHA-256
 f30eb13cc85e06b75406653237116545cdd5f26cede05d9624891d22d8b86bbc.
 Executable identity is independent of integration into a checkout.
@@ -1216,7 +1221,7 @@ was `3c0c53769114de1fac2a7179fdd0dcbf906d5142` (rewritten as `6de12b7c75e9fc199e
 Historical sources include the captured guides, command help, public README,
 and two retained operator rulings that read the guide. The current capture
 uses only the installed public binary interface; it does not assert a current
-README capture. No Rust source informs the model. The prior 6e7f9dfb binary
+README capture. No Rust source informs the model. The 6e7f9dfb binary
 was the installed clean build at that capture; its identity remains above. The `3e020e5`
 build is a fresh clone of the arc
 repository outside its checkout, at the pinned revision, built with
