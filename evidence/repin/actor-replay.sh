@@ -6,7 +6,7 @@ mkdir repo
 cd repo
 git init -q -b master
 git config user.name Tester
-git config user.email tester@example.invalid
+git config user.email tester@arc-model.internal
 git config commit.gpgsign false
 mkdir .arc
 printf '[policy]\nforbid_self_approval = false\nrequire_declared_actor = false\n' > .arc/policy.toml
