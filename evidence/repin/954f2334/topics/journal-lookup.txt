@@ -1,0 +1,214 @@
+Artifact lookup, archival and project queues
+
+  Shelve a discussion with journal archive FILE --unresolved --note REASON.
+  Use journal position FILE --archived to argue there, and journal unarchive
+  FILE to restore storage. Terminal resolution remains terminal unless
+  explicitly reversed:
+    arc journal reopen FILE... --reason TEXT [--dry-run]
+    arc journal reopen --session ID --since TIME [--until TIME]
+        --reason TEXT [--dry-run]
+                         Reverse recorded consumptions without editing the
+                         event log: appends typed `reopened` events under the
+                         event lock bound (`reopens`) to each active unreversed
+                         consumption so each artifact returns to its prior live
+                         state without clearing a distinct, later consumption
+                         imported from another replica, while history keeps
+                         both events. Structural handoff consumptions
+                         (`journal transition`, `begin --from-journal`,
+                         `journal promote --global`) are protected in both
+                         selectors. Explicit files bind a reversal to every
+                         active unreversed consumption on each named artifact
+                         and refuse any artifact not currently consumed; the
+                         session-window form selects only currently consumed
+                         non-handoff artifacts whose standing (and every
+                         active) consumption was recorded by that session
+                         inside `[since, until]` (RFC 3339 or journal stamp),
+                         skipping artifacts with another active consumption
+                         outside the window. `--dry-run` names each matched
+                         artifact without writing, and `--global` targets the
+                         operator journal.
+  Pending
+  storage moves appear in journal doctor and must be retried before other
+  writes; the retry validates the operation's paths and body digest.
+  Archiving keeps every byte readable. To take content out of reach:
+    arc journal relocate FILE... --to DIR --reason TEXT [--dry-run]
+                         Move whole artifacts to a directory outside arc. The
+                         body leaves the hot directory, the cold archive, and
+                         any prepared transition copy; a `relocated`
+                         tombstone keeps the file, destination, reason, and
+                         digest, and readers report that fate. Open claims,
+                         unfinished transitions or storage moves, and
+                         unanswered questions refuse until acknowledged.
+                         Exchange neither carries nor restores the artifact.
+    arc journal redact FILE (--replace OLD --with NEW)... | --body-file F
+        --reason TEXT [--dry-run]
+                         Rewrite passages of a hot or archived body in place,
+                         keeping its entries. The `redacted` event records
+                         digests and the reason, never the removed text, and
+                         exchange keeps the redacted revision on both sides.
+  The event log keeps what events recorded, such as topics and titles; both
+  commands change bodies, not the log.
+  arc journal dir        The authoritative journal location for the project
+                         you are standing in, honoring ARC_JOURNAL_DIR and
+                         [journals.dirs]; the default path is only a default.
+                         Read-only journal commands also resolve from the
+                         journal directory itself; a write refuses there and
+                         names the checkout it needs.
+  Find a journal artifact from the project checkout, never by searching the
+  filesystem: a filename belongs to its owning project's journal, and
+  `--global` is a separate operator scope.
+    known filename   `arc journal show <file.md>` reads the body, hot storage
+                     first and the cold archive after it;
+                     `arc journal discussion <file.md>` reads its stances and
+                     open questions. Discovery rows print the filename, so a
+                     row is copied, never rebuilt from its fields.
+    known entry      `arc journal show <entry-id>` prints that one entry, its
+                     artifact on stderr; the ID alone is its address.
+                     `<file.md>#<entry-id>` also reads it, checked against
+                     the artifact that records it.
+    another project  `<project>::<entry-id>` or `<project>::<file.md>` reads
+                     it by registered slug or label; `<journal-dir>::` names
+                     the journal directory and is the form a recorded
+                     reference keeps.
+    known topic      `arc journal latest <topic> [--kind <kind>]`, matched
+                     exactly; `arc journal show <topic>` shows the newest
+                     live one and names it on stderr.
+    no filename      `arc journal list [--kind <kind>]` browses live
+                     artifacts; `arc journal open` lists the actionable ones.
+    a path           `arc journal dir` (`--explain` names the source that
+                     resolved it) only when a filesystem path is required.
+  arc claim <file.md>    Claim a journal artifact, the way a change is
+                         claimed: a lease with a TTL, renewed by working it,
+                         released with `arc release-claim <file.md> --outcome
+                         paused|abandoned|expired`. `arc stage <file.md>
+                         <stage>` records typed progress against it.
+                         For claim, stage, release-claim, watch, and rescue, a
+                         bare .md filename held only by another known journal
+                         is refused with its owning journal and project.
+                         Artifact claims require a declared actor, harness,
+                         and session. Renewal with --ttl replaces the lease
+                         duration, measured from the renewal timestamp;
+                         omission retains its current duration.
+  arc journal checkpoint <file.md> --body-file -
+                         Where the work stands and what a successor should
+                         read, appended to the artifact and recorded with a
+                         digest of the block. `--next`, `--gate`, and
+                         `--blocker` carry the structured half; `--supersedes
+                         <checkpoint-id>` corrects an earlier one without
+                         hiding it.
+  arc journal evidence <file.md> --body-file -
+                         Add a finding, an option, or a revised section to a
+                         live item of any kind instead of filing a successor:
+                         an append-only block under a heading naming its id,
+                         writer, and time, recorded as an `evidence` event.
+                         `arc journal show` prints it, `arc journal filed`
+                         counts it per item, and it is recorded activity, so
+                         it keeps an open item from going stale. It states no
+                         stance and never enters a stance tally; argue a
+                         discussion with `journal position`, and replace a
+                         recorded field with `journal correct`. A consumed
+                         item is closed: file a successor.
+                         Structural position headings in evidence refuse;
+                         fenced and indented examples are prose. Evidence and
+                         position check target availability before reading the
+                         body and again under the transition lock. Question,
+                         answer, suggestion, retraction, and checkpoint writes
+                         use the same two-stage target preflight.
+                         Evidence cannot be appended in cold storage; use
+                         `journal unarchive` before appending. `--title`
+                         names the block after the heading's writer and
+                         time, and `journal append` is the same command
+                         (arc guide journal-references).
+  arc journal verified <file> [--note <text>]
+                         Record a source check at the head of the checkout it
+                         was made in: the project anchor, or a fork's own
+                         head recorded with the fork as its scope.
+  arc resume <change>    One change's brief, live state, and journal context.
+  arc explain <change> [--at <event>]
+                         What one change knew and what it was accepted on:
+                         contract, supplied context, declared facts,
+                         observed reads, rejected alternatives, evaluation,
+                         coverage at acceptance, and later knowledge.
+                         Observed reads are the change's read records, each
+                         with its inferred blob and capture state. A
+                         promoted patchset names its selection and promotion
+                         in the contract, and the promoted candidate's
+                         siblings are rejected alternatives. Every
+                         row carries a standing: `recorded` (an event records
+                         it), `declared` (somebody stated it and arc did not
+                         check it), `inferred` (arc derived it; no event
+                         states it), `absent` (nothing records it), or
+                         `unavailable` (its source cannot be read now), with
+                         a reason for all but `recorded`. The opening
+                         artifact is `recorded` when its digest was captured
+                         at open, `declared` when not; a pass's inferred
+                         falsification reads `inferred`, beside any declared
+                         one. Contract,
+                         evaluation, and coverage stay on the integration's
+                         basis; `--at` hides every other record made after
+                         the event, or replays a change not integrated. It
+                         writes nothing.
+  arc inbox              Lead-facing queue across open changes, unowned
+                         branches and worktrees, and the journal backlog.
+                         The branches work integrates into are never unowned:
+                         the default branch, every open change's target, and
+                         a closed change's target that is not itself a work
+                         branch.
+  arc workspace backlog  The same question asked of every registered project.
+    --here | --under <path>  Restrict it to one workspace directory tree.
+    --rank-by blocking|availability|coverage
+                         Order rows by one recorded fact; the report states
+                         the basis it used.
+  arc stats --by-model   Per recorded `harness:model[#effort]` coordinate
+                         (keeping label-only and bare-session subjects separate
+                         verbatim, and unrecorded events in `(unattributed)`):
+                         change counts by end state (`integrated`, `abandoned`,
+                         `closed` for asserted integrations without an arc
+                         merge, `superseded`, `open`), land rate
+                         (`integrated / (integrated + abandoned)`, excluding
+                         `open`, `closed`, and `superseded`), first-patchset
+                         approval rate over closed-out changes, patchsets,
+                         rework rounds caused, and verdicts, with counts beside
+                         every rate (`arc-stats-by-model/2`).
+  arc stats --provenance How often each provenance record was written where it
+                         could have been — falsifications, journal links,
+                         rejected alternatives, plan-linked briefs, cited
+                         facts, changes with read records — each count beside
+                         what it counts in.
+  arc stats --round-trip Each integrated change's final landing, from its
+                         patchset's recording (or the start of the rebase that
+                         recorded it) to the integration event, split into
+                         rebase, gates, waiting and integration, with reuses
+                         counted; the median, the worst and the five slowest.
+
+  Work waiting for this project lives in two places. The ledger holds changes
+  already open; the journal holds everything not yet opened as one. An empty
+  inbox does not mean an empty queue — check both, which is what `catchup` does.
+
+  Every inbox bucket is an independent predicate, so a change in a state none
+  of them anticipates would land nowhere and the queue would read as empty
+  while work waited. The `unclassified` bucket catches exactly that and names
+  the reason. A row there is a gap in the derivation rather than a resting
+  place: it means arc failed to classify open work, and it is worth reporting.
+
+  Aggregate change observations retain readable changes and name each
+  unreadable change with its error on stderr, including with JSON output.
+  A read aimed at one change refuses if that change cannot be read. Status
+  keeps unreadable prerequisites unresolved, so they cannot authorize
+  integration. Operations that require the complete dependency graph refuse
+  an incomplete read. A changelog file write requires every change to be
+  readable so a failed reduction cannot silently remove an entry. `arc doctor`
+  reports each change whose events fail to reduce as `unreplayable-change`,
+  with the reduction error, and exits 1.
+
+  Every command in the project orientation answers for the project you are
+  standing in. Some
+  questions are comparisons — which project to open next, what has waited
+  longest, where a verdict is the only thing missing — and those are answerable
+  only across projects, which is what `workspace backlog` is for.
+
+  A source check is worth keeping only with the revision it checked: `journal
+  verified <file>` records that fact, and the open queue says so on the row.
+  Nothing more is said while the stamp holds — that is what verified means;
+  the row speaks up once the anchor head has moved past it.
+

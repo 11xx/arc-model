@@ -1,0 +1,108 @@
+--- evidence/repin/35f9501d/topics.txt	2026-11-27 01:22:17.739967533 -0300
++++ evidence/repin/954f2334/topics.txt	2026-11-27 01:22:57.896356331 -0300
+@@ -71,6 +71,8 @@
+   arc guide gates-together         Measured concurrent batches and host-local acceptance
+   arc guide base-passes            Project adoption, baseline proofs and publication audits
+   arc guide slots                  Leased fixed-path checkouts kept across changes
++  arc guide progress               Where a series of work stands, read on request
++  arc guide milestones             Tracks, waves, readiness and deferral above progress series
+   arc guide schemas                Versioned surfaces
+   arc guide boundaries             Authority and effect boundaries
+ 
+@@ -99,6 +101,8 @@
+   arc log --help
+   arc gates --help
+   arc gates raise --help
++  arc gates suspend --help
++  arc gates resume --help
+   arc gates paths --help
+   arc gates init --help
+   arc gates over --help
+@@ -229,6 +233,7 @@
+   arc forge --help
+   arc forge show --help
+   arc forge observe --help
++  arc forge ingest --help
+   arc forge declare --help
+   arc forge link --help
+   arc forge checks --help
+@@ -250,6 +255,8 @@
+   arc workspace list --help
+   arc workspace inbox --help
+   arc workspace pins --help
++  arc workspace progress --help
++  arc workspace milestones --help
+   arc workspace inventory --help
+   arc workspace backlog --help
+   arc workspace report --help
+@@ -260,6 +267,35 @@
+   arc hook-run --help
+   arc catchup --help
+   arc fr --help
++  arc feedback --help
++  arc progress --help
++  arc progress start --help
++  arc progress add --help
++  arc progress rename --help
++  arc progress move --help
++  arc progress drop --help
++  arc progress done --help
++  arc progress reopen --help
++  arc progress link --help
++  arc progress unlink --help
++  arc progress source --help
++  arc progress unsource --help
++  arc progress waves --help
++  arc progress waves add --help
++  arc progress waves rename --help
++  arc progress waves move --help
++  arc progress waves remove --help
++  arc progress wave --help
++  arc progress unwave --help
++  arc progress depend --help
++  arc progress undepend --help
++  arc progress wait --help
++  arc progress unwait --help
++  arc progress split --help
++  arc progress transfer --help
++  arc progress relate --help
++  arc progress unrelate --help
++  arc progress retire --help
+   arc journal --help
+   arc journal dir --help
+   arc journal bind --help
+@@ -276,6 +312,7 @@
+   arc journal memory --help
+   arc journal later --help
+   arc journal review --help
++  arc journal feedback --help
+   arc journal log --help
+   arc journal source-attach --help
+   arc journal source --help
+@@ -320,6 +357,7 @@
+   arc journal workbench close --help
+   arc journal workbench adopt --help
+   arc journal consume --help
++  arc journal reopen --help
+   arc journal transition --help
+   arc journal promote --help
+   arc journal archive --help
+@@ -328,3 +366,18 @@
+   arc journal redact --help
+   arc journal export --help
+   arc journal import --help
++  arc milestone --help
++  arc milestone start --help
++  arc milestone wave --help
++  arc milestone wave add --help
++  arc milestone wave rename --help
++  arc milestone wave move --help
++  arc milestone wave remove --help
++  arc milestone defer --help
++  arc milestone checkpoint --help
++  arc milestone close --help
++  arc milestone track --help
++  arc milestone track role --help
++  arc milestone track move --help
++  arc milestone track remove --help
++  arc milestone track add --help

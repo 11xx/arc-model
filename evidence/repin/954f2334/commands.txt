@@ -1,0 +1,291 @@
+arc
+guide
+begin
+roles
+trailers
+list
+query
+show
+explain
+log
+gates
+stats
+diff
+findings
+brief
+changelog
+message
+messages
+inbox
+chain
+take
+metadata
+iterating
+status
+blocker-status
+is-blocked
+events
+watch
+export
+import
+accept
+replica
+check
+claim
+release-claim
+stage
+squash
+snapshot
+keep
+comment
+finding
+reply
+resolve
+review
+receipt
+external
+publication
+verify
+done
+rebase
+env
+completions
+mangen
+resume
+rescue
+prompt
+slots
+fork
+hold
+release-hold
+integrate
+land
+debt
+audit
+close
+history
+rewrite
+candidate
+context
+pass
+checkpoint
+run
+cost
+review-ladder
+policy
+forge
+config
+sandbox
+doctor
+hooks
+instructions
+workspace
+restack
+catchup
+fr
+feedback
+progress
+milestone
+journal
+gates raise
+gates suspend
+gates resume
+gates paths
+gates init
+gates over
+gates measure
+replica provisional
+replica id
+replica init
+replica pair
+replica export
+replica import
+replica status
+replica authority
+receipt template
+external verdict
+slots status
+slots release
+slots warm
+slots recover
+fork begin
+fork adopt
+fork retire
+fork list
+fork thread
+history withdraw
+history rewrite
+history resolve
+rewrite sign
+rewrite trailers
+candidate register
+candidate show
+candidate list
+candidate judge
+candidate retire
+candidate verify
+candidate select
+candidate promote
+context read
+context declare
+context capture
+pass open
+pass complete
+pass abandon
+pass list
+checkpoint record
+checkpoint show
+checkpoint list
+run dispatch
+run bind
+run end
+run list
+cost show
+cost evidence
+cost retain
+cost note
+review-ladder import
+review-ladder show
+policy show
+policy path
+policy write
+forge show
+forge observe
+forge ingest
+forge declare
+forge link
+forge checks
+forge pr-state
+sandbox clone
+sandbox diff
+sandbox discard
+hooks install
+hooks uninstall
+hooks status
+instructions git
+workspace gates
+workspace list
+workspace inbox
+workspace pins
+workspace progress
+workspace milestones
+workspace inventory
+workspace backlog
+workspace report
+workspace watch
+workspace retire
+workspace restore
+progress start
+progress add
+progress rename
+progress move
+progress drop
+progress done
+progress reopen
+progress link
+progress unlink
+progress source
+progress unsource
+progress waves
+progress wave
+progress unwave
+progress depend
+progress undepend
+progress wait
+progress unwait
+progress split
+progress transfer
+progress relate
+progress unrelate
+progress retire
+milestone start
+milestone wave
+milestone track
+milestone defer
+milestone checkpoint
+milestone close
+journal dir
+journal bind
+journal doctor
+journal spool
+journal note
+journal feature-request
+journal todo
+journal handoff
+journal plan
+journal conclusion
+journal decision
+journal incident
+journal memory
+journal later
+journal review
+journal feedback
+journal log
+journal source-attach
+journal source
+journal filed
+journal position
+journal evidence
+journal verified
+journal pin
+journal unpin
+journal pins
+journal render
+journal published
+journal question
+journal checkpoint
+journal scaffolds
+journal questions
+journal answer
+journal suggest
+journal delivered
+journal correct
+journal retract
+journal reattribute
+journal events
+journal catchup
+journal memories
+journal open
+journal list
+journal inventory
+journal show
+journal latest
+journal discussion
+journal rebind
+journal stamp
+journal lane
+journal workbench
+journal consume
+journal reopen
+journal transition
+journal promote
+journal archive
+journal unarchive
+journal relocate
+journal redact
+journal export
+journal import
+replica provisional resolve
+replica authority offer
+replica authority reclaim
+replica authority confirm-return
+progress waves add
+progress waves rename
+progress waves move
+progress waves remove
+milestone wave add
+milestone wave rename
+milestone wave move
+milestone wave remove
+milestone track add
+milestone track role
+milestone track move
+milestone track remove
+journal lane open
+journal lane renew
+journal lane close
+journal lane list
+journal workbench list
+journal workbench link
+journal workbench close
+journal workbench adopt

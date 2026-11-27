@@ -1,0 +1,56 @@
+Tracks, waves, readiness and deferral above progress series
+
+MILESTONES
+  `arc milestone` composes local and cross-project `arc progress` series into a
+  two-dimensional wave-by-track matrix, closed by a checkpoint and/or conclusion.
+  Like `arc progress`, milestones are strictly pull-only: read on request
+  (`arc milestone [<slug>] [--ready] [--ignore-waves] [--plain|--json]`) and never
+  pushed into `status`, `check`, `catchup`, `journal open`, or hooks.
+
+  A milestone is a journal artifact of kind `milestone`, started with:
+    arc milestone start <topic> --title T [--follows <plan>] [--wave ID[=TITLE]]... [--advisory-waves]
+  Edits are append-only journal events on `<milestone>` (by filename or topic):
+    wave add <id> [--title T] [--before|--after W] [--soft|--gated]
+    wave rename <id> <title>                wave move <id> --before|--after W
+    wave remove <id>
+    track add [<project>::]<series> [--role critical|sideband] [--label L] [--before|--after T]
+    track role <track> critical|sideband    track move <track> --before|--after T
+    track remove <track>
+    defer <track>:<item> --to <target-milestone>[:<track>] [--wave W] --reason R
+    checkpoint <name>
+    close [--checkpoint <name>] [--by <conclusion>] [--note N]
+  On `track add`, `--role` selects the track role (`critical` or `sideband`);
+  pass the execution role via `ARC_ROLE`, `--execution-role`, or before
+  `milestone` (`arc --role ROLE milestone track add ...`). A closed milestone
+  leaves the default listing, remains readable by name, and refuses writes.
+
+  Tracks, waves, and readiness. A milestone owns no parallel item store: slices
+  live in each attached `arc progress` series. Every track is `critical`
+  (default) or `sideband`. Milestone completion counts and percentage cover
+  `critical` tracks only; `sideband` counts print separately and never distort
+  milestone progress or hold wave barriers. Declared milestone waves are gated
+  across `critical` tracks by default unless the milestone started with
+  `--advisory-waves` or the wave was declared `--soft` (overridable per wave
+  with `--gated`). A gated wave blocks open items on `critical` tracks until
+  every standing item in earlier declared waves across all `critical` tracks is
+  `integrated` or `done`; an unreadable critical track holds later gated waves
+  conservatively as `unknown`. `--ignore-waves` bypasses wave barriers at read
+  time while keeping explicit item prerequisites. `--ready` narrows the output
+  to currently claimable items while preserving full counts.
+
+  Deferral. `arc milestone defer` resolves the source and destination tracks in
+  two open milestones and delegates to `arc progress transfer`, preserving the
+  item's title, `--from` source, active change link, matching wave, provenance,
+  and transitive prerequisite resolution.
+
+  Bounded reads. Reading a milestone opens each referenced project's journal
+  events and ledger at most once. An unregistered or unreadable foreign track
+  degrades to `unavailable` in `arc-milestone/1` without failing the report.
+  Output prints in three forms: the default terminal matrix (painted only on
+  a terminal with `NO_COLOR` unset and `TERM` not `dumb`), `--plain` (full
+  filenames and per-item rows, never painted), and `--json` (`arc-milestone/1`).
+  `arc workspace milestones` prints every registered project's active
+  milestones in the same three forms (`arc-workspace-milestones/1`);
+  `arc workspace report` and `arc workspace watch`, given `--milestones`,
+  carry each project's active milestones as `projects[].milestones`.
+

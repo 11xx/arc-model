@@ -1,0 +1,78 @@
+Session spans, allocation and estimates
+
+    A recording beginning before its session's first dispatch has
+    pre-dispatch consumption: assignment is incomplete and work totals are
+    withheld. An unknown opening boundary also withholds them. A session the
+    ledger gives one span is measured whole. Spans come only from the
+    session's own ledger records, never from proximity: an executor's span is
+    each bound run, from its dispatch to its recorded `run end`, open to the
+    read frontier while it has none; a participant's span on a work item runs
+    from its first to its last ledger event there, both inclusive. Any event
+    its own session records counts, so a reviewer opens its span with `arc
+    review <change> --start` before it reads, as a claim its session records
+    also does, and the span then runs to its verdict. An event a lead records
+    on its behalf carries the lead's instant, not the session's, and opens
+    no span of it. A session
+    with several spans is cut at every span boundary into disjoint segments,
+    read in one pass through tapes' span reader, so no request is counted
+    twice. A segment one work item alone covers is that item's share. A
+    segment several items cover, a segment none covers, and a request whose
+    time the recording leaves unrecorded belong to no item: they are the
+    session's unattributed part, with the fixed reasons `overlap`, `before
+    first item`, `between items`, `after last item` and `request time
+    unrecorded`. Conservation holds per counter within the segments'
+    accounting basis: the item shares and the unattributed part add up to the
+    session's whole figure in that basis. `conservation` reads `conserved`
+    only when every counter and disjoint category compares: one the parts
+    and the whole do not add up in is named under `differs` (`not-conserved`),
+    and one either side leaves unknown is named under `uncompared`
+    (`unestablished`), never read as agreeing. A Codex session's segments
+    are read in the summed-requests basis. A recorded total no span divides,
+    such as a Claude cost-state or an OpenCode session row, stays whole in its
+    own basis on the session row while the shares take the request basis tapes
+    reads spans in, and the unattributed part then names `recorded total not
+    splittable`; every figure names its basis, and totals mix bases only as
+    the partition rules allow. A session the reader refuses to divide (`span
+    reading unsupported`), one with no measurement (`unmeasured`), a
+    participant whose ledger records are not all readable (`ledger records are
+    unreadable`), and retained facts whose segments are not the ones the
+    ledger gives now (`retained spans do not match the ledger`), and a
+    participant with several members one of which only events recorded on
+    its behalf name (`recorded on its behalf`) stay
+    undivided, outside every share with that reason. An undivided session
+    that also acted on work the figure does not hold has an unknown share in
+    it, so every figure it would join is withheld, naming the session. A
+    divided session joins every figure by its items' shares, even when the
+    figure holds all of its work, so its unattributed part is never charged
+    to a selection; its consumption before its first span is unattributed and
+    withholds no share, and an undivided session counted whole still
+    withholds as above. `--allocate even`
+    divides each segment several items cover evenly among them, tokens kept
+    whole with the first items in order taking one token each of the
+    remainder. `--allocate following` gives what remains unattributed
+    between two items, after a participant's estimated parts, to the next
+    item. Every allocated figure is labelled `allocated`, with its
+    `allocation` method, beside the conserving one and never replaces it,
+    and allocation is never the default.
+    A participant's segments no item covers are estimated from its working
+    stretches, read from the same transcript pass as its spans: its
+    activity cut wherever the gap between two stamps exceeds `--idle`
+    (default `45m`, as `tapes stats` reads active time). Within a stretch,
+    the requests up to and including one of the participant's own events
+    serve that event's item, those after the stretch's last event serve the
+    same item, and a stretch with no event of the participant stays
+    unattributed; a segment several items cover keeps to its evidence.
+    Estimates never apply to an executor, whose run spans are exact. Each
+    estimated part is labelled `estimated` with its basis
+    (`working-stretch`) and idle gap, and never enters the measured figure:
+    `sessions[].split.estimate` holds each item's estimated share, what stays
+    unattributed, and whether the measured shares, the estimated shares and
+    that remainder add up to the whole. Every figure a participant's
+    estimate touches carries the figure with estimates beside the measured
+    one, under `work[].estimated` and `union.estimated`, and the table adds
+    a `total with estimates` row. A read past the request timeline's bound
+    estimates nothing and names tapes' reason, as does a reader that keeps
+    no timeline (`request timeline unavailable`). An estimate answers only
+    the idle gap it was read at: retained facts estimated at another gap
+    than `--idle` estimate nothing (`retained facts were estimated at
+    another idle gap`), and their measured split stands.

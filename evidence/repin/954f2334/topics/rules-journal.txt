@@ -1,0 +1,31 @@
+Journal ownership, events and spool safety
+
+  - The journal lives outside the repo, so worktrees stay clean. Cross-session
+    context goes there, never into tracked files. A sandbox that cannot reach
+    it is not a reason to leave the record in a transcript: every kind verb
+    and `journal log` take `--spool`, and a write spools by itself when the
+    journal cannot be written. It parks in `.arc/outbox/` and prints
+    `spooled: <path>`; `arc journal spool --promote` files it later with the
+    identity it was spooled with. Spooling requires only checkout write access;
+    optional ownership bookkeeping grants cleanup permission, and an
+    unrecorded owner keeps the checkout. `arc config --check-writable` says
+    which of the two will happen before you write.
+  - An artifact is named `<timestamp>-<topic>-<kind>.md` at second resolution,
+    so two writes of one topic and kind in one second want one name. The second
+    takes a numeric suffix — `-2`, `-3` — before the extension, and every write
+    prints the name it got. A name counts as taken in cold storage as well as
+    the live directory, so archiving the first never frees its name for a
+    second that would then collide with it. The suffix names no part of the
+    artifact: its timestamp, topic and kind read exactly as written.
+  - Journal events replay in their events.jsonl append order, established by
+    the journal append lock. Equal or reversed observation timestamps keep
+    that order. Imported and spool-promoted events take their receiving
+    append positions and retain their recorded timestamps. Question state,
+    corrections, claims, and storage transitions use the same replay order;
+    journal doctor checks question state in that order too. Concurrent body
+    sections exchanged between replicas merge by timestamp and event ID.
+  - A spool made inside a change's worktree is deleted with that worktree, so
+    `snapshot` and `integrate` file it from the change's recorded worktree
+    first and print what they promoted; one they cannot file is named and left
+    intact rather than blocking the command. `arc catchup` lists every spool
+    still waiting in an open change's worktree.

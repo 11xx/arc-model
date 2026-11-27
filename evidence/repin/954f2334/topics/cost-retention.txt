@@ -1,0 +1,31 @@
+Retained usage facts
+
+  - `arc cost retain <change|journal-file>` keeps, per bound or participating
+    session, the facts a fresh read gives: reader and calculation versions, source
+    frontier, digest and opening boundary, counters with their basis,
+    coverage and category-specific gaps, the disjoint categories with their
+    convention and gaps, the consumption events with their per-counter coverage and
+    identity, the Claude residual, and any harness-written dollar figure
+    with its pricing coverage, plus lineage relations, read failures
+    as fixed categories, the one model the recording says served the
+    session when it names one, whether the recording leaves its attribution
+    uncertain, each model's disjoint categories, its efforts added together
+    and its cache writes by TTL, where the figure is priced share by share,
+    the segments a session with several spans was read in, each with
+    its bounds, covering work items and runs, request count and facts, the
+    remainder and the whole in the segments' basis, and the liveness
+    agent-status answered then (`live`, `ended` or `unknown`). A list-price
+    estimate is never retained. Retained facts carry no recording locators or raw
+    errors. Display sanitizes older facts field by field, so one unreadable
+    field leaves the rest of the measurement available; bundle import and export refuse
+    nonportable identities, metadata, quantities or reason categories without
+    changing recorded events.
+    Unavailable journal membership and unreadable ledger peers are reported
+    as coverage gaps; readable bound and participating sessions are still
+    retained. A session
+    whose source does not answer is reported and skipped independently.
+    The source bytes stay in the harness store. Identical facts record
+    nothing; retained facts are observations at their frontier and are never
+    added to one another. A fresh read and retained facts at one frontier
+    compare their segment figures when both cut the session alike, and a
+    disagreement shows as a conflict.

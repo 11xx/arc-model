@@ -1,0 +1,141 @@
+Contribution roles and canonical Git trailers
+
+CONTRIBUTION TRAILERS
+    arc roles <change> --planned-by [<value>] --orchestrated-by [<value>]
+                       Assert roles on an open change. Both flags repeat;
+                       at least one assertion or withdrawal is required.
+                       --withdraw <role>=<value> withdraws an exact assertion.
+                       Values use the convention's agent or person form.
+                       `Planned-by` and `Orchestrated-by` credit work done for
+                       at least one other participant; a single-participant
+                       commit carries only `Implemented-by`.
+                       A flag with no value stands for the invoking
+                       identity: a declared Name <email> actor's own form,
+                       else harness:model from the resolved harness and
+                       model, under a declared actor or one derived from the
+                       harness session. A role assertion is no approval, so
+                       a derived actor may make one. An identity assumed
+                       from git config, or an unresolved harness or model,
+                       refuses: omit the role or pass a real coordinate.
+                       A value, typed or resolved, that carries a
+                       placeholder or a session id refuses; withdrawal takes
+                       any recorded value.
+                       Assertions are explicit; event ancestry grants none.
+                       begin's two role flags and brief --planned-by take the
+                       same forms. Put the change first when a role flag has
+                       no value, or attach an explicit coordinate with
+                       --planned-by=<value> or --orchestrated-by=<value>.
+                       A role value resolving to a repository change refuses.
+                       begin records the assertions directly
+                       after opening, brief when writing a contract.
+    arc trailers <change> [--json]
+                       Print Planned-by and Orchestrated-by assertions,
+                       Implemented-by from recorded patchset contributors
+                       (or the snapshot subject when none are listed), and
+                       Reviewed-by from qualifying pre-integration Approved
+                       verdicts covering the current or shipped patchset, in
+                       convention order. Duplicate lines print once.
+                       The subject is --on-behalf-of when set, else the actor.
+                       A subject that is a fresh harness:model[#effort] or
+                       Name <email> supplies itself. Retained replay or
+                       bound-run author coordinates take precedence over
+                       session names. The recorder's harness and model apply
+                       only to the recorder's own work, on a snapshot that declared its attribution: a declared
+                       actor, --solo, --contributors or --on-behalf-of. A
+                       recorder inferred from its harness session or Git
+                       configuration is not credited, since who ran snapshot
+                       is not proof of who wrote the diff.
+                       Pre-integration qualifying Approved verdicts whose
+                       patchset `approved_head` matches the resolved current
+                       (for an open change) or shipped head project
+                       `Reviewed-by: <coordinate>` from `on_behalf_of`, a
+                       declared person, or `harness:model`; an open change
+                       whose branch head is unreadable omits `Reviewed-by`.
+                       `comment-only`, `changes-requested`, findings-only
+                       non-approvals, rejected self-approvals, debt waivers,
+                       and post-integration `arc audit` discharges never
+                       project `Reviewed-by`; audits remain ledger-only and
+                       are never backfilled into already-integrated history.
+                       No line carries a placeholder or a session id. What
+                       cannot be attributed is omitted and named in a note
+                       with the value, why (placeholder, session id,
+                       unresolved, undeclared) and the remedy; no coordinate
+                       is guessed. A note on a session-form contributor may
+                       name the one model this change's own records by that
+                       actor carry, as a suggestion that is never projected.
+                       An asserted role that is no fresh coordinate becomes
+                       a note naming arc roles --withdraw.
+                       Review snapshots and squash use the same rule;
+                       rewrites retain patchset attribution.
+                       --json emits arc-trailers/1 with trailers and notes.
+    check and integrate advise when a commit in target..head lacks any
+    projected contribution trailer (`Planned-by`, `Implemented-by`,
+    `Reviewed-by`, `Orchestrated-by`) applicable to that commit's resulting
+    block, under missing-contribution-trailers. By default (`[trailers] auto =
+    true`), `arc integrate` and `arc land` auto-stamp missing applicable
+    trailers at integration time (on `target..head` via `role_additions` for
+    fast-forward / `arc land`, or onto the merge commit message for `--shape
+    no-ff`; `--no-trailers` or `[trailers] auto = false` opts out). For PRs,
+    contribution repos, or manual pre-integration stamping, the advisory names
+    `arc rewrite trailers --sync` (and `--from <rev> --append <line>` only
+    when every advised line applies to every commit that bulk rewrite would
+    touch); only fresh coordinates are advised, and both auto-stamping and
+    `--sync` omit lines that would introduce a single-participant violation on
+    that commit. They advise when a commit's role line
+    carries a placeholder or a session id, or a person without an email, under
+    placeholder-contribution-trailers, naming each commit and line and arc
+    rewrite trailers --from <rev> --edits <file>, whose `arc-trailer-edits/1`
+    lines drop or replace exactly those lines and leave the valid lines under
+    the same key. Neither advice blocks
+    integration or changes ready or the exit code. Appending complete role
+    entries preserves approvals, debt waivers, commit-bound gates, and
+    matching budget raises, and the appended text is a declaration, not a
+    verdict; replacing or dropping trailers with `--edits` or any other
+    message rewrite requires fresh snapshot and approval or declared debt
+    (`arc guide rewrites-evidence`).
+    Post-integration audits stay in the ledger.
+    arc instructions git [--check <file>]
+                       Print the portable contribution-trailer convention
+                       `arc-contribution-trailers/2`: `Planned-by`,
+                       `Implemented-by`, `Reviewed-by`, and `Orchestrated-by`
+                       name material contributions in agent
+                       `harness:model[#effort]` or human `Name <email>` form.
+                       `Planned-by` and `Orchestrated-by` credit work done for
+                       at least one other participant; a single-participant
+                       commit carries only `Implemented-by`.
+                       A placeholder or a session id is not a coordinate;
+                       its line is omitted.
+                       Agent harness, model and supplied effort segments
+                       must be nonempty.
+                       `--check <file>` reports malformed role values,
+                       placeholder role values (a placeholder or session-id
+                       segment, or a person without an email), advisory
+                       single-participant misuse (`Planned-by` whose
+                       participant is the sole `Implemented-by`, or
+                       `Orchestrated-by` with no `Implemented-by` from a
+                       different participant), and keys outside the
+                       convention. It never rewrites a message, and exits 1
+                       when a role key carries a malformed or placeholder
+                       value.
+
+    Gate trailers (`arc-gate-trailers/1`):
+    Commits in a change's `merge-base..head` range (against its target branch,
+    never a stale recorded base) may declare gate inputs in their final trailer
+    block:
+      Witness: <name>             one to three distinct single-token witness
+                                  names, deduplicated in first-seen order
+      Witness: none (<REASON>)    explicit exemption with a non-empty
+                                  parenthesised reason; cannot mix with named
+                                  witnesses
+      Change-size: interface      selects a gate's declared `interface_budget`;
+                                  any other value is refused
+    Invalid, empty, multiline, mixed, or excessive (> 3 distinct) declarations
+    refuse `arc verify`, `arc check`, `arc integrate`, and `arc land`, and
+    report as `gate-trailers-invalid` in `arc doctor`.
+    Valid declarations bind into verification-reuse identity, so changing
+    `Witness:` or `Change-size:` trailers invalidates prior passes even at an
+    unchanged tree. Executed gates receive `ARC_WITNESSES` (newline-separated
+    witness names or `none (<REASON>)`) and `ARC_CHANGE_SIZE` when declared;
+    both are unset when absent. Target-branch invariant list entries from a
+    gate's `invariants` file are passed in `ARC_INVARIANTS` (unset when absent).
+

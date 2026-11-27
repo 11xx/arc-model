@@ -1,0 +1,9 @@
+Work cost measurement and accounting
+  arc guide cost-measurement               Selection, measurement and pricing
+  arc guide cost-accounting                Counters, coverage and accounting bases
+  arc guide cost-spans                     Session spans, allocation and estimates
+  arc guide cost-identity                  Lineage, participants, liveness and child families
+  arc guide cost-selection                 Range and footprint selection
+  arc guide cost-retention                 Retained usage facts
+  arc guide cost-commits                   Commit accounting and Git notes
+  arc guide cost-evidence                  Portable attribution evidence

@@ -1,0 +1,250 @@
+Debt declarations, coverage and corroboration
+
+  A debt is declared with `arc debt <change> --reason <why>`, or at the merge
+  with `arc integrate <change> --debt "<why>"`. An equivalent declaration
+  reuses the obligation by syncing its exact backing publication, whether a
+  loose event file or an import batch, without copying an imported event.
+  Equivalence compares extents at their signature-only or role-addition
+  successors; durability confirmation syncs the unchanged backing publication.
+  A debt already in force routes to
+  integration: status says integrate beside the flagged waiver, check drops
+  the review-queue advisory, and the inbox keeps one lead row — until the
+  head moves past the covered patchset, which requires a fresh snapshot. The
+  debt can stand in for an absent verdict or rescue a self-approval rejected
+  by repository policy. It binds to the exact patchset head declared, so new
+  work needs a new
+  declaration — it does not excuse the rest of the change's life. A waiver
+  follows the rewrites an approval follows: signature-only and role-addition
+  ones (`arc guide rewrites-evidence`). Any other message or content rewrite
+  leaves the waiver stale even when the patchset's mapped head matches the
+  branch; a fresh snapshot and declaration are required for that head. A refused
+  `arc integrate --debt` keeps the debt it declared; declaring it again with
+  the same reason, kind, and declarer against the same patchset and coverage
+  records nothing and prints the debt already in force.
+
+  `arc integrate --debt ... --dry-run` plans the integration as it reads once
+  the debt is declared, and writes no event. The plan says `would declare
+  debt` with its kind, reason, bound patchset and, for `ineligible-review`, the
+  named read, qualifiers and assessment basis; a debt the change already
+  carries reads `debt already declared` with its event. A declaration the
+  execution would refuse is refused by the plan with the same message and
+  exit code: an unknown qualifier, no verdict to name, an assessment under
+  which the read clears, a read flag on another kind. The plan never invents an approval, and a
+  changes-requested verdict on the exact head still refuses it. `--json`
+  carries the debt as `debt` in `arc-integration-plan/1`, with
+  `disposition` `would-declare` or `already-declared`; a plan that would
+  declare names no debt event in `authorization`. Handed to `--expect-basis`,
+  the event the execution itself writes is not a move; a debt another actor
+  declared meanwhile, or an existing declaration the execution reuses, is.
+  `--provisional --dry-run` plans the same way.
+
+  A debt is a record, not a count. It carries what kind of deficit it is,
+  what review the work did have and at what coordinates, and who planned and
+  who implemented it:
+
+    nothing-read             no verdict on any patchset of the change
+    merge-resolution-unread  approved, then a resolution nobody read
+    repair-unread            approved, then authored work nobody read
+    replayed-unread          approved, then replayed by `arc land` onto a
+                             base the approval did not read
+    contributor-only         verdicts on the shipped patchset, all its own
+    ineligible-review        a read happened without supplying clearance
+    independent-review       a read by somebody independent, unsupplied
+
+  arc derives the kind from the ledger; `--kind <k>` on `arc debt` and on
+  `arc integrate --debt` declares one instead, and a declared kind wins. Only
+  the caller can say a resolution was what went unread, because the ledger
+  sees a repair and a merge resolution the same way.
+
+  `replayed-unread` is derived, never declared, and an import refuses a
+  change ledger declaring it. `arc land --debt` records it for a member
+  when all three hold: an eligible approval read its exact original
+  patchset, arc replayed that patchset without conflict, and the base it
+  was recorded on differs from the composed parent it landed on.
+  The record names the approval, the recorded base and the parent
+  (`replayed` beside the debt). The edit was read and the context it landed
+  in was not, so only an audit of the integrated revision discharges it; a
+  verdict on the original patchset never does. A member no approval covers
+  carries the kind the ledger gives instead. The kind is the weight,
+  carried as a label rather than a number: `arc query --debt` works through
+  the list above in order, then by age, and every summary row splits its
+  count by kind rather than reporting one total.
+
+  An `ineligible-review` declaration names a read that does not count as
+  independent. Under assessed clearance a findings approval also derives this
+  kind (`arc guide debt-clearance`).
+
+  `arc integrate --debt <why> --kind ineligible-review` (and `arc debt`)
+  records beside the debt:
+
+    read         the verdict or audit event of that read: `--read <event>`,
+                 else the latest verdict on the patchset the debt covers, else
+                 once integrated its latest audit. Refused when there is none
+    qualifiers   why it does not count, from the closed set same-model,
+                 same-family, below-floor, floor-unknown, reviewer-unseated
+                 (a reviewer holding no seated review tier), below-clearance
+                 (a tier below the clearance floor)
+    assessment   `assessed` when `--assessment <file>` supplied them,
+                 `declared` when `--qualifier <q>` flags did
+    route_version  `--route-version`, or the assessment's, as a coordinate
+
+  The assessment file is `agent-routing assess --json` output, schema
+  `agent-routing-assessment/1` or `agent-routing-assessment/2`. `/2` keeps
+  `independence` with its `/1` meaning and adds `findings` (`eligible` or
+  `ineligible`) and `clears` (true or false); arc stores both beside
+  `independence`, and a `/1` file leaves them absent. arc keeps its
+  `independence`, `qualifiers` and `route_version`, never a tier or a model
+  string (it compares only the reviewer it describes with the read's model
+  and its authors with the range's coordinates, below), and validates shape only: qualifier names from the closed set, a
+  one-token route version, and answers that agree. In `/1` qualifiers are
+  present exactly when the independence is `ineligible`; in `/2` a file that
+  clears is eligible on both answers, names no qualifier and names its
+  reviewer's effort, and one that does not clear names a qualifier. An
+  assessment under which the named read would discharge the debt is refused
+  on this kind, and one under which it would not is recorded: without
+  `review_clearance` its `independence` decides, under it the read's
+  clearance (`arc guide debt-clearance`) does, and a judgment arc cannot
+  establish records the debt. A tier is
+  routing's reading at the time it is read, so every read shows the record
+  as its route version and basis say, never as current. Within the kind,
+  `arc query --debt`, the inbox, catchup and the workspace backlog put a
+  `below-floor` read first.
+
+  Under assessed ladder policy, a clearing agent read discharges it without
+  an assessment. Other cases retain the assessment requirements below; the
+  clearance rule and all independent bars are in `arc guide debt-clearance`.
+
+  It clears with a read recorded since the declaration that approves or
+  requests changes under an assessment of its own with `independence:
+  eligible`: an audit (`arc audit --assessment <file>`) or a verdict on the
+  patchset that shipped (`arc review --assessment <file>`), by a reader who
+  is also independent of the contributors and whom the assessment
+  describes. `arc review` records only on an open change and `arc audit` only
+  on an integrated one, so a debt `arc debt` declares before integration
+  clears with a verdict recorded since on the patchset that then ships, or an
+  audit after integration, and a debt `arc integrate --debt` declares clears
+  only with an audit. This eligible, bound assessment is required for a person's read
+  too. The assessment covers the
+  work: the `authors` it lists answer, through their `identities`,
+  to the model of every `Implemented-by` line in the integrated range, at
+  that line's effort. An author entry without an `effort` covers its model at
+  any effort; a line that names no effort is covered only by such an entry. An
+  assessment that omits one is recorded with binding `authors-uncovered` and
+  the omitted `model[#effort]` coordinates in `uncovered_authors`, and leaves
+  the debt open;
+  readers list them beside the obligation. A range read and found to have no
+  `Implemented-by` line asks nothing of the authors; a range whose lines
+  cannot be established (no list kept with the production record, and the
+  range does not read) is not an empty one, and its audit is recorded with
+  binding `authors-unread` and leaves the debt open. No other kind has this
+  rule. The
+  assessment describes the auditor when the auditor's model is among the
+  reviewer's `identities` (every model string routing accepts for it) and,
+  where both name an effort, the effort equals the reviewer's `effort`. The
+  auditor's model is the one its session store observed wherever the store
+  has one, else the one its audit event recorded; a declared model the store
+  contradicts is recorded with the observed one beside it and binds nothing,
+  for a hand-recorded read as for a receipt item, and a verdict's assessment
+  binds the same way. arc keeps only the outcome on the audit's assessment: `bound`,
+  `model-mismatch`, `effort-mismatch`, `model-unrecorded` (an audit by a
+  person records no model), `identities-unstated` (the file lists none) or
+  `authors-uncovered` (the authors it lists omit a coordinate of the range,
+  named beside it) or `authors-unread` (the range's authors could not be read). An
+  audit without an assessment, with an `ineligible` one, or
+  whose binding is not `bound` is recorded, says why, and is listed beside the
+  obligation, which stays open; a verdict in the same case leaves it open,
+  listed with its reason among the findings reads where assessed clearance
+  applies (`arc guide debt-recovery`).
+  `arc query --debt`, `arc catchup`, `arc inbox`, the workspace backlog, the
+  debt advisory, `arc show` and `arc explain` show the qualifiers, the read's
+  reviewer and model as its verdict recorded them, whether the assessment
+  was assessed or declared, the route version, and the later reads that
+  left it open.
+
+  Production names who set the contract, who implemented it, and the
+  orchestrator and integrator when the ledger records them. The planner is the
+  plan the work was opened from, else an asserted `Planned-by`, else the
+  brief's recorder. The implementer is the identity of the patchset's recorded
+  contributor set when nonempty, else its effective author; the
+  orchestrator is the invoker recorded beside an `--on-behalf-of` subject, and
+  the integrator is the actor of `arc integrate`.
+
+  Production also names the `Implemented-by` values of the commits in the
+  patchset's range, read when the debt is declared and kept verbatim, without
+  repeats, as `trailer_implementers`: a projection kept for comparison, never
+  the source of a role. A range whose commits carry none records an empty list,
+  which readers show as "no Implemented-by trailers"; a record kept before
+  the range was read, or whose range could not be read then, has no list and
+  says nothing of it: the two read alike, and an audit reads the range again.
+  `arc catchup`, the
+  workspace backlog, `arc explain` and `arc show` show the list wherever it
+  is empty or disagrees with the ledger's implementer.
+
+  Coverage names each verdict's reviewer, the model string it was cast under
+  kept whole, the effort that string's trailing `#suffix` names, and the
+  routing version `arc review --route-version` or `arc audit --route-version`
+  declared. Production names who set the contract, who implemented it, and
+  the orchestrator and integrator the ledger records. Arc records
+  coordinates; `arc guide boundaries` says what it never judges of them.
+
+  A verdict can also be owed corroboration rather than absent. `arc review
+  --verdict approved --provisional "<why>"` records one that gates like any
+  other — independence and staleness are unchanged, because an unproven
+  reviewer is still not the author — while saying it should not be relied on
+  yet. Use it when the reviewer's judgment has not been validated: a model
+  nobody has measured, a pass made under time pressure, a reviewer outside
+  what they know. arc never infers this; deciding which reviewers are proven
+  would be a routing opinion, and arc holds none. Without the flag nothing
+  changes.
+
+  A verdict says what it does to the verdicts already standing. `supersedes`,
+  the default, replaces them; `corroborates` supports one without becoming a
+  second authority, which is what discharging a provisional approval is. Two
+  verdicts replacing the same earlier verdict fork the chain and leave the
+  change contested — no verdict is authoritative until one supersedes them
+  all, and `arc check` says so rather than reporting that nobody reviewed it.
+  The same shape a contested finding has, for the same reason.
+
+  EXTENTS. A debt and an audit may name an extent: what the owed review
+  must cover, and what the auditor read. `--extent whole` names the whole
+  subject; `--extent-paths <glob>...`, with `--extent-exclude <glob>...`,
+  names the entries the globs match. The subject is the patchset the debt
+  binds to, or once the change closed what it shipped, in the domain
+  `--extent-domain` names: `diff` (the default), the change from its base
+  to its head, or `tree`, the candidate tree at its head. What a member
+  landed by replay shipped is the range it landed as, from the composed
+  parent to the integrated revision: the commits its target holds, and the
+  context a `replayed-unread` debt owes a read of. A debt declared on such
+  a member and every audit of it resolve against that range, whatever the
+  debt's kind; a stack member's landed range is its patchset's. Globs resolve before anything is
+  written, to each matching path with its blob at the head and, in a diff,
+  each deletion with its blob at the base; a glob matching nothing, or
+  exclusions leaving nothing, is refused, and no glob is stored. The extent
+  is kept as `domain`, `revision`, and `base` (diff) or `tree` (tree), with
+  `scope.entries` and `scope.exclusions` when scoped. An event carrying one
+  stamps store format 7.
+
+  A read covers an obligation only at the same domain, the same base and
+  the same revision, or a signature-only or role-addition successor of it
+  (`arc guide rewrites-evidence`); then:
+
+    whole read     covers the whole subject and any scope of it
+    scoped read    covers a scoped obligation when it lists every one of
+                   its entries at the same blob, deletions included, and
+                   excludes none; never a whole one
+    no extent      covers no obligation that names one; beside one that
+                   names none, the rule without extents decides, shown as
+                   `extent: not established`
+
+  A tree read never covers a diff obligation, nor the reverse. An obligation
+  naming no extent is covered by a whole read of what shipped, never by a
+  scoped one. Scoped reads never combine: each is judged alone. `arc guide
+  debt-recovery` says how coverage enters discharge.
+
+  Debt and a provisional verdict are the same obligation at two distances:
+  debt says no review happened, provisional says one happened and is not yet
+  trusted. Corroboration is a second judgment, not one particular command: an
+  independent approval of the same patchset discharges it before the merge,
+  an audit after. Neither the reviewer being corroborated nor the change's
+  own author can supply it.
+

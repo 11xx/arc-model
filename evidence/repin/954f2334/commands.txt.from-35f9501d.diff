@@ -1,0 +1,103 @@
+--- evidence/repin/35f9501d/commands.txt	2026-11-27 01:22:17.731967358 -0300
++++ evidence/repin/954f2334/commands.txt	2026-11-27 01:22:59.821516178 -0300
+@@ -83,8 +83,13 @@
+ restack
+ catchup
+ fr
++feedback
++progress
++milestone
+ journal
+ gates raise
++gates suspend
++gates resume
+ gates paths
+ gates init
+ gates over
+@@ -146,6 +151,7 @@
+ policy write
+ forge show
+ forge observe
++forge ingest
+ forge declare
+ forge link
+ forge checks
+@@ -161,12 +167,43 @@
+ workspace list
+ workspace inbox
+ workspace pins
++workspace progress
++workspace milestones
+ workspace inventory
+ workspace backlog
+ workspace report
+ workspace watch
+ workspace retire
+ workspace restore
++progress start
++progress add
++progress rename
++progress move
++progress drop
++progress done
++progress reopen
++progress link
++progress unlink
++progress source
++progress unsource
++progress waves
++progress wave
++progress unwave
++progress depend
++progress undepend
++progress wait
++progress unwait
++progress split
++progress transfer
++progress relate
++progress unrelate
++progress retire
++milestone start
++milestone wave
++milestone track
++milestone defer
++milestone checkpoint
++milestone close
+ journal dir
+ journal bind
+ journal doctor
+@@ -182,6 +219,7 @@
+ journal memory
+ journal later
+ journal review
++journal feedback
+ journal log
+ journal source-attach
+ journal source
+@@ -218,6 +256,7 @@
+ journal lane
+ journal workbench
+ journal consume
++journal reopen
+ journal transition
+ journal promote
+ journal archive
+@@ -230,6 +269,18 @@
+ replica authority offer
+ replica authority reclaim
+ replica authority confirm-return
++progress waves add
++progress waves rename
++progress waves move
++progress waves remove
++milestone wave add
++milestone wave rename
++milestone wave move
++milestone wave remove
++milestone track add
++milestone track role
++milestone track move
++milestone track remove
+ journal lane open
+ journal lane renew
+ journal lane close

@@ -1,0 +1,1620 @@
+diff -ruN evidence/repin/35f9501d/topics/change-bundles.txt evidence/repin/954f2334/topics/change-bundles.txt
+--- evidence/repin/35f9501d/topics/change-bundles.txt	2026-11-27 01:22:17.741741954 -0300
++++ evidence/repin/954f2334/topics/change-bundles.txt	2026-11-27 01:22:58.079303134 -0300
+@@ -36,7 +36,14 @@
+   already stands, and printing `retained: <ref> <commit>` for each. A
+   rebase's retention refs, which no event names, are held again this way. A
+   dry run creates none, and a bundle without an object list delivers
+-  nothing to hold.
++  nothing to hold. Export omits `history-rewritten` events (and withdrawals
++  naming only omitted maps) that are strictly scoped to other changes and whose
++  revisions are uncited by the exported change or its repository events. On
++  import and `arc accept`, an incoming `history-rewritten` event contradicting
++  a locally held rewrite is skipped with a warning when unrelated to the
++  imported change; relevant or intra-bundle contradictions refuse, naming both
++  events and suggesting `arc history withdraw` for maps whose successors never
++  landed.
+ 
+   Retained forge content, and the receipt file each read ingested from one
+   cites by digest and length, travel beside the bundle as an optional sidecar,
+diff -ruN evidence/repin/35f9501d/topics/change-commands.txt evidence/repin/954f2334/topics/change-commands.txt
+--- evidence/repin/35f9501d/topics/change-commands.txt	2026-11-27 01:22:17.741741954 -0300
++++ evidence/repin/954f2334/topics/change-commands.txt	2026-11-27 01:22:58.069998077 -0300
+@@ -129,6 +129,14 @@
+                                      `arc findings` lists findings, and no
+                                      command reads a single one.
+     --evidence-event <id>            Cite the verification run that justifies it.
++                                     A `resolved` disposition citing `--commit`
++                                     stands when that commit (after recorded
++                                     rewrites) is an ancestor of the head or
++                                     matches a non-merge commit in `base..head`
++                                     by exact Git patch-id, and the fix
++                                     survives at the head without being
++                                     reverted; otherwise the finding remains
++                                     open.
+   Nothing submits or marks a change ready: `arc snapshot` records a patchset
+   and `arc check` computes readiness. `arc close <change> --abandoned` abandons.
+   arc check                          Integration preflight; exit code names the blocker.
+diff -ruN evidence/repin/35f9501d/topics/change-gates.txt evidence/repin/954f2334/topics/change-gates.txt
+--- evidence/repin/35f9501d/topics/change-gates.txt	2026-11-27 01:22:17.741967576 -0300
++++ evidence/repin/954f2334/topics/change-gates.txt	2026-11-27 01:22:58.087773193 -0300
+@@ -37,16 +37,13 @@
+   accounting, supplies no CPU figure. Work delegated to an existing external service
+   is outside that accounting. Unavailable host observations are absent.
+ 
+-  The busy-host rule (`arc guide gates`) keeps a loaded machine from being
+-  blamed on a change; it is not proof against a change built to deceive it.
+-  Work a gate hands to processes outside its tree (a service, a container
+-  daemon, an emulator) counts as other load, before and during the gate. An
+-  exec the counters cannot follow shows as a tree clock covering less of the
+-  run's waited CPU than its reference's did: beyond 5% less is not excused,
+-  and less than that hides. The comparison is with the reference because wait
+-  also reports process teardown the clock never sees, about a tenth of the
+-  CPU of a command that starts many processes. A descendant that narrows its
+-  own CPU set is not seen. A pass on a quiet host exposes each: nothing is
++  The busy-host rule (`arc guide gate-costs`) keeps a loaded machine from
++  being blamed on a change; it is not proof against a change built to
++  deceive it. Work a gate hands to processes outside its tree (a service, a
++  container daemon, an emulator) counts as other load, before and during the
++  gate. An exec the counters cannot follow lowers the tree clock's share of
++  waited CPU, and a drop within the rule's coverage slack hides. A
++  descendant that narrows its own CPU set is not seen. A pass on a quiet host exposes each: nothing is
+   excused there.
+   Attestations, bypasses and older events supply no missing measurements.
+   `arc stats` uses `run_ms`, falling back to `duration_ms` only for events
+diff -ruN evidence/repin/35f9501d/topics/change-integration.txt evidence/repin/954f2334/topics/change-integration.txt
+--- evidence/repin/35f9501d/topics/change-integration.txt	2026-11-27 01:22:17.741967576 -0300
++++ evidence/repin/954f2334/topics/change-integration.txt	2026-11-27 01:22:58.095653589 -0300
+@@ -3,11 +3,15 @@
+   `snapshot` and `integrate` refuse a patchset containing a commit whose raw
+   author or committer address uses .invalid, .example, .test, .localhost,
+   example.com, example.org or example.net, including subdomains. A snapshot
+-  base override cannot hide introduced commits. Integration checks recorded
+-  patchsets too, including provisional preparation and multi-change landings.
+-  The refusal names the commit and explains how to re-author it with a real
+-  identity before taking a fresh snapshot. A project's identity-health
+-  exception does not permit reserved commit addresses.
++  base override cannot hide introduced commits. Integration, provisional
++  preparation and multi-change landings check the recorded patchset that
++  ships, the newest, over its `base..head` and the target's `..head`; earlier
++  patchsets are not read. The refusal names the commit and explains how to
++  re-author it with a real identity before taking a fresh snapshot; it is a
++  history refusal, exit 1. Readiness reads the same: `check` and `status`
++  list `reserved-identity` (check exits 21) with the refusal's own words, and
++  the next step names the re-authoring and `arc snapshot`. A project's
++  identity-health exception does not permit reserved commit addresses.
+ 
+   `arc rebase` is what `check` names when the selected integration shape
+   requires replay onto the target. Where Git can, arc performs the replay
+@@ -85,6 +89,20 @@
+   resolve through local branch refs; same-named tags do not select policy or
+   history revisions.
+   `--message` names that merge commit and requires a resolved no-ff shape.
++  By default (`[trailers] auto = true`), fast-forward integration auto-stamps
++  applicable missing projected role trailers (`Planned-by`, `Implemented-by`,
++  `Reviewed-by`, `Orchestrated-by`) over `target..head` via a `role_additions`
++  rewrite applied atomically with the target ref move (no-op when nothing is
++  missing; respects `commit.gpgsign`; refuses commits reachable from another
++  branch, tag, or stacked open change, naming `arc land` or `--no-trailers`,
++  and moves only the source branch, target, and required `refs/arc/*` pins),
++  while `--shape no-ff` appends applicable missing trailers directly onto the
++  merge commit message without rewriting branch commits (omitting `Reviewed-by`
++  when the merged tree differs from the approved tree). Pass `--no-trailers` or
++  set `[trailers] auto = false` to skip auto-stamping. `--dry-run` (single and
++  queued) previews which trailers would be stamped (as `auto_trailers` in
++  `arc-integration-plan/1`) and enforces the same shared-history refusal
++  without mutating Git state.
+ 
+   Several changes, or `--tag`, make `integrate` a queue in dependency order.
+   Dry-run prerequisites follow supersession successors through projected
+@@ -201,6 +219,13 @@
+   as a warning when the integration still proceeds. A gate's declaration in
+   the basis carries `binds: "commit"` when it binds to a commit and omits the
+   key when it binds to a tree, so a binding changed since the plan is a move.
++  Both readings of readiness must have read the target revision the decision
++  observes and, unless a contribution declaration hands the change to a
++  receiver, the merge tree it observes. A disagreement there, or gate, policy
++  or budget declarations differing from the basis, refuses with exit 1 and
++  "integration target, merge tree, gate or policy configuration changed while
++  preparing the merge; nothing was written; re-run once the worktree has
++  settled", and writes nothing.
+ 
+   When no checkout holds the target, `integrate` takes over the change's own
+   checkout if it still holds the change branch, checks the target out there,
+diff -ruN evidence/repin/35f9501d/topics/change-landing.txt evidence/repin/954f2334/topics/change-landing.txt
+--- evidence/repin/35f9501d/topics/change-landing.txt	2026-11-27 01:22:17.742967597 -0300
++++ evidence/repin/954f2334/topics/change-landing.txt	2026-11-27 01:22:58.104066017 -0300
+@@ -16,13 +16,17 @@
+   abandoned or superseded wedges the rest with the same blocker until the
+   relation is withdrawn, and the remedy names that withdrawal.
+ 
+-  `arc land <change>... [--target T] [--debt <why>] [--dry-run [--json]]`
++  `arc land <change>... [--target T] [--debt <why>] [--no-trailers] [--dry-run [--json]]`
+   installs several changes in one guarded transition. Members land in
+   dependency order: each after every member it is `blocked_by`, ties in the
+   order given; a cycle refuses. An earlier member satisfies a prerequisite,
+   which the basis records as `landing <attempt>`. A member whose recorded
+   base is the revision before it (the target for the first, the previous
+-  member's landed head after) lands as it is. When every member does, the
++  member's landed head after) lands as it is; by default (`[trailers] auto =
++  true`), each landed layer stamps its own applicable missing projected role
++  trailers bottom-to-top onto its commits while preserving trees and respecting
++  `commit.gpgsign` (unless `--no-trailers` or `[trailers] auto = false`, or
++  nothing is missing). When every member stands on the revision before it, the
+   landing is a stack and nothing is replayed. Otherwise it is composed:
+   every other member is replayed onto that revision with `git replay`, run
+   as `arc rebase` runs it, after the intent is written. The composed head is
+@@ -160,17 +164,20 @@
+   rewrite map ever names a trial commit, on either side.
+ 
+   A change whose commits reached its target as other commits that arc did
+-  not produce (a cherry-pick, a rebase elsewhere) closes with `arc close
+-  <change> --assert-integrated <rev> --target-before <before>
+-  --correspondence <file>`. The file (`arc-correspondence/1`, shape in `arc
+-  close --help`) stands in for the asserted revision containing the source
+-  head, and for nothing else. It names the change, the closed patchset and
+-  its head, `<before>` and `<rev>`, each of which must match, and maps every
+-  commit of the patchset, oldest first, to one commit in `<before>..<rev>`:
+-  one to one, each landed commit descending from the previous one, with
+-  equal stable Git patch ids. A merge or an empty commit on either side
+-  has no ordinary patch identity and refuses. Each refusal names the commit
+-  and the rule it broke. The closure stays asserted, never via a landing,
+-  carries no gate evidence, and records the pairs, which `status`, `show`,
+-  `explain` and an export carry.
++  not produce (a cherry-pick, a rebase elsewhere, or a squash merge) closes
++  with `arc close <change> --assert-integrated <rev> --target-before <before>`
++  plus `--derive-correspondence` (when commits match unambiguously by stable
++  Git patch ids or tree equivalence) or `--correspondence <file>`. The file
++  (`arc-correspondence/1`, shape in `arc close --help`) stands in for the
++  asserted revision containing the source head, and for nothing else. It names
++  the change, the closed patchset and its head, `<before>` and `<rev>`, each
++  of which must match, and maps every commit of the patchset, oldest first, to
++  commits in `<before>..<rev>`: one to one in commit order (`mode: "commit"`,
++  the default) with equal stable Git patch ids or parent/result trees, or all
++  to one non-merge landed commit matching the combined diff or tree of
++  `base..head` (`mode: "squash"`). A merge or an empty commit has no ordinary
++  patch identity and refuses. Each refusal names the commit and the rule it
++  broke. The closure stays asserted, never via a landing, carries no gate
++  evidence, and records the pairs, which `status`, `show`, `explain` and an
++  export carry.
+ 
+diff -ruN evidence/repin/35f9501d/topics/contributions.txt evidence/repin/954f2334/topics/contributions.txt
+--- evidence/repin/35f9501d/topics/contributions.txt	2026-11-27 01:22:17.742967597 -0300
++++ evidence/repin/954f2334/topics/contributions.txt	2026-11-27 01:22:58.267848671 -0300
+@@ -6,6 +6,9 @@
+                        at least one assertion or withdrawal is required.
+                        --withdraw <role>=<value> withdraws an exact assertion.
+                        Values use the convention's agent or person form.
++                       `Planned-by` and `Orchestrated-by` credit work done for
++                       at least one other participant; a single-participant
++                       commit carries only `Implemented-by`.
+                        A flag with no value stands for the invoking
+                        identity: a declared Name <email> actor's own form,
+                        else harness:model from the resolved harness and
+@@ -26,9 +29,11 @@
+                        begin records the assertions directly
+                        after opening, brief when writing a contract.
+     arc trailers <change> [--json]
+-                       Print Planned-by and Orchestrated-by assertions and
+-                       Implemented-by from recorded patchset contributors,
+-                       or the snapshot subject when none are listed, in
++                       Print Planned-by and Orchestrated-by assertions,
++                       Implemented-by from recorded patchset contributors
++                       (or the snapshot subject when none are listed), and
++                       Reviewed-by from qualifying pre-integration Approved
++                       verdicts covering the current or shipped patchset, in
+                        convention order. Duplicate lines print once.
+                        The subject is --on-behalf-of when set, else the actor.
+                        A subject that is a fresh harness:model[#effort] or
+@@ -40,6 +45,17 @@
+                        recorder inferred from its harness session or Git
+                        configuration is not credited, since who ran snapshot
+                        is not proof of who wrote the diff.
++                       Pre-integration qualifying Approved verdicts whose
++                       patchset `approved_head` matches the resolved current
++                       (for an open change) or shipped head project
++                       `Reviewed-by: <coordinate>` from `on_behalf_of`, a
++                       declared person, or `harness:model`; an open change
++                       whose branch head is unreadable omits `Reviewed-by`.
++                       `comment-only`, `changes-requested`, findings-only
++                       non-approvals, rejected self-approvals, debt waivers,
++                       and post-integration `arc audit` discharges never
++                       project `Reviewed-by`; audits remain ledger-only and
++                       are never backfilled into already-integrated history.
+                        No line carries a placeholder or a session id. What
+                        cannot be attributed is omitted and named in a note
+                        with the value, why (placeholder, session id,
+@@ -51,38 +67,75 @@
+                        a note naming arc roles --withdraw.
+                        Review snapshots and squash use the same rule;
+                        rewrites retain patchset attribution.
+-                       Review credit stays in the ledger: Reviewed-by is
+-                       never projected or backfilled into commits.
+                        --json emits arc-trailers/1 with trailers and notes.
+-    check and integrate advise when a commit in target..head lacks an
+-    asserted line, under missing-contribution-trailers, naming arc rewrite
+-    trailers --from <rev> --append <line>; only an assertion that is a fresh
+-    coordinate is advised. They advise when a commit's role line carries a
+-    placeholder or a session id, or a person without an email, under
++    check and integrate advise when a commit in target..head lacks any
++    projected contribution trailer (`Planned-by`, `Implemented-by`,
++    `Reviewed-by`, `Orchestrated-by`) applicable to that commit's resulting
++    block, under missing-contribution-trailers. By default (`[trailers] auto =
++    true`), `arc integrate` and `arc land` auto-stamp missing applicable
++    trailers at integration time (on `target..head` via `role_additions` for
++    fast-forward / `arc land`, or onto the merge commit message for `--shape
++    no-ff`; `--no-trailers` or `[trailers] auto = false` opts out). For PRs,
++    contribution repos, or manual pre-integration stamping, the advisory names
++    `arc rewrite trailers --sync` (and `--from <rev> --append <line>` only
++    when every advised line applies to every commit that bulk rewrite would
++    touch); only fresh coordinates are advised, and both auto-stamping and
++    `--sync` omit lines that would introduce a single-participant violation on
++    that commit. They advise when a commit's role line
++    carries a placeholder or a session id, or a person without an email, under
+     placeholder-contribution-trailers, naming each commit and line and arc
+     rewrite trailers --from <rev> --edits <file>, whose `arc-trailer-edits/1`
+     lines drop or replace exactly those lines and leave the valid lines under
+     the same key. Neither advice blocks
+-    integration or changes ready or the exit code; rewrite before
+-    integration. Appending complete role entries keeps the approval or
+-    declared debt, and the appended text is a declaration, not a verdict;
+-    any other message rewrite requires fresh snapshot and approval or
+-    declared debt (`arc guide rewrites-evidence`). Post-integration audits
+-    stay in the ledger.
++    integration or changes ready or the exit code. Appending complete role
++    entries preserves approvals, debt waivers, commit-bound gates, and
++    matching budget raises, and the appended text is a declaration, not a
++    verdict; replacing or dropping trailers with `--edits` or any other
++    message rewrite requires fresh snapshot and approval or declared debt
++    (`arc guide rewrites-evidence`).
++    Post-integration audits stay in the ledger.
+     arc instructions git [--check <file>]
+                        Print the portable contribution-trailer convention
+                        `arc-contribution-trailers/2`: `Planned-by`,
+                        `Implemented-by`, `Reviewed-by`, and `Orchestrated-by`
+                        name material contributions in agent
+                        `harness:model[#effort]` or human `Name <email>` form.
++                       `Planned-by` and `Orchestrated-by` credit work done for
++                       at least one other participant; a single-participant
++                       commit carries only `Implemented-by`.
+                        A placeholder or a session id is not a coordinate;
+                        its line is omitted.
+                        Agent harness, model and supplied effort segments
+                        must be nonempty.
+                        `--check <file>` reports malformed role values,
+                        placeholder role values (a placeholder or session-id
+-                       segment, or a person without an email), and keys
+-                       outside the convention. It never rewrites a message,
+-                       and exits 1 when a role key carries a malformed or
+-                       placeholder value.
++                       segment, or a person without an email), advisory
++                       single-participant misuse (`Planned-by` whose
++                       participant is the sole `Implemented-by`, or
++                       `Orchestrated-by` with no `Implemented-by` from a
++                       different participant), and keys outside the
++                       convention. It never rewrites a message, and exits 1
++                       when a role key carries a malformed or placeholder
++                       value.
++
++    Gate trailers (`arc-gate-trailers/1`):
++    Commits in a change's `merge-base..head` range (against its target branch,
++    never a stale recorded base) may declare gate inputs in their final trailer
++    block:
++      Witness: <name>             one to three distinct single-token witness
++                                  names, deduplicated in first-seen order
++      Witness: none (<REASON>)    explicit exemption with a non-empty
++                                  parenthesised reason; cannot mix with named
++                                  witnesses
++      Change-size: interface      selects a gate's declared `interface_budget`;
++                                  any other value is refused
++    Invalid, empty, multiline, mixed, or excessive (> 3 distinct) declarations
++    refuse `arc verify`, `arc check`, `arc integrate`, and `arc land`, and
++    report as `gate-trailers-invalid` in `arc doctor`.
++    Valid declarations bind into verification-reuse identity, so changing
++    `Witness:` or `Change-size:` trailers invalidates prior passes even at an
++    unchanged tree. Executed gates receive `ARC_WITNESSES` (newline-separated
++    witness names or `none (<REASON>)`) and `ARC_CHANGE_SIZE` when declared;
++    both are unset when absent. Target-branch invariant list entries from a
++    gate's `invariants` file are passed in `ARC_INVARIANTS` (unset when absent).
+ 
+diff -ruN evidence/repin/35f9501d/topics/debt-obligations.txt evidence/repin/954f2334/topics/debt-obligations.txt
+--- evidence/repin/35f9501d/topics/debt-obligations.txt	2026-11-27 01:22:17.745967663 -0300
++++ evidence/repin/954f2334/topics/debt-obligations.txt	2026-11-27 01:22:58.224010444 -0300
+@@ -119,7 +119,11 @@
+   eligible`: an audit (`arc audit --assessment <file>`) or a verdict on the
+   patchset that shipped (`arc review --assessment <file>`), by a reader who
+   is also independent of the contributors and whom the assessment
+-  describes. This eligible, bound assessment is required for a person's read
++  describes. `arc review` records only on an open change and `arc audit` only
++  on an integrated one, so a debt `arc debt` declares before integration
++  clears with a verdict recorded since on the patchset that then ships, or an
++  audit after integration, and a debt `arc integrate --debt` declares clears
++  only with an audit. This eligible, bound assessment is required for a person's read
+   too. The assessment covers the
+   work: the `authors` it lists answer, through their `identities`,
+   to the model of every `Implemented-by` line in the integrated range, at
+diff -ruN evidence/repin/35f9501d/topics/debt-recovery.txt evidence/repin/954f2334/topics/debt-recovery.txt
+--- evidence/repin/35f9501d/topics/debt-recovery.txt	2026-11-27 01:22:17.745967663 -0300
++++ evidence/repin/954f2334/topics/debt-recovery.txt	2026-11-27 01:22:58.232416542 -0300
+@@ -25,6 +25,14 @@
+   only for `owed`, which is why a declared debt is absent from `arc inbox`,
+   `arc query --debt` and the workspace backlog.
+ 
++  When a guarded integration records an independent approval of the
++  shipped patchset as its authorization, a waiver bound to an earlier
++  patchset stays in the event history and creates no shipped obligation.
++  The approval must have receiver review authority and satisfy applicable
++  clearance. An assessment that explicitly denies clearance cannot retire
++  the earlier waiver. A waiver used to authorize integration remains an
++  obligation of the shipped patchset, with its declared extent.
++
+   An independent read of the revision that shipped, recorded after the debt
+   was declared, that approves it or requests changes discharges it — whether
+   it came from `arc review` before the merge or `arc audit` after. The debt
+diff -ruN evidence/repin/35f9501d/topics/ending.txt evidence/repin/954f2334/topics/ending.txt
+--- evidence/repin/35f9501d/topics/ending.txt	2026-11-27 01:22:17.746967684 -0300
++++ evidence/repin/954f2334/topics/ending.txt	2026-11-27 01:22:58.161265634 -0300
+@@ -28,7 +28,7 @@
+ 
+   `arc journal --global` selects that journal from any directory for all
+   kinds and their positions and corrections, including `memory`,
+-  `show`, `list`, `memories`, `consume`, `position`, `export` and `import`.
++  `show`, `list`, `memories`, `consume`, `reopen`, `position`, `export` and `import`.
+   Project directory mappings and `ARC_JOURNAL_DIR` do not redirect this scope.
+   Promotion takes a live project memory, preserves its body in the global
+   journal, links the journals in both directions and consumes the project
+@@ -88,6 +88,7 @@
+ 
+ CHECKPOINTS (a revision handed over for testing)
+   arc checkpoint record <name> [--rev REV] [--tag] [--note TEXT]
++                               [--milestone <slug>] [--series <series>]...
+   arc checkpoint show <name> [--json]
+   arc checkpoint list [--json]
+   arc journal handoff <topic> --checkpoint <name>
+@@ -96,7 +97,10 @@
+   checkpoint at the revision handed over (`HEAD` unless `--rev` names one).
+   It holds the revision, its tree and branch, every open change with its
+   patchset and head, every live, unconsumed journal todo of the project,
+-  and the name of every todo filed by then, open or consumed. Names are
++  the name of every todo filed by then (open or consumed), every outstanding
++  review debt (matching `arc query --debt`), and — when given `--milestone`
++  and/or repeatable `--series` — a snapshot of each bound series' items and
++  stages (also binding the checkpoint onto the milestone when it is open). Names are
+   unique in a repository. `--tag` also writes the annotated tag
+   `checkpoint/<name>` with `git tag -a`, signed as Git's configuration
+   signs tags; an existing tag refuses with nothing recorded and is never
+@@ -127,7 +131,11 @@
+   since, with outcome and time, or still open. Filed since lists the todos
+   the checkpoint did not record as filed; they are not part of it. A
+   checkpoint recorded without that list compares filing times instead and
+-  marks the answer approximate. A finding about a change landed since is fixed since, one matching a todo
++  marks the answer approximate. For bound series/milestone snapshots, `show`
++  reports which items completed, transferred, or were added since the
++  checkpoint; for recorded review debts, it reports which have since been
++  discharged (`arc audit`) versus remain owed. Legacy checkpoints without
++  those fields read cleanly with those sections omitted. A finding about a change landed since is fixed since, one matching a todo
+   is already filed, and the rest are new. `arc journal checkpoint` is a
+   different record: progress on a claimed journal artifact.
+ 
+diff -ruN evidence/repin/35f9501d/topics/exit-codes.txt evidence/repin/954f2334/topics/exit-codes.txt
+--- evidence/repin/35f9501d/topics/exit-codes.txt	2026-11-27 01:22:17.746967684 -0300
++++ evidence/repin/954f2334/topics/exit-codes.txt	2026-11-27 01:22:58.467698983 -0300
+@@ -26,6 +26,8 @@
+       closed without integrating; the change lands only with `arc land`.
+     `arc check` exits 20 while a pending landing attempt holds the change;
+       `arc land --recover <attempt>` finishes it.
++    `arc check` exits 21 when the patchset that would ship holds a commit
++      with a reserved-domain address (`arc guide change-integration`).
+     `arc check` exits 11 when the target conflicts or ff-only ancestry
+       requires rebasing; it shadows 14 when both are present.
+     `arc check` exits 12 when a declared acceptance probe is not
+diff -ruN evidence/repin/35f9501d/topics/files.txt evidence/repin/954f2334/topics/files.txt
+--- evidence/repin/35f9501d/topics/files.txt	2026-11-27 01:22:17.746967684 -0300
++++ evidence/repin/954f2334/topics/files.txt	2026-11-27 01:22:58.477597724 -0300
+@@ -51,6 +51,8 @@
+     [integration] shapes = ["ff-only", "no-ff"], history = "preserve"
+     [candidates] evaluation_reuse = "matching-coordinates" | "never"
+                                                  no default; `never` wins
++    [trailers] auto = true | false               default true; auto-stamp on
++                                                 integrate/land (`false` wins)
+ 
+   Style precedence is flag, operator defaults, target project defaults, user,
+   built-in. Project and operator shape constraints intersect; values outside
+diff -ruN evidence/repin/35f9501d/topics/forge-observations.txt evidence/repin/954f2334/topics/forge-observations.txt
+--- evidence/repin/35f9501d/topics/forge-observations.txt	2026-11-27 01:22:17.747967706 -0300
++++ evidence/repin/954f2334/topics/forge-observations.txt	2026-11-27 01:22:58.197581424 -0300
+@@ -1,7 +1,15 @@
+ Observations, custody and evidence origins
+ 
+   forge observe CHANGE --file frontier.json [--json] admits an adapter's
+-  arc-forge-observation/1 document. Admission never changes readiness. A valid
++  arc-forge-observation/1 document. `forge observe --example` prints a minimal
++  valid manifest with self-consistent digests. `forge ingest CHANGE --file
++  PAYLOAD` converts pre-fetched provider JSON (`gh pr view --json`, GitHub REST
++  API, or MCP `pull_request_read` output; strictly offline) into an admitted
++  `arc-forge-observation/1` record and custody bytes, reusing unchanged item
++  generations and chaining `previous_observation` from the change's latest
++  usable read; `--dry-run`, `--out-manifest` and `--out-custody-dir` emit the
++  built artifacts without writing to the ledger. Admission never changes
++  readiness. A valid
+   failed or truncated read succeeds; invalid schemas, digests, references and
+   generation relationships refuse before append. Identical read_id retries
+   return the original event with already-recorded; conflicting content refuses.
+diff -ruN evidence/repin/35f9501d/topics/gate-confinement.txt evidence/repin/954f2334/topics/gate-confinement.txt
+--- evidence/repin/35f9501d/topics/gate-confinement.txt	2026-11-27 01:22:17.748967728 -0300
++++ evidence/repin/954f2334/topics/gate-confinement.txt	2026-11-27 01:22:58.496110877 -0300
+@@ -7,24 +7,30 @@
+     writes = ["target", "${CARGO_HOME:-~/.cargo}/registry"]
+     required = true                    default; false permits unavailable fallback
+ 
+-  Project commands run under the committed destination's declaration:
+-  gates, selectors, environment probes, preparation, slot identity, invalidate
+-  and warm commands, changelog renderers, and commands in acceptance and
++  Project commands run under the declaration in force, below: gates,
++  selectors, environment probes, preparation, slot identity, invalidate and
++  warm commands, changelog renderers, and commands in acceptance and
+   publication scratch checkouts. Every launch needs
+   an explicit destination scope; a missing scope refuses and names the site.
+-  The checkout being evaluated cannot select its own authority. Without the
+-  table, an explicitly scoped command retains ordinary write authority; doctor
++  A checkout's uncommitted table never applies. Without a
++  table in force, an explicitly scoped command retains ordinary write authority; doctor
+   advises `gates-unconfined` when gates have no confinement declaration.
+ 
+-  Operator [confine] roots supplement destination roots; either layer can
+-  require enforcement. A change can adopt confinement when the destination has
+-  none, or require enforcement, but cannot widen an existing destination's
+-  roots. Declaration differences name both sides. Confinement participates in
+-  execution identity, so a pass under another declaration, including an
+-  unconfined pass, cannot silently remain green. Measurement and budget init
+-  can run working-copy commands, but use the associated open or closed change's destination
+-  confinement. A free checkout can use the primary checkout's recorded owner's
+-  destination, never that owner's head. An unowned primary checkout uses its
++  Operator [confine] roots supplement destination roots. For an open change,
++  the declaration in force is the destination's combined with the operator's,
++  and the change head's committed table counts only in two ways. When neither
++  the destination nor the operator declares a table, the head's table governs,
++  roots and `required` as written. Otherwise the head's roots are ignored,
++  never refused, whether they widen or narrow, and `required = true` on any
++  side requires enforcement, which `required = false` elsewhere cannot lift.
++  Status and check note a difference between the destination's and the
++  head's tables, naming both. The declaration in force, adopted or required
++  by the head included, is what a gate's evidence identity and receipts carry
++  before the change lands, so a pass under another declaration, including an
++  unconfined pass, cannot silently remain green. A closed change uses its
++  destination branch's current table. Measurement and budget init can run working-copy commands,
++  but use the associated change's declaration in force. A free checkout uses
++  the one in force for the primary checkout's recorded owner. An unowned primary checkout uses its
+   committed branch. Otherwise destination resolution refuses and asks for a
+   run from the destination checkout or `arc verify <change>`.
+ 
+@@ -35,7 +41,14 @@
+   uses PATH when VAR is unset or empty; its default can contain `~` and other
+   expansions. No shell is run. An unset variable without a default refuses.
+   An absent root is created as a directory only inside the checkout or owned
+-  build storage. External roots must exist; a file root grants file writes.
++  build storage. When that creates an absent checkout-root Cargo `target`
++  directory beside a root `Cargo.toml` without a `target-dir` override, Git
++  ignores its tag, and `<git-common-dir>/arc` is withheld from the command's
++  writable roots on the same mount as the checkout, arc stages the directory
++  with a standard `CACHEDIR.TAG` there and atomically publishes it with
++  `RENAME_NOREPLACE` (the marker never authorizes artifact cleanup on its own)
++  so Cargo builds into it stay marked; otherwise the directory is created
++  unmarked. External roots must exist; a file root grants file writes.
+ 
+   A root cannot be the home directory, its immediate entries, or an ancestor
+   of home or the checkout. The checkout itself is refused; declared checkout
+diff -ruN evidence/repin/35f9501d/topics/gate-costs.txt evidence/repin/954f2334/topics/gate-costs.txt
+--- evidence/repin/35f9501d/topics/gate-costs.txt	2026-11-27 01:22:17.748967728 -0300
++++ evidence/repin/954f2334/topics/gate-costs.txt	2026-11-27 01:22:58.505117858 -0300
+@@ -23,6 +23,48 @@
+   its process and known child-tree CPU, and excludes its measured CPU during runs.
+   Incomplete, multiplexed or refused perf counters are absent measurements.
+ 
++  The busy-host rule excuses a command time over its budget only when every
++  condition of the rule version its receipt names holds. Version 2, the
++  current rule, requires, against the newest eligible reference:
++  - at most 3% more user-space instructions, at a rate of at least 10% of
++    the reference's instructions per tree user-CPU second; zero counts and
++    lower rates are absent evidence.
++  - at least 25% unrelated CPU use both before and during the gate. Before
++    is verification startup to just before spawn, at least 100 ms, less
++    arc's process CPU and every earlier tree it ran. During is host busy CPU
++    less the gate tree and arc's other measured CPU.
++  - a clock within reference.run_ms * (1 - reference_share) / (1 -
++    other_share), with 25% slack: each run's capacity left by other work.
++  - a tree clock covering the run's waited user and system CPU at a share
++    at most 5% below the reference's own share. Wait also reports process
++    teardown the clock never sees, about a tenth of the CPU of a command
++    that starts many processes, so the share is compared with the
++    reference's and never with a fixed bound.
++  Version 1 holds the same thresholds without the coverage condition. A
++  receipt carries its reference, rule version and thresholds; readers judge
++  it by the thresholds of the version it names, which must match that
++  version's exactly, and by the current budget, without replacing the
++  reference or consulting live load. A threshold change takes a new rule
++  version. Unattributed concurrent batches, a holder or leader with
++  restricted CPUs, missing or incomplete counters or host readings, and
++  under version 2 a missing tree clock on the run or its reference, get no
++  excuse. Other arc invocations' parallel lanes qualify
++  only through the before condition.
++
++  A reference is a clean, unmoved, unexcused direct pass, outside --parallel
++  batches and acceptance probes, of the same gate and declaration on the same known hostname,
++  logical CPU count and CPU model. Its tree is this run's tree or its revision
++  leads to this run's destination. Its clock must fit the budget in force.
++  Cached receipts never supply references.
++  Legitimate added work becomes its own reference after one clock-fitting pass
++  on a quiet host. Lowering the budget retires an excuse whose reference
++  stops fitting. Excused runs never become references, raise evidence or
++  base-pass seeds, including after a raise; neither do runs recorded under
++  a suspension (`arc guide gates`). Kernel instructions are
++  uncounted. Known limit: added waiting on an already busy host can fit the
++  measured delay allowance; a quiet run exposes it. What the counters cannot
++  follow is in `arc guide change-gates`.
++
+   Refusals include this change's per-change increment and maximum from its
+   destination budget, including the first observed refusal. They name command
+   time, effective budget and sources, excess, host,
+@@ -39,9 +81,10 @@
+   never enter budget shares. A median above 80% is labelled in the report.
+ 
+   `arc workspace gates` rows include declared total, landing median and p90,
+-  and landings, paid gate time and paid preparation in 7/30 days. They sort
+-  by 30-day measured gate time descending (the known lower bound when
+-  incomplete), then project name; unobserved projects follow readable ones.
++  and landings, paid gate time, preparation, arc's own time and landing
++  time in 7/30 days. They sort by 30-day measured gate time descending (the
++  known lower bound when incomplete), then project name; unobserved
++  projects follow readable ones.
+ 
+   Landing costs use the latest 100 readable integrated changes, including
+   asserted and legacy closures and each completed stack member separately.
+@@ -57,14 +100,33 @@
+   landings. Empty history has no median or share.
+   The 7/30-day windows use closure time and include every readable change
+   landed within that period, charging its complete landing cost there.
+-  Paid totals are null if any such change is unmeasured; measured_ms retains
+-  the known lower bound. Unreadable changes remain collection failures.
++  Paid totals are null if any such change is unmeasured or the sum
++  overflows; measured_ms retains the known lower bound. Unreadable changes
++  remain collection failures.
+   Preparation paid is reported beside gate time for the same landings and
+   windows, and for each gate over its runs, from prepare_ms on the same
+   receipts by the same rules: a receipt without prepare_ms leaves its
+   landing's preparation unmeasured, and a percentile is stated only when
+   known. The landing budget judges gate time alone.
+ 
++  Landing time is what a landing cost the person waiting: gate time,
++  preparation and arc's own commands, summed per landing, window and
++  period, and by `arc show` for an integrated change. Each event's stamp
++  (`arc guide schemas`) gives its process's running time and the gate and
++  preparation time it had recorded, as the two columns count it, on any
++  change. arc's own time sums, over the processes that wrote the change's
++  events from the shipped patchset's `patchset-added` through the
++  integration event (the `arc stats --round-trip` window), running time
++  less that gate time at the change's last event in each; no other ledger
++  is read. Admission waiting (`wait_ms`) and publication or not-admitted
++  gate runs stay in arc's own time; a process its concurrent gates outran
++  counts zero. Time between commands is not counted. Work after a
++  command's last event on the change is not seen, so each command's time
++  is a lower bound; a command landing several changes counts in each. An
++  event lacking a stamp field leaves its landing's own time and sum
++  unmeasured. The sum is reported, never budgeted: it includes time a
++  project cannot change, and the landing budget judges gate time alone.
++
+   Total bounds the worst-case integration suite and is enforced.
+   Landing declares typical executed cost and is advisory, reported against
+   the latest-100 median with a doctor advice finding when exceeded.
+@@ -73,10 +135,15 @@
+   branch, or the current branch without a matching change, combined with the
+   operator's landing declaration by minimum; change-head additions do not bind.
+   A detached checkout without a matching destination reports it unobserved.
+-  Every required integration gate needs a budget when enforcement keys exist
+-  in that table; a landing-only table requires no individual budgets. That
+-  includes a gate the destination declares and a change's head removes,
+-  since the change still owes it. A removed gate that has a budget on the
++  A [budget] table enforces when it has no `landing` key, the empty table
++  included, or when beside `landing` it sets `total`, `raise`, `raise_per`
++  or `exclude` to other than its default; `landing` alone, or with those
++  keys at their defaults such as an empty `exclude`, does not. An enforcing
++  table in any layer of the effective suite makes every required
++  integration gate need a budget, in every profile. Per-gate budgets
++  without such a table require none of the others. The gates needing one include a gate the destination
++  declares and a change's head removes, since the change still owes it. A
++  removed gate that has a budget on the
+   destination keeps it; one that has none cannot be given one, so a change
+   cannot both remove it and declare a total. Land the replacement first
+   with no total declared, then declare budgets and the total in a following
+diff -ruN evidence/repin/35f9501d/topics/gate-raises.txt evidence/repin/954f2334/topics/gate-raises.txt
+--- evidence/repin/35f9501d/topics/gate-raises.txt	2026-11-27 01:22:17.748967728 -0300
++++ evidence/repin/954f2334/topics/gate-raises.txt	2026-11-27 01:22:58.521397362 -0300
+@@ -17,7 +17,8 @@
+ 
+   The newest direct execution of that gate at the exact head must pass, be
+   observed clean and stable on that head's tree, match the destination check
+-  and current environment, be unexcused, exceed the destination budget and fit the proposed
++  and current environment, be unexcused and recorded under no suspension
++  (`arc guide gates`), exceed the destination budget and fit the proposed
+   one. Reuse, rewritten execution coordinates, attestation, bypass and measurement
+   output cannot establish this need. Later evidence remains subject to ordinary
+   newest-evidence judgement; a raise never masks a failure.
+@@ -72,10 +73,13 @@
+   The immutable gate-budget-raised event records change, destination revision,
+   exact head/tree, counting algorithm and rule digest, per-file counts, old/new
+   budgets, allowance, cited direct execution or total declaration sum, and reason.
+-  Every head or destination change requires re-establishing the record, including
+-  amend, rebase, squash and signature/trailer-only rewrites. No rewrite equivalence
+-  is assumed. Current applicability is rederived from retained objects and receiver
+-  policy; missing objects or changed counting, execution or policy inputs refuse it.
++  Head matching follows `signature_only` and `role_additions` rewrites when the
++  tree, diff, and destination are unchanged (`arc guide rewrites-evidence`).
++  Every content, destination, or non-role rewrite — including amend, rebase,
++  squash, and `--drop`/`--edits` trailer rewrites — requires re-establishing
++  the record. Current applicability is rederived from retained objects and
++  receiver policy; missing objects or changed counting, execution or policy
++  inputs refuse it.
+ 
+   Snapshot captures the complete immutable raise set. Appending a record requires
+   a fresh snapshot even at the same Git head, and fresh review or recorded debt
+diff -ruN evidence/repin/35f9501d/topics/gate-rounds.txt evidence/repin/954f2334/topics/gate-rounds.txt
+--- evidence/repin/35f9501d/topics/gate-rounds.txt	2026-11-27 01:22:17.748967728 -0300
++++ evidence/repin/954f2334/topics/gate-rounds.txt	2026-11-27 01:22:58.513602097 -0300
+@@ -75,7 +75,8 @@
+      shorter runs holding an `exclusive` lock. A build a gate needs is
+      declared as preparation, `[prepare]` in `.arc/worktrees.toml`
+      (`arc guide files`), so `arc gates` shows its time beside the gate's
+-     rather than inside it.
++     rather than inside it. Landing time adds arc's own commands to both
++     (`arc guide gate-costs`); the bound judges gate time alone.
+   4. Rank the checks by what they guard, as above, and cut from the bottom
+      until the bound holds, never by cost alone.
+   5. Make what matters fit. Shorten the product's waits inside the test,
+diff -ruN evidence/repin/35f9501d/topics/gates-together.txt evidence/repin/954f2334/topics/gates-together.txt
+--- evidence/repin/35f9501d/topics/gates-together.txt	2026-11-27 01:22:17.748967728 -0300
++++ evidence/repin/954f2334/topics/gates-together.txt	2026-11-27 01:22:58.529251107 -0300
+@@ -40,8 +40,11 @@
+   the total, execution refuses; --rerun can run the full accepted batch.
+   Verification runs name this scheduler as mode declared; individual batch
+   receipts identify actual concurrent execution. --rerun disables reuse but
+-  never bypasses measurement. --parallel remains
+-  the separate unqualified preflight probe with unknown cleanliness.
++  never bypasses measurement. --parallel instead
++  isolates each gate in its own temporary detached worktree at HEAD (requiring
++  a clean change worktree), observing cleanliness per gate so clean passes
++  gate integration without concurrent-batch measurement; temporary worktrees
++  are removed on exit.
+ 
+   A batch pass is green only with a retained tested tree, a worktree observed
+   clean before the batch, unchanged worktree and head afterward, and current
+diff -ruN evidence/repin/35f9501d/topics/gates.txt evidence/repin/954f2334/topics/gates.txt
+--- evidence/repin/35f9501d/topics/gates.txt	2026-11-27 01:22:17.749967750 -0300
++++ evidence/repin/954f2334/topics/gates.txt	2026-11-27 01:22:58.486719918 -0300
+@@ -54,6 +54,8 @@
+     events = ["integration"]           omitted: integration and publication
+     timeout = "10m"                     s, m, or h; omitted: no declared timeout
+     budget = "2.5s"                     command wall limit for acceptance
++    interface_budget = "10s"            limit for Change-size: interface
++    invariants = "<path>"               target-branch list; ARC_INVARIANTS
+     timings = "checks.tsv"             optional observations; guide gate-costs
+     paths = ["src/", "tests/"]           omitted or empty: every non-inert path
+     concurrent = true                   measured batch; arc guide gates-together
+@@ -67,6 +69,8 @@
+                                         older arc reads it
+ 
+   A `bypass` key has no effect: doctor reports it and check warns to remove it.
++  Unknown `.arc/gates.toml` keys refuse. `interface_budget` requires `>= budget`;
++  `invariants` reads target's list and binds reuse (`arc guide contributions`).
+ 
+   Budget durations accept positive whole milliseconds with ms, s, m or h
+   units, including decimal forms such as 2.5s and 0.001s. Overflow and precision
+@@ -93,12 +97,11 @@
+ 
+   A command outcome remains pass in the ledger even when its run_ms exceeds
+   the budget in force. Clock equality passes. An overrun passes only under
+-  the busy-host rule below. Ordinary
+-  verify exits 1 for a budget refusal, including parallel preflight whose
+-  receipts retain unknown cleanliness. Status, check and show project current
++  the busy-host rule of `arc guide gate-costs` or a budget suspension, below. Ordinary
++  verify exits 1 for a budget refusal, including --parallel runs. Status, check and show project current
+   budget applicability beside the raw result. Show JSON adds gate_status beside
+   raw verifications; status gate rows carry budget.verdict, budget_ms, run_ms,
+-  excess_ms, sources and any busy-host excuse. budget_rules.total is milliseconds in JSON.
++  excess_ms, sources and any busy-host excuse or suspension. budget_rules.total is milliseconds in JSON.
+   Missing run_ms is unmeasured
+   and cannot satisfy a budget, including legacy local, imported and attested
+   evidence. duration_ms never substitutes for run_ms. Explain labels historical
+@@ -115,40 +118,9 @@
+   without work references needs no recorded budget judgement to count. See
+   `arc guide gate-costs` for cost warnings.
+ 
+-  The busy-host rule excuses an overrun only with at most 3% more user-space
+-  instructions than the newest eligible reference and at least 25% unrelated
+-  CPU use both before and during the gate. Before means verification startup
+-  to just before spawn, at least 100 ms; subtract arc's process CPU and every
+-  earlier tree it ran. During means host busy CPU less the gate tree and arc's
+-  other measured CPU. Unattributed concurrent batches get no excuse. Other
+-  arc invocations' parallel lanes qualify only through the prior-load condition.
+-  The clock must fit reference.run_ms * (1 - reference_share) / (1 -
+-  other_share), with 25% slack: each run's capacity left by other work.
+-  Zero counts and instruction rates below 10% of the reference's instructions
+-  per tree user-CPU second are absent evidence. Missing or incomplete counters
+-  and host readings grant no excuse.
+-
+-  A reference is a clean, unmoved, unexcused direct pass, outside parallel
+-  probes, of the same gate and declaration on the same known hostname,
+-  logical CPU count and CPU model. Its tree is this run's tree or its revision
+-  leads to this run's destination. Its clock must fit the budget in force.
+-  Cached receipts never supply references.
+-  Legitimate added work becomes its own reference after one clock-fitting pass
+-  on a quiet host. A holder or leader with restricted CPUs gets no excuse.
+-  Thresholds must match the named version.
+-  The receipt carries its reference, rule version and thresholds. Readers use
+-  those thresholds and the current budget, without replacing the reference or
+-  consulting live load. A threshold change takes a new rule version. Lowering
+-  the budget retires an excuse whose reference stops fitting. Excused runs never become references, raise
+-  evidence or base-pass seeds, including after a raise.
+-
+-  Kernel instructions are uncounted. Known limit: added waiting on an
+-  already busy host can fit the measured delay allowance; a quiet run exposes
+-  it. `arc gates` counts excused runs and names the last; `gates measure` prints
+-  instructions and other processes' share. See `arc guide gate-costs` for CPU
+-  accounting. Work references, excuses and copied work adopt store format 12
+-  before publication
+-  or import; readers through format 11 refuse it.
++  `arc gates` counts excused runs and names the last. Work references,
++  excuses and copied work adopt store format 12 before publication or
++  import; readers through format 11 refuse it.
+ 
+   A ledger adopts store format 9 before gate verification or reuse under any
+   budget declaration, including a total with missing individual budgets,
+@@ -164,6 +136,31 @@
+   processes' share, or `Pass (over budget, ran ... of ...)` for a refusal;
+   its recorded outcome remains a pass.
+ 
++  `arc gates suspend --for DURATION | --until RFC3339 --reason TEXT [GATE]...`
++  sets budget judgement aside on the operator's word. It records the actor,
++  reason, start, end and gates on this ledger; no GATE covers every gate. It
++  ends at most 24h after it starts: a suspension answers a loaded host, and a
++  longer one would stand in for the declared budget. `arc gates resume` ends
++  those in force.
++  While one covers a gate, a passing run over its budget is accepted
++  wherever integration evidence is judged, as of the moment of judgement: a
++  receipt recorded earlier counts, and once the suspension ends the same
++  receipt is refused again. Nothing else changes. A failing gate fails. A
++  missing budget, an excessive sum or a total over the operator ceiling
++  still blocks. Raises keep their rules. Publication judges strictly.
++  The verdict is `suspended`, with the suspension in budget.suspension on
++  status, check and show rows; the verify line reads `accepted over budget`
++  and names it. A run recorded under one keeps that verdict and, like an
++  excused run, never becomes a reference, raise evidence or a base-pass
++  seed. `arc gates` counts suspended runs and names the last. `arc gates`,
++  `arc status` (budget_suspensions) and `arc catchup` name each suspension
++  in force with its end and reason; one that ended says nothing.
++  A suspension binds the ledger that recorded it. Export leaves it behind,
++  and a copy reaching another ledger accepts nothing there: a store honours
++  only its own. Receipts travel with their recorded verdict and the receiver
++  judges them by its own budgets. Suspensions and runs recorded under them
++  adopt store format 13; readers through format 12 refuse it.
++
+   A gate command exits 75 (`EX_TEMPFAIL`) to say it did not run, which arc
+   records as `not-admitted`. Both are described in `arc guide change-gates`.
+ 
+diff -ruN evidence/repin/35f9501d/topics/identity-basics.txt evidence/repin/954f2334/topics/identity-basics.txt
+--- evidence/repin/35f9501d/topics/identity-basics.txt	2026-11-27 01:22:17.749967750 -0300
++++ evidence/repin/954f2334/topics/identity-basics.txt	2026-11-27 01:22:57.933080941 -0300
+@@ -2,7 +2,7 @@
+ 
+ SAY WHO YOU ARE (before the first write)
+   eval "$(arc env)"                    Detect harness, session, model, and session link.
+-  export ARC_ACTOR=<name> ARC_HARNESS=<claude|codex|opencode|pi> \
++  export ARC_ACTOR=<name> ARC_HARNESS=<antigravity|claude|codex|opencode|pi> \
+          ARC_SESSION=<id> ARC_SESSION_LINK=<url>
+ 
+   `arc env` prints a build comment naming the compiled commit and whether
+@@ -11,10 +11,13 @@
+   first line and `build: <commit> (clean|dirty)`, or `build: unknown`, on its
+   second; `-V` prints the release line alone.
+ 
+-  `arc env` leaves ARC_MODEL unset. Each write resolves the acting session's
+-  model. Declare one with `--model` or export ARC_MODEL; the declaration is
+-  recorded with any observed disagreement. `arc show --json` and `arc log`
+-  show the model evidence.
++  `arc env` leaves ARC_MODEL and ARC_ACTOR unset. Each write resolves the acting
++  session's model. ARC_ACTOR stays undeclared by default so an inferred session
++  cannot silently satisfy declared-actor or independent-review policies; set
++  `export ARC_ACTOR=<name>` or pass `--actor <name>` when acting as a declared
++  author or reviewer. Declare a model with `--model` or export ARC_MODEL; the
++  declaration is recorded with any observed disagreement. `arc show --json` and
++  `arc log` show the model evidence.
+ 
+   A Codex model selection outside the transcript tail is sought through at
+   most sixteen 1 MiB metadata pages per invocation, in addition to the normal
+diff -ruN evidence/repin/35f9501d/topics/identity-events.txt evidence/repin/954f2334/topics/identity-events.txt
+--- evidence/repin/35f9501d/topics/identity-events.txt	2026-11-27 01:22:17.750967772 -0300
++++ evidence/repin/954f2334/topics/identity-events.txt	2026-11-27 01:22:57.941408637 -0300
+@@ -61,12 +61,13 @@
+     policy show  review-ladder show  policy path  config  sandbox diff
+     doctor  hooks status  instructions git  workspace list  workspace inbox
+     workspace inventory  workspace backlog  workspace report
+-    workspace watch  workspace pins  restack  journal dir  journal doctor
+-    journal source  journal filed  journal scaffolds  journal questions
+-    journal events  journal catchup  journal memories  journal pins
+-    journal render  journal open  journal list  journal inventory
+-    journal show  journal latest  journal discussion  journal stamp
+-    journal lane list  journal workbench list  journal export
++    workspace watch  workspace pins  workspace progress
++    workspace milestones  progress  milestone  restack  journal dir
++    journal doctor  journal source  journal filed  journal scaffolds
++    journal questions  journal events  journal catchup  journal memories
++    journal pins  journal render  journal open  journal list
++    journal inventory  journal show  journal latest  journal discussion
++    journal stamp  journal lane list  journal workbench list  journal export
+   `gates measure --concurrent` writes local acceptance under `arc guide gates-together`.
+   Read-only invocations read the ledger through a handle that never parses that policy,
+   refuses any append, and leaves ledger files byte-identical. Entries name complete leaf paths. Output files,
+diff -ruN evidence/repin/35f9501d/topics/identity-options.txt evidence/repin/954f2334/topics/identity-options.txt
+--- evidence/repin/35f9501d/topics/identity-options.txt	2026-11-27 01:22:17.750967772 -0300
++++ evidence/repin/954f2334/topics/identity-options.txt	2026-11-27 01:22:57.958841956 -0300
+@@ -89,13 +89,18 @@
+ 
+   `children.git_by_site` counts Git launches by source file and line, without
+   runtime paths or argument values. Git answers are held per canonical checkout
+-  and resolved administrative directory. Repository locations and immutable
+-  object reads survive Git writes; branch, HEAD and ref reads expire on writes.
+-  Project commands discard every held Git answer before and after execution.
+-  Every lock acquisition discards held answers, including an uncontended lock.
++  and resolved administrative directory, and object and revision probes batch
++  through one `cat-file --batch-command` reader per administrative directory
++  while reads are stable. Repository locations, existing full-OID resolutions,
++  blobs, trees, and absent paths proven inside an existing commit's tree
++  survive Git writes; absent full OIDs are never cached, and branch, HEAD and
++  ref reads expire on writes. Git writes, project commands, lock acquisitions
++  and fresh observations close open batch readers. Project commands and every
++  lock acquisition, including an uncontended lock, discard every held answer.
+   Authorization boundaries start fresh mutable observations. Movement guards
+-  take independent observations. Readiness target heads and merge trees must
+-  agree with the destination and tree observed by the decision.
++  take independent observations. Integration's agreement between readiness
++  and the decision's own target observation is in `arc guide
++  change-integration`.
+ 
+   `coverage` names what the counters see. `ledger: store` counts ledger
+   files read through the store's readers, not a file a diagnostic opens on
+diff -ruN evidence/repin/35f9501d/topics/identity-sessions.txt evidence/repin/954f2334/topics/identity-sessions.txt
+--- evidence/repin/35f9501d/topics/identity-sessions.txt	2026-11-27 01:22:17.750967772 -0300
++++ evidence/repin/954f2334/topics/identity-sessions.txt	2026-11-27 01:22:57.951158254 -0300
+@@ -9,7 +9,11 @@
+   a recorded link.
+ 
+   `arc env` detects a harness by the session variable it exports; not every
+-  harness exports one. A harness exports its session id into the processes it
++  harness exports one. Antigravity tool shells export the native conversation
++  in `ANTIGRAVITY_CONVERSATION_ID`. Its T3 recording store follows
++  `T3CODE_HOME` (default `~/.t3`). When an Antigravity recording carries effort
++  as a trailing `-low`, `-medium`, `-high`, `-xhigh`, or `-max` suffix on the
++  model id with no separate variant, arc splits it into `<model>#<effort>`. A harness exports its session id into the processes it
+   starts, so when several harnesses' variables are present it is the nearest
+   ancestor that exported one that owns this process: a pi run inside a Claude
+   Code tool shell reports pi, not the shell's claude. Where the ancestry names
+diff -ruN evidence/repin/35f9501d/topics/journal-lookup.txt evidence/repin/954f2334/topics/journal-lookup.txt
+--- evidence/repin/35f9501d/topics/journal-lookup.txt	2026-11-27 01:22:17.750967772 -0300
++++ evidence/repin/954f2334/topics/journal-lookup.txt	2026-11-27 01:22:57.997714073 -0300
+@@ -2,7 +2,32 @@
+ 
+   Shelve a discussion with journal archive FILE --unresolved --note REASON.
+   Use journal position FILE --archived to argue there, and journal unarchive
+-  FILE to restore storage. Terminal resolution remains terminal. Pending
++  FILE to restore storage. Terminal resolution remains terminal unless
++  explicitly reversed:
++    arc journal reopen FILE... --reason TEXT [--dry-run]
++    arc journal reopen --session ID --since TIME [--until TIME]
++        --reason TEXT [--dry-run]
++                         Reverse recorded consumptions without editing the
++                         event log: appends typed `reopened` events under the
++                         event lock bound (`reopens`) to each active unreversed
++                         consumption so each artifact returns to its prior live
++                         state without clearing a distinct, later consumption
++                         imported from another replica, while history keeps
++                         both events. Structural handoff consumptions
++                         (`journal transition`, `begin --from-journal`,
++                         `journal promote --global`) are protected in both
++                         selectors. Explicit files bind a reversal to every
++                         active unreversed consumption on each named artifact
++                         and refuse any artifact not currently consumed; the
++                         session-window form selects only currently consumed
++                         non-handoff artifacts whose standing (and every
++                         active) consumption was recorded by that session
++                         inside `[since, until]` (RFC 3339 or journal stamp),
++                         skipping artifacts with another active consumption
++                         outside the window. `--dry-run` names each matched
++                         artifact without writing, and `--global` targets the
++                         operator journal.
++  Pending
+   storage moves appear in journal doctor and must be retried before other
+   writes; the retry validates the operation's paths and body digest.
+   Archiving keeps every byte readable. To take content out of reach:
+@@ -134,6 +159,17 @@
+     --rank-by blocking|availability|coverage
+                          Order rows by one recorded fact; the report states
+                          the basis it used.
++  arc stats --by-model   Per recorded `harness:model[#effort]` coordinate
++                         (keeping label-only and bare-session subjects separate
++                         verbatim, and unrecorded events in `(unattributed)`):
++                         change counts by end state (`integrated`, `abandoned`,
++                         `closed` for asserted integrations without an arc
++                         merge, `superseded`, `open`), land rate
++                         (`integrated / (integrated + abandoned)`, excluding
++                         `open`, `closed`, and `superseded`), first-patchset
++                         approval rate over closed-out changes, patchsets,
++                         rework rounds caused, and verdicts, with counts beside
++                         every rate (`arc-stats-by-model/2`).
+   arc stats --provenance How often each provenance record was written where it
+                          could have been — falsifications, journal links,
+                          rejected alternatives, plan-linked briefs, cited
+diff -ruN evidence/repin/35f9501d/topics/journal-records.txt evidence/repin/954f2334/topics/journal-records.txt
+--- evidence/repin/35f9501d/topics/journal-records.txt	2026-11-27 01:22:17.750967772 -0300
++++ evidence/repin/954f2334/topics/journal-records.txt	2026-11-27 01:22:58.006950740 -0300
+@@ -25,3 +25,19 @@
+   Selectivity is the point. Filing everything rebuilds the transcript this
+   exists to replace, at higher cost and in an append-only record.
+ 
++  Tool and workflow friction discovered during work is filed where it happens
++  into the owning project's journal, from any directory (including outside Git):
++    arc feedback <project> --body-file - [--key <slug>] [--title TEXT]
++                           [--route local|upstream|operator|delegate]
++    arc feedback <project> --list [--json]
++  `<project>` resolves through the workspace registry; an unknown name refuses
++  and lists registered projects. Reports use the `feedback` journal kind with
++  the default `feedback` scaffold unless `--no-scaffold` is given, remain
++  private, and travel through journal exchange. When `--key <slug>` matches an
++  open `feedback` item in `<project>`'s journal, an evidence block is appended
++  instead of filing a duplicate. `--route` records where the finding belongs
++  (`local` default on creation, `upstream`, `operator`, or `delegate`).
++  `arc journal open` lists `feedback` apart from open work and unbuilt
++  proposals; triage with `arc journal transition` into `feature-request` or
++  `todo`, or `arc journal consume --outcome discarded`.
++
+diff -ruN evidence/repin/35f9501d/topics/journal-references.txt evidence/repin/954f2334/topics/journal-references.txt
+--- evidence/repin/35f9501d/topics/journal-references.txt	2026-11-27 01:22:17.751967793 -0300
++++ evidence/repin/954f2334/topics/journal-references.txt	2026-11-27 01:22:58.015594452 -0300
+@@ -28,7 +28,7 @@
+   archive` or `journal relocate` refuses until it is unpinned.
+ 
+   A living document grows by appended sections, not by successors:
+-    arc journal append <file.md> --body-file - [--title TEXT]
++    arc journal append <file.md> [--body-file -] [--title TEXT] [--attach FILE]...
+                          `journal evidence` under the name that fits. The
+                          title is one line, written after the heading's
+                          writer and time (`### Evidence <id> (<who>, <ts>):
+@@ -37,32 +37,50 @@
+                          <evd-id> --field title` amends it; corrections and
+                          retractions are not counted as appended blocks.
+ 
++  Attached raster images (`--attach FILE`, repeatable on filing verbs,
++  `journal append`, `journal position`, and `journal checkpoint`) are validated
++  by magic bytes (PNG, JPEG, WebP, or GIF, up to 5 MiB; SVG and HTML refuse),
++  stored content-addressed under `attachments/<sha256>.<ext>` without following
++  symbolic links, referenced in Markdown as `![<alt>](attachments/<sha256>.<ext>)`,
++  and recorded on the event without host source paths. Attachments travel with
++  `archive`, `unarchive`, `relocate`, `promote --global`, `spool --promote`,
++  and `export`/`import`; `journal doctor` reports missing, corrupt, malformed,
++  symlinked, and orphaned blobs.
++
+   A page is the readable copy of one artifact away from the terminal:
+     arc journal render <address> [--out FILE] [--strip-private|--keep-private]
+                          One standalone HTML page: the corrected title, the
+                          body, each appended block under its title and
+                          anchored by its ID, and a contents list (a rail on a
+                          wide screen; folded on a narrow one past eight
+-                         entries). Corrections
+-                         and retractions show where they apply rather than as
+-                         sections. No scripts and no referrer: raw HTML shows
++                         entries). Recorded corrections and retractions show
++                         where they apply. Other headings, such as
++                         “Correction notes”, retain their text. Raw HTML shows
+                          as code, links keep http(s), mailto and in-page
+-                         anchors, images load only over https. Takes the
+-                         addresses `show` takes.
++                         anchors, and images load over https or from verified
++                         journal attachments embedded inline as raster `data:`
++                         URIs (missing or corrupt attachments degrade to an
++                         escaped notice). The page has
++                         no scripts and sends no referrer. Takes the
++                         addresses and regular artifact files `show` takes.
+                          A home-directory path, a path under a directory arc
+                          knows is local (home, arc's data home, the journal,
+                          the checkout), a private, shared or link-local
+                          address, or a `.local`, `.lan`, `.home.arpa` or
+                          `.ts.net` host refuses with each line and text;
+-                         `--strip-private` replaces them in the page,
+-                         `--keep-private` renders them for a page that stays
+-                         on its owner's network, and `journal redact` removes
+-                         them from the artifact.
++                         the check includes embedded image metadata, recorded
++                         withdrawal reasons and published destinations used as
++                         links. `--strip-private` replaces private text, strips
++                         embedded image metadata, and leaves a private citation
++                         as unlinked text. `--keep-private` preserves those
++                         values for a page on its owner's network.
++                         `journal redact` removes private text from the body.
+     arc journal render <address>... --json [--fragment]
+                          Many pages in one run, each journal's log read once:
+                          `arc-journal-render/1` carries the stylesheet, then
+                          per address its file, title, kind, block count, the
+-                         sha256 and length of the body as read, and its HTML,
++                         sha256 (covering body and referenced attachment
++                         states) and length of the body as read, and its HTML,
+                          or the error that stopped it (exit 16; the rest still
+                          render). `--fragment` drops the document shell, the
+                          stylesheet and the dated footer, for a host page that
+diff -ruN evidence/repin/35f9501d/topics/milestones.txt evidence/repin/954f2334/topics/milestones.txt
+--- evidence/repin/35f9501d/topics/milestones.txt	1969-12-31 21:00:00.000000000 -0300
++++ evidence/repin/954f2334/topics/milestones.txt	2026-11-27 01:22:58.565612028 -0300
+@@ -0,0 +1,56 @@
++Tracks, waves, readiness and deferral above progress series
++
++MILESTONES
++  `arc milestone` composes local and cross-project `arc progress` series into a
++  two-dimensional wave-by-track matrix, closed by a checkpoint and/or conclusion.
++  Like `arc progress`, milestones are strictly pull-only: read on request
++  (`arc milestone [<slug>] [--ready] [--ignore-waves] [--plain|--json]`) and never
++  pushed into `status`, `check`, `catchup`, `journal open`, or hooks.
++
++  A milestone is a journal artifact of kind `milestone`, started with:
++    arc milestone start <topic> --title T [--follows <plan>] [--wave ID[=TITLE]]... [--advisory-waves]
++  Edits are append-only journal events on `<milestone>` (by filename or topic):
++    wave add <id> [--title T] [--before|--after W] [--soft|--gated]
++    wave rename <id> <title>                wave move <id> --before|--after W
++    wave remove <id>
++    track add [<project>::]<series> [--role critical|sideband] [--label L] [--before|--after T]
++    track role <track> critical|sideband    track move <track> --before|--after T
++    track remove <track>
++    defer <track>:<item> --to <target-milestone>[:<track>] [--wave W] --reason R
++    checkpoint <name>
++    close [--checkpoint <name>] [--by <conclusion>] [--note N]
++  On `track add`, `--role` selects the track role (`critical` or `sideband`);
++  pass the execution role via `ARC_ROLE`, `--execution-role`, or before
++  `milestone` (`arc --role ROLE milestone track add ...`). A closed milestone
++  leaves the default listing, remains readable by name, and refuses writes.
++
++  Tracks, waves, and readiness. A milestone owns no parallel item store: slices
++  live in each attached `arc progress` series. Every track is `critical`
++  (default) or `sideband`. Milestone completion counts and percentage cover
++  `critical` tracks only; `sideband` counts print separately and never distort
++  milestone progress or hold wave barriers. Declared milestone waves are gated
++  across `critical` tracks by default unless the milestone started with
++  `--advisory-waves` or the wave was declared `--soft` (overridable per wave
++  with `--gated`). A gated wave blocks open items on `critical` tracks until
++  every standing item in earlier declared waves across all `critical` tracks is
++  `integrated` or `done`; an unreadable critical track holds later gated waves
++  conservatively as `unknown`. `--ignore-waves` bypasses wave barriers at read
++  time while keeping explicit item prerequisites. `--ready` narrows the output
++  to currently claimable items while preserving full counts.
++
++  Deferral. `arc milestone defer` resolves the source and destination tracks in
++  two open milestones and delegates to `arc progress transfer`, preserving the
++  item's title, `--from` source, active change link, matching wave, provenance,
++  and transitive prerequisite resolution.
++
++  Bounded reads. Reading a milestone opens each referenced project's journal
++  events and ledger at most once. An unregistered or unreadable foreign track
++  degrades to `unavailable` in `arc-milestone/1` without failing the report.
++  Output prints in three forms: the default terminal matrix (painted only on
++  a terminal with `NO_COLOR` unset and `TERM` not `dumb`), `--plain` (full
++  filenames and per-item rows, never painted), and `--json` (`arc-milestone/1`).
++  `arc workspace milestones` prints every registered project's active
++  milestones in the same three forms (`arc-workspace-milestones/1`);
++  `arc workspace report` and `arc workspace watch`, given `--milestones`,
++  carry each project's active milestones as `projects[].milestones`.
++
+diff -ruN evidence/repin/35f9501d/topics/progress.txt evidence/repin/954f2334/topics/progress.txt
+--- evidence/repin/35f9501d/topics/progress.txt	1969-12-31 21:00:00.000000000 -0300
++++ evidence/repin/954f2334/topics/progress.txt	2026-11-27 01:22:58.556400773 -0300
+@@ -0,0 +1,199 @@
++Where a series of work stands, read on request
++
++PROGRESS
++  `arc progress` answers "where does this series of work stand?" for whoever
++  asks. It is pulled, never pushed: a command prints it only when asked
++  for it, and no status, check, catchup, advisory or hook carries a line of
++  it. The
++  journal's own history, read by name (`arc journal catchup` and
++  `arc journal events`), lists item edits as the journal events they are.
++
++  A series is a journal artifact of kind `progress`, written by
++  `arc progress start <topic> --title T [--follows <plan>] [--item T]...`.
++  It needs no plan; `--follows` records the one it follows. Its items are
++  journal events on it, one per edit, each with its time; nothing is
++  rewritten. Items have short ids (`i1`, `i2`, ...) that survive renames.
++  Edits, each one call on `<series>`, named by filename or topic:
++    add <title> [--before|--after <item>] [--from [<project>::]<file>] [--wave W] [--on REF]...
++    rename <item> <title>                   move <item> --before|--after <item>
++    drop <item> --reason R                  done <item> [--by <artifact|cp>] [--note N]
++    reopen <item> [--note N]                link <item> [<project>::]<change>
++    unlink <item>                           source <item> [<project>::]<file>
++    unsource <item>                         waves add|rename|move|remove ...
++    wave <item> <wave>                      unwave <item>
++    depend <item> --on <ref>                undepend <item> --on <ref>
++    wait <item> <discussion> --question Q   unwait <item>
++    split <item> --into T --into T... --reason R [--wave W]
++    transfer|defer <item> --to [<project>::]<target> [--wave W] --reason R
++  Items take no generic correction; each edit has its reversal. `reopen`
++  undoes `drop` and `done` alike, for any item; a reopened linked item reads
++  its derived stage again. A rename is undone by another rename, a move by
++  another move, a link by `unlink`, a wait by `unwait`. A split or transfer
++  is final: `split` replaces an item with new parts, and `transfer` (aliased
++  as `defer`) moves it to another local or cross-project series while
++  preserving title, `--from` source, active change link, and matching wave
++  (reverse a transfer by transferring back). A dropped, split, or transferred
++  item stays visible and leaves the count.
++
++  `done` is for an item no change carries; a linked item's stage is the
++  ledger's. Optional `--by <target>` on `done` cites the resolving bare
++  `conclusion` or `decision` filename of this journal, or a recorded
++  checkpoint name of this repository's ledger.
++  `source` (and `--from` on `add` or `start`) binds an item to its originating
++  journal artifact (`todo`, `feature-request`, `plan`, or `handoff`), either a
++  bare filename in this journal or `<project>::<file>` in another registered
++  project; `unsource` removes it. The report derives whether that source is
++  `open`, `consumed`, `archived`, `absent`, or `unknown` (unreadable foreign
++  journal) and flags drift only when a `done` or `integrated` item's non-plan
++  source filing remains live and `open`.
++  `arc begin <slug> --item <series>:<item>` links when the change
++  opens, checking the item before anything is written; `start` ends by
++  naming that call. When that item carries a `--from` source that is still
++  open and actionable, `begin` propagates it as `--from-journal` if none was
++  passed, or refuses if an explicit `--from-journal` names a different
++  artifact.
++  On an unlinked `open` item, the report surfaces live advisory pre-change
++  ownership (`claimed`, with `◈` in the terminal view) when either a live
++  `arc journal lane open --item <series>:<item>` targets the item or an active
++  `arc claim` holds its `--from` source artifact; the `claimed` count overlaps
++  `open`. `link` names a change of this project, or
++  `<project>::<change>` one of another registered project by slug or label;
++  the link records that project's slug, and the item then reads that
++  project's ledger exactly as a local link reads this one's, the row naming
++  the project beside the change. An unregistered project, or a ledger of it
++  that cannot be read, makes that item `unknown` and fails nothing. A link
++  replaces an item's link only when that change closed without integrating,
++  judged from the ledger holding it, and only while the link is still the
++  one the command read.
++
++  An item waits on a person through a journal question: pose it on a
++  discussion (`arc journal question`), then tie it to the item with
++  `wait <item> <discussion> --question <id>`. The discussion is a bare
++  filename of this journal and must hold that question, still open for a
++  person; both are checked before anything is written. The wait is derived,
++  never cleared by hand: while the question is open the row carries it
++  (file, id and heading) and the series counts it as waiting, and once the
++  question is answered the row shows nothing of it. A wait leaves the stage
++  as it is.
++
++  Stages. Unlinked: `open`, `done`, `dropped`, `split`, `transferred`. Linked, as the
++  change's own events in the ledger holding it record it: `opened`;
++  `snapshotted` (a patchset is recorded); `verified` (at the newest
++  patchset's head at least one gate has a recorded run and every gate's most
++  recent run there is a pass; a run that was not admitted is passed over, and
++  a failure recorded after a pass takes it back to `snapshotted`);
++  `reviewed` (a verdict is recorded on the newest patchset, shown with the
++  rounds that asked for changes); `integrated` (with its time and revision);
++  `closed` (closed without integrating); `unknown` (no such change). A stage
++  is what the ledger last recorded, never a live judgement, so it can lag
++  the change but never run ahead of it; `arc status <change>` is the live
++  reading. So work done outside the ledger shows only once it is recorded:
++  a review round run outside arc shows when its verdict is recorded
++  (`arc review <change> --verdict changes-requested --cause <cause>
++  --on-behalf-of <reviewer>` per round), and an executor that commits
++  without `arc snapshot` leaves its item at `opened`. The report also names who holds a live claim on the
++  change, and, for a change in flight, the newest run the ledger records
++  dispatched against it with no recorded end (`arc run dispatch`, `bind`,
++  `end`): to whom (the represented subject, else the route), when, and
++  whether a backend session is bound. That is the ledger's record of a
++  dispatch, not a reading of whether the run is alive; no runner is asked.
++
++  The share complete is a count: integrated and done items over the items that
++  stand, printed as counts first and one percentage after. No estimate of
++  time, no weighting. The report also says how many items were declared at
++  the start and how many were added, dropped, split and transferred since. The waiting
++  count overlaps the others: an item that waits is also counted under its
++  stage.
++
++  Waves, prerequisites and readiness. A series may declare ordered waves
++  (`start --wave <id>[=<title>]`, `waves add|rename|move|remove`) and assign
++  items (`add --wave`, `wave <item> <wave>`, `unwave <item>`; `split` inherits
++  its item's wave unless given `--wave`). Waves are advisory by default unless
++  declared `--gated` (or the series starts with `--gated-waves`): a gated wave
++  blocks its open items until every standing item in earlier declared waves is
++  `integrated` or `done`. Explicit prerequisites (`depend <item> --on <ref>`,
++  `undepend`) accept `<item>`, `<series>:<item>`, or
++  `<project>::<series>:<item>` and refuse cycles at write time; a split
++  prerequisite expands to its standing parts, a transferred prerequisite follows
++  `transferred_to` to its destination, a dropped prerequisite stays
++  unsatisfied until removed, and an unreadable foreign journal degrades that
++  prerequisite to `unknown` without failing the report. Each row derives
++  `readiness` (`ready`, `claimed`, `blocked`, `waiting`, `in-flight`,
++  `complete`, or `inactive`) and `blocked_by`. `arc progress [<series>] --ready`
++  prints only currently ready items (excluding claimed, blocked and waiting
++  items), and `arc watch <series> --until item-ready|wave-done [--wave W]`
++  waits on the workspace feed until a ready item or completed wave appears.
++
++  `arc progress` prints every series of this project that is not retired, in
++  full, one block per series; `arc progress <series>` narrows to one and
++  reads a retired series too. After the local blocks come any open journal
++  questions that wait on a person.
++
++  One report prints in three forms. The default is a view for a person. A
++  series is its title, a bar of twenty cells shared in proportion between
++  the complete, in-flight and remaining items, and one line per item: a
++  mark, the id and title, then the stage and beside it the change, or the
++  revision and age of the integration; a change of another project prints
++  as `<project>::<change>`, and a dispatch as `dispatched to <subject>
++  <age>`, `unbound` when no session is bound. The marks are `✓` complete,
++  `○` open, a circle that fills from `opened` to `reviewed`, `×` dropped or
++  closed, `÷` split and `?` unknown. An open item that waits reads
++  `waiting` with a `?`; any other item that waits keeps its stage with
++  `waiting` beside it. The question's heading takes a faint line under the
++  title, and the bar counts the waiting items. The view names a series by its topic
++  and gives a past time as an age; the title of an item past `open`
++  continues on the next line when wider than the column before its stage,
++  and nothing is cut. It is painted only when standard output is a terminal,
++  `NO_COLOR` is unset or empty and `TERM` is not `dumb`; its words are the
++  same unpainted. `--plain` prints every recorded fact as line-oriented text
++  that is never painted, with filenames, change ids and full times, each
++  series under a `==` header line. `--json` prints the versioned shape. A
++  reader that acts on the report takes `--plain` or `--json`.
++
++  A report
++  reads one event log per journal it shows and reduces only the linked
++  changes; finding a stage starts no Git process of its own. So what it
++  reads follows its series, linked items and related series. Git runs to
++  locate a project and open its ledger, and wherever reducing a linked
++  change does, as when the ledger checks a reused base pass. Opening a
++  ledger, which happens only for a project with a linked item, pays the
++  store's shared cost once: its repository-wide records, the import batches
++  among them, which grow with the ledger. Dispatches are read from those
++  records. Each other project an item links into or a related series lives
++  in opens its ledger at most once per report, and the registry is read
++  once, only when an item or relation names another project. A ledger of
++  this project that cannot be read fails the report, puts its project among
++  `arc workspace progress`'s failures, and makes a related series
++  unavailable.
++
++  Related series. `arc progress relate <series> <project>::<series>` records,
++  in this journal only, that a series relates to one in another registered
++  project, named by slug or label as other cross-project journal references
++  are; `unrelate` with the same arguments removes it here. The same call in
++  the other project makes it mutual; until then the block names the relation
++  directly under its header as `one-sided`. Each related series then prints
++  after the local ones in compact form, in `--plain` under a `--` header
++  line: its counts, last integration and in-flight items, read from that
++  project's journal events and ledger, and the ledger of each project its
++  items link into. A related journal that cannot be read prints one line and
++  fails nothing. Relations share no items and roll up no percentage.
++
++  `arc progress retire <series> --by <conclusion>` records the series as
++  `consumed`, outcome `superseded`, naming the conclusion as what resolved
++  it, and the journal's inventories show the conclusion as its successor.
++  `--by` and `--follows` take a bare filename of this journal; a path,
++  another journal's reference or a symbolic link is refused. A retired series
++  leaves the default listing, stays readable by name, and refuses every
++  `arc progress` edit. As for every consumed artifact, the journal's
++  amendments still apply: `arc journal correct` replaces its recorded title,
++  which the report then shows, and `arc journal retract` withdraws evidence
++  or a position filed on it. `arc workspace progress` prints every registered
++  project's active series in the same three forms, and says whether a
++  relation is mutual from the series it read itself: absent only when the
++  related series was not read by that command. `--json` prints
++  `arc-progress/1` and `arc-workspace-progress/1`. `arc workspace report`
++  and `arc workspace watch`, given `--progress`, carry the same series per
++  project as `projects[].progress`, for a page that draws the workspace,
++  each project read alone, so no relation's `mutual` is filled there; a
++  series that cannot be read is a failed `progress` component there.
++
+diff -ruN evidence/repin/35f9501d/topics/questions.txt evidence/repin/954f2334/topics/questions.txt
+--- evidence/repin/35f9501d/topics/questions.txt	2026-11-27 01:22:17.752967815 -0300
++++ evidence/repin/954f2334/topics/questions.txt	2026-11-27 01:22:58.051796060 -0300
+@@ -110,11 +110,13 @@
+   `answer` and the `discussion` summary are its surface, and `note --kind
+   discussion` opens one.
+ 
+-  A discussion opens on its conventions, then the opening body under
+-  `## The question`, then `## Positions`. `position` appends at the end of
+-  the file, so what follows `## Positions` is the argument and nothing else.
+-  Any scaffold places the body at its `{{body}}` line, and a template without
+-  one is followed by the body.
++  Below its heading, a discussion holds its conventions, then the opening
++  body under `## The question`, then `## Positions`. `position` appends at
++  the end of the file, so what follows `## Positions` is the argument and
++  nothing else. Any scaffold places the body at its `{{body}}` line, and a
++  template without one is followed by the body. A heading the body opens
++  with, on its first non-blank line, stays the artifact's first line, above
++  the template, and the rest of the body takes the template's place.
+ 
+   Every artifact opens on a heading, because a queue row reads its description
+   from there and a row that names nothing is a row nobody picks up. `--title`
+diff -ruN evidence/repin/35f9501d/topics/rewrites-evidence.txt evidence/repin/954f2334/topics/rewrites-evidence.txt
+--- evidence/repin/35f9501d/topics/rewrites-evidence.txt	2026-11-27 01:22:17.753967837 -0300
++++ evidence/repin/954f2334/topics/rewrites-evidence.txt	2026-11-27 01:22:58.294086598 -0300
+@@ -1,7 +1,8 @@
+ Recorded revisions and atomic rewrite maps
+ 
+   A commit that any recorded verdict or audit read, that a patchset recorded
+-  as its head, that a forge fact records as the provider's own (a full
++  as its head, that a finding disposition cites by full object ID, that a forge
++  fact records as the provider's own (a full
+   object ID, from an observation, link, checks or lifecycle fact), that a
+   candidate's received source, tested or report evidence names, that a
+   disclosure selects as Git support, or that a checkpoint names as its
+@@ -76,12 +77,15 @@
+   answers; an ambiguous one is refused naming the candidates. Rewrite records
+   that contradict each other make the map unreadable, which every projection
+   refuses rather than reading as no rewrite at all — `arc doctor` reports it
+-  as `invalid-rewrite-mapping`. A branch with commits of its own on top of the rewritten
++  as `invalid-rewrite-mapping`. Conflict diagnostics name both events (event
++  ID, change when known, tool, reason, conflicting revision, and mapped
++  successors) and suggest `arc history withdraw` for any map whose successors
++  never landed. A branch with commits of its own on top of the rewritten
+   range shares no commit with the branch it was cut from — the rewrite names
+   each one and the `git rebase --onto` that replays it, and until then no
+-  comparison between the two has an answer. An approval follows a recorded
+-  rewrite in two cases, judged per commit over every commit the rewrite
+-  recreated:
++  comparison between the two has an answer. An approval, declared debt waiver,
++  commit-bound gate pass, and matching budget raise follow a recorded rewrite
++  in two cases, judged per commit over every commit the rewrite recreated:
+ 
+   - signature-only: the successor differs in nothing but its signature —
+     same tree, author, committer, message and every other header, with
+@@ -92,7 +96,7 @@
+     final trailer block, or to a new block after one blank line when it had
+     none; tree and every other header byte-identical, the signature aside,
+     and parents reached only through rewrites of either kind. This is what
+-    `arc rewrite trailers --append` with role lines produces.
++    `arc rewrite trailers --sync` or `--append` with role lines produces.
+ 
+   Any other successor leaves the approval stale in `arc status` and `arc
+   check`: a replaced, removed or reordered role entry, `Assisted-by` or any
+diff -ruN evidence/repin/35f9501d/topics/rewrites-operations.txt evidence/repin/954f2334/topics/rewrites-operations.txt
+--- evidence/repin/35f9501d/topics/rewrites-operations.txt	2026-11-27 01:22:17.754967859 -0300
++++ evidence/repin/954f2334/topics/rewrites-operations.txt	2026-11-27 01:22:58.284674268 -0300
+@@ -49,17 +49,23 @@
+                        recreates the annotated tags whose targets were
+                        rewritten, signed like the commits. Run again to
+                        finish one that was interrupted.
+-    arc rewrite trailers --from <rev> [--drop <key>] [--append <line>]
+-                         [--edits <file>] [--include-shared]
++    arc rewrite trailers [--sync] [--from <rev>] [--drop <key>]
++                         [--append <line>] [--edits <file>] [--include-shared]
+                        Edit the trailer block of every commit message from
+                        --from through the branch head, and carry the result
+-                       through the same map, refs and record. --drop removes
+-                       every trailer with that key, matched without case;
+-                       --append adds a `Key: value` line the block does not
+-                       already carry; both repeat and apply to every commit
+-                       in the range. --edits <file> replaces or drops one
+-                       exact trailer line of one named commit (below); it
+-                       repeats, and at least one of the three is required.
++                       through the same map, refs and record. --sync computes
++                       the open change's projected contribution trailers and
++                       appends any missing lines across target..head via the
++                       role-addition rewrite pipeline; it is mutually
++                       exclusive with --edits and --drop, and makes --from
++                       optional (defaulting to the first commit in
++                       target..head). --drop removes every trailer with that
++                       key, matched without case; --append adds a `Key: value`
++                       line the block does not already carry; both repeat and
++                       apply to every commit in the range. --edits <file>
++                       replaces or drops one exact trailer line of one named
++                       commit (below); it repeats, and at least one of the
++                       four modes is required.
+                        Edits apply first, reading each commit's block as the
+                        commit carries it, then --drop, then --append.
+                        A role line, or an Assisted-by line read without its
+diff -ruN evidence/repin/35f9501d/topics/rules-evidence.txt evidence/repin/954f2334/topics/rules-evidence.txt
+--- evidence/repin/35f9501d/topics/rules-evidence.txt	2026-11-27 01:22:17.754967859 -0300
++++ evidence/repin/954f2334/topics/rules-evidence.txt	2026-11-27 01:22:58.350934387 -0300
+@@ -15,14 +15,15 @@
+     repeating it, recording `verification-reused`, unless `--rerun` is
+     given. Reuse claims content alone. A gate whose command reads commit
+     messages or history declares `binds = "commit"`, which no other
+-    declaration of that gate withdraws: only a run at the
+-    head's own commit, or at the merge of that commit, answers for it, and a
+-    recorded rewrite never carries its evidence to the successor;
+-    `publication --skip-green` reuses its pass only at the target revision
+-    it ran on. An arc that predates the key ignores it and treats the gate
+-    as tree-bound. A rewrite that changed only messages, such as an appended
+-    role entry, keeps every other gate's pass and leaves that one to run
+-    again. A single `integrate` runs no
++    declaration of that gate withdraws: a run answers for its recorded commit
++    (or its merge into the named target), and follows only `signature_only`
++    and `role_additions` rewrites (`arc guide rewrites-evidence`) when the
++    destination is unchanged (including synthesized `--against` merges whose
++    source parent followed an approved rewrite against the same target); any
++    target move, content-changing edit, or non-role message edit leaves it
++    stale and forces a fresh run; `publication --skip-green` reuses its pass
++    only at the target revision it ran on. An arc that predates the key ignores it and treats the
++    gate as tree-bound. A single `integrate` runs no
+     gate; it checks that the merge it made carries the tree that was
+     evaluated, and undoes it otherwise. A queue runs the ones with no answer
+     at that tree, because it moves the target itself and every member behind
+diff -ruN evidence/repin/35f9501d/topics/rules-rounds.txt evidence/repin/954f2334/topics/rules-rounds.txt
+--- evidence/repin/35f9501d/topics/rules-rounds.txt	2026-11-27 01:22:17.755967881 -0300
++++ evidence/repin/954f2334/topics/rules-rounds.txt	2026-11-27 01:22:58.379407042 -0300
+@@ -13,5 +13,5 @@
+     implementer may not record a verdict, an external verdict, `resolve`,
+     `hold`, `release-hold`, `audit`, `debt`, `close`, or `integrate`. A
+     reviewer may not run `debt`, `close`, or `integrate`. Recording a brief
+-    is a lead's. An unset role is `lead`, with full access.
++    or a budget suspension (`arc gates suspend`) is a lead's. An unset role is `lead`, with full access.
+ 
+diff -ruN evidence/repin/35f9501d/topics/schemas.txt evidence/repin/954f2334/topics/schemas.txt
+--- evidence/repin/35f9501d/topics/schemas.txt	2026-11-27 01:22:17.756967902 -0300
++++ evidence/repin/954f2334/topics/schemas.txt	2026-11-27 01:22:58.575550610 -0300
+@@ -42,6 +42,8 @@
+     `arc-journal-artifact/3`         arc journal show --json
+     `arc-journal-entry/1`            arc journal show <entry address> --json
+     `arc-journal-open/1`             arc journal open --json
++    `arc-feedback/1`                 arc feedback <project> --json
++    `arc-feedback-list/1`            arc feedback <project> --list --json
+     `arc-journal-pins/1`             arc journal pins --json
+     `arc-journal-workbenches/1`      arc journal workbench list --json
+     `arc-journal-render/1`           arc journal render --json
+@@ -58,7 +60,7 @@
+     `arc-gate-paths/1`               arc gates paths --json
+     `arc-workspace-gates/1`          arc workspace gates --json
+     `arc-stats/2`                    arc stats --json
+-    `arc-stats-by-model/1`           arc stats --by-model --json
++    `arc-stats-by-model/2`           arc stats --by-model --json
+     `arc-stats-provenance/1`         arc stats --provenance --json
+     `arc-stats-round-trip/1`         arc stats --round-trip --json
+     `arc-cost/1`                     arc cost show --json
+@@ -72,9 +74,13 @@
+     `arc-perf/1`                     ARC_TRACE=1, one line on stderr at exit
+     `arc-workspace/2`                arc workspace list|inbox --json
+     `arc-workspace-backlog/19`       arc workspace backlog --json
+-    `arc-workspace-report/3`         arc workspace report|watch; projects[].git_health; optional library
++    `arc-workspace-report/3`         arc workspace report|watch; projects[].git_health; optional library, progress, milestones
+     `arc-workspace-inventory/2`      arc workspace inventory --json
+     `arc-workspace-pins/1`           arc workspace pins --json
++    `arc-progress/1`                 arc progress --json
++    `arc-milestone/1`                arc milestone --json
++    `arc-workspace-progress/1`       arc workspace progress --json
++    `arc-workspace-milestones/1`     arc workspace milestones --json
+     `arc-workspace-retirement/1`     arc workspace retire|restore --json
+     `arc-writability/1`              arc config --check-writable --json
+     `arc-sandbox-clone/2`            arc sandbox clone --json
+@@ -105,6 +111,15 @@
+   `arc guide debt-clearance`. These optional input fields leave older records
+   valid under store format 7.
+ 
++  Each change or repository event carries optional `invocation_id` (`inv-`
++  and a lowercase ULID, one per arc process), `invocation_elapsed_ms` (how
++  long that process had run when it issued the event's identity) and
++  `invocation_gated_ms` (the gate and preparation time it had recorded by
++  then), written together when the identity is issued and never on import,
++  replay or republishing. They stamp no store format: events with or
++  without them are valid, an older reader ignores them, and export and
++  import keep them as recorded. `arc guide gate-costs` reads them.
++
+   The bypass fields in state, status, check and explain retain historical
+   judgements, including check.bypassed; gate authorization uses eligible passes.
+ 
+@@ -121,8 +136,8 @@
+     `arc-custody-bundle/1`           arc export / import --custody-dir
+     `arc-forge-delivery/1`           arc message --delivery-file
+     `arc-disclosure/1`               arc context declare --disclosure-file
+-    `arc-forge-observation/1`        arc forge observe --file
+-    `arc-forge-receipt/1`            arc forge observe|link|checks|pr-state --json
++    `arc-forge-observation/1`        arc forge observe --file; arc forge ingest
++    `arc-forge-receipt/1`            arc forge observe|ingest|link|checks|pr-state --json
+     `arc-review-receipt/1`           arc receipt template; arc review|audit --receipt
+     `arc-received-evidence/1`        arc candidate register --evidence-file
+     `arc-replica-bundle/3`           arc replica export / import
+@@ -135,6 +150,7 @@
+     `arc-workspace-watch-request/1`  arc workspace watch, one per stdin line
+     `arc-correspondence/1`           arc close --correspondence
+     `arc-review-ladder/1`            .arc/review-ladder.toml; review-ladder import|show --json
++    `arc-gate-trailers/1`            Witness: and Change-size: commit trailers (arc guide contributions)
+ 
+   `arc cost evidence` writes `tapes-attribution-evidence/1`, a format tapes
+   owns and versions; this rule counts the shapes arc defines, so that file
+@@ -145,13 +161,20 @@
+   `arc-journal-bundle/1`.
+   Their absent model provenance stays absent.
+ 
+-  A `pinned` event may carry an optional `guide` topic name. This additive
+-  input field keeps `journal-events/2`; pins without it remain valid.
++  A `pinned` event may carry an optional `guide` topic name, a `consumed`
++  event may carry an optional `promoted_to_global` memory filename, a
++  `reopened` event may carry an optional `reopens` consumption digest,
++  `note` and `evidence` events may carry optional `feedback_key` and
++  `feedback_route` fields, and write/append events may carry optional
++  `attachments` metadata (`path`, `sha256`, `media_type`, `bytes`). These
++  additive input fields keep `journal-events/2`; events without them remain
++  valid. `arc-journal-bundle/2` and `arc-journal-spool/2` carry optional
++  `attachments` arrays for referenced raster images.
+ 
+   A journal event omits the harness or session key nobody established.
+   Owned claim and lane lifecycle events require their complete identities;
+   an event lacking one is unsupported and cannot change ownership state.
+-  `journal-events/2` covers that and the `evidence`, `relocated`,
++  `journal-events/2` covers that and the `evidence`, `reopened`, `relocated`,
+   `redacted`, `pinned`, `unpinned`, `published`, and `workbench-opened`,
+   `-adopted`, `-linked`, `-closed`, `-archived` and `-unarchived` kinds,
+   which name a workbench and no artifact `file`; `journal-events/1`
+@@ -172,6 +195,7 @@
+     store format 10                  base-pass baselines and reuse evidence
+     store format 11                  measured batches and their authorization
+     store format 12                  busy-host work references and excuses
++    store format 13                  budget suspensions and runs recorded under them
+     `arc-accept-checkout/1`           local administrative allocation recovery
+     `arc-landing-intent/1`            landing-intents/<attempt>.json recovery
+     `arc-import-batch/1`             local atomic change import and authorization
+diff -ruN evidence/repin/35f9501d/topics/workspace.txt evidence/repin/954f2334/topics/workspace.txt
+--- evidence/repin/35f9501d/topics/workspace.txt	2026-11-27 01:22:17.756967902 -0300
++++ evidence/repin/954f2334/topics/workspace.txt	2026-11-27 01:22:57.969250088 -0300
+@@ -25,7 +25,17 @@
+                        project, and the operator journal's when unscoped
+                        (arc guide journal-references). Exits 16 when a
+                        journal cannot be read. `arc-workspace-pins/1`.
+-  arc workspace report [--previous FILE] [--library] --json
++  arc workspace progress [--here|--under PATH] [--plain|--json]
++                       Each project's active progress series in full, in
++                       the forms `arc progress` prints (arc guide progress).
++                       Exits 16 when a journal cannot be read.
++                       `arc-workspace-progress/1`.
++  arc workspace milestones [--here|--under PATH] [--plain|--json]
++                       Each project's active milestones in full, in the forms
++                       `arc milestone` prints (arc guide milestones). Exits
++                       16 when a journal cannot be read.
++                       `arc-workspace-milestones/1`.
++  arc workspace report [--previous FILE] [--library] [--progress] [--milestones] --json
+                        The backlog classified by named rules: each artifact's
+                        status (unresolved, delivered, claimed, ...), the
+                        sections a reader acts from, and attention facts, so
+@@ -42,7 +52,9 @@
+                        `--help` lists every attention rule. Versioned
+                        `arc-workspace-report/3`. With --library, each observed
+                        project's `library` lists all hot and archived artifacts
+-                       and recorded relocations, newest filename first. Rows
++                       and recorded relocations, newest filename first. The
++                       library belongs to the row's `journal_dir`; project
++                       labels can repeat. Rows
+                        carry `project`, `file`, absolute `path`, corrected
+                        `title`, `kind`, `topic`, filename `timestamp`, nullable
+                        RFC 3339 `filed_at` and `changed_at`, and `storage`
+@@ -63,6 +75,10 @@
+                        content rendering are computed for library rows.
+                        Without --library the field is absent. Failed library
+                        reads enter the collection manifest as `library`.
++                       With --progress, a project that has active progress
++                       series carries them as `progress` (arc guide progress).
++                       With --milestones, a project that has active milestones
++                       carries them as `milestones` (arc guide milestones).
+   <ai-home>/arc/feed/events.jsonl
+                        The workspace feed: after each committed ledger or
+                        journal write, one `arc-workspace-feed/1` line. A
+@@ -75,15 +91,19 @@
+                        follows its write: failing to append fails nothing,
+                        and a follower that missed notices reads again. Past
+                        1 MiB the file moves to `events.jsonl.1`, replacing it.
+-  arc workspace watch [--previous FILE] [--library]
++  arc workspace watch [--previous FILE] [--library] [--progress] [--milestones]
+                        The report as one JSON line, then again each time a
+                        notice changes it: only the projects the feed names are
+-                       read again. Requests on stdin compare with a previous
++                       read again, and with --progress or --milestones each
++                       project referencing a written project.
++                       Requests on stdin compare with a previous
+                        report or refresh every project; it ends when stdin
+                        closes. --library retains each project's library beside
+                        its row and reads it again only when that project is
+                        dirty; a library-only change, including a pin or unpin,
+-                       emits too. `--help` holds the contract.
++                       emits too. --progress and --milestones retain each
++                       project's progress series and milestones the same way,
++                       so edits or linked writes emit. `--help` holds the contract.
+   cd <anchor>          Enter one project named by the report, then orient there.
+   arc workspace retire <journal-dir|slug|anchor> --reason TEXT [--dry-run]
+                        Take a registration whose project is gone (a probe,

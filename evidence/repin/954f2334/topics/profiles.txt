@@ -1,0 +1,20 @@
+Change profiles
+
+PROFILES (--profile, default local)
+  direct   Bounded, reversible, one session and checkout. Checkout follows
+           [change] checkout (built-in in-place) and --worktree/--no-worktree.
+           Implement, verify, review the diff, commit. No journal topic.
+  local    Spans sessions or roles, or needs host-local evidence CI cannot
+           reproduce. Dedicated branch, checkout follows [change] checkout
+           (built-in in-place) and --worktree/--no-worktree. Verdict or debt per
+           REVIEW COVERAGE AND DEBT, resolved style (built-in fast-forward).
+  forge    A hosted PR adds a remote record, inline discussion, clean runner
+           evidence, or branch protection. local underneath; project only public
+           integration facts into the PR. Delivery and disclosure evidence is
+           local, non-authorizing context; forge closure grants no approval.
+  release  Deployment, publishing, irreversible migration, security-sensitive
+           work. forge plus explicit release and rollback gates.
+
+  Promote when the work reveals more scope, risk, or concurrency; record why.
+  Never keep an undersized profile just because the change started there.
+

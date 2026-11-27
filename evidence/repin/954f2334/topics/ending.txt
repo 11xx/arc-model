@@ -1,0 +1,145 @@
+Session endings and global memory
+
+END A SESSION (what the next one reads)
+  arc journal handoff <topic> --derive        Stopped midstream.
+  arc journal conclusion <topic> --body-file - Finished the thing.
+  arc journal memory <topic> --body-file -     Learned a durable project fact.
+  arc journal memory --global <topic> --body-file -
+                                              Learned an operator-wide fact.
+  arc journal promote <file> --global         Promote a project memory.
+  arc journal consume <file> --outcome done    Drain what you resolved.
+  arc journal archive --consumed               Move the drained to cold storage.
+
+  ORIENT above is fed entirely by these writes: `catchup` surfaces memories,
+  `journal open` lists what a handoff parked.
+
+  Global memories belong to the operator and apply across projects. Their
+  journal is `<ai-home>/arc/journals/global`; `ARC_AI_HOME`, then `AI_HOME`,
+  select an explicit AI home, otherwise `--sandbox`/`ARC_SANDBOX` supplies the
+  home beneath which `.local/ai` lives. `arc catchup` lists global timestamp,
+  topic, title and age in days beneath project memories, without bodies.
+  Read a body with `arc journal show --global <file>`. An unavailable global
+  journal has one warning naming its source; JSON carries global_memory_error
+  in the journal field. Project context and other readable sources remain
+  in the orientation. An unavailable project journal carries
+  project_journal_error while global memories remain readable. Recording
+  discovery failures appear in session_discovery_errors; arc event writers
+  still supply session activity.
+
+  `arc journal --global` selects that journal from any directory for all
+  kinds and their positions and corrections, including `memory`,
+  `show`, `list`, `memories`, `consume`, `reopen`, `position`, `export` and `import`.
+  Project directory mappings and `ARC_JOURNAL_DIR` do not redirect this scope.
+  Promotion takes a live project memory, preserves its body in the global
+  journal, links the journals in both directions and consumes the project
+  record as `superseded`, naming the global file. Historical project bodies
+  remain available. Existing memories stay where the operator filed them.
+  Both journals must have settled exchanges before promotion writes. A durable
+  intent fixes the destination body and both journals' event records in one
+  recoverable transaction. Complete bodies publish without replacing a file.
+  Subsequent journal writes finish interrupted promotions; retrying promotion
+  verifies the body and replays both relation records before reporting success.
+  Global recovery remains discoverable until source intent removal is durable.
+  A remaining source intent whose exact relation records are committed in both
+  journals needs only metadata cleanup after verifying both bodies in hot or
+  archived storage. Recovery preserves their storage and subsequent events.
+  Changed prepared bodies, event logs or a different global journal refuse
+  recovery. Open claims must be released with
+  `arc release-claim <file> --outcome paused|abandoned|expired`.
+
+  A trailing event line without its newline is a torn append. Readers refuse
+  it; writers complete it from the shared prepared transaction. Without a
+  prepared record, the diagnostic gives a command that preserves the log and
+  removes only its incomplete tail.
+
+  Global exchange uses `arc-journal-bundle/2` with logical project identity
+  `arc-global-journal` and a local replica identity held in `replica.json`.
+  The identity is allocated on a global write. Global import accepts global
+  bundles without Git replica pairing; the operator chooses which bundles
+  to carry. Project exchange retains its project identity and pairing checks.
+
+  Which one is decided by how the work ended, not by how much there is to say.
+  Stopped midstream — a handoff; `--derive` reads branch, worktree, head,
+  distance from the target, change and claim out of the repository, so the
+  author writes only what is done, what is open, the next action, and the gate
+  command. Finished — a conclusion. Learned something that will be true next
+  month and is not in the code — a memory, which every later `catchup` shows.
+  Never label unfinished work a conclusion.
+
+  A session journals at five moments, and none of them is the end. A premise
+  checked or an approach abandoned is kept as it happens (`arc keep`), while
+  the reasoning that produced it is still recoverable. A filed claim found
+  wrong is corrected in the same breath as learning so (`journal correct`, or
+  `journal retract` where the entry should stand withdrawn), because a false
+  artifact read as authoritative is worse than no artifact. More evidence for
+  an item that stands is appended with `journal evidence`, not filed as a
+  second item. A round that
+  closes having deliberately left work records what it left (`run end
+  --note`), since a deferral living only in a transcript was dropped rather
+  than deferred. A session stopping midstream writes a handoff (`journal
+  handoff --derive`), which is cheap enough to write at any interruption
+  because only what was learned has to be written by hand. And anything worth
+  doing that is not this change's work — a gap in another tool, a proposal, a
+  field datum about a model — is filed in the owning project's journal when
+  it is noticed (`journal todo` or `journal feature-request`, with `--source`
+  naming this session and an `--item-key`), not saved up for the end, so a
+  later scan of the same recording finds it already filed. The end of a
+  session checks that nothing is left; it is not when filing happens.
+
+CHECKPOINTS (a revision handed over for testing)
+  arc checkpoint record <name> [--rev REV] [--tag] [--note TEXT]
+                               [--milestone <slug>] [--series <series>]...
+  arc checkpoint show <name> [--json]
+  arc checkpoint list [--json]
+  arc journal handoff <topic> --checkpoint <name>
+
+  A series that pauses so somebody can test an integrated build records a
+  checkpoint at the revision handed over (`HEAD` unless `--rev` names one).
+  It holds the revision, its tree and branch, every open change with its
+  patchset and head, every live, unconsumed journal todo of the project,
+  the name of every todo filed by then (open or consumed), every outstanding
+  review debt (matching `arc query --debt`), and — when given `--milestone`
+  and/or repeatable `--series` — a snapshot of each bound series' items and
+  stages (also binding the checkpoint onto the milestone when it is open). Names are
+  unique in a repository. `--tag` also writes the annotated tag
+  `checkpoint/<name>` with `git tag -a`, signed as Git's configuration
+  signs tags; an existing tag refuses with nothing recorded and is never
+  adopted. The tag is written before its event, so an interruption between
+  them leaves a `checkpoint/<name>` tag no checkpoint records; delete it
+  with `git tag -d checkpoint/<name>` and record again. When the event
+  append fails, the tag is deleted again only if the event is known
+  absent; an event published but not confirmed durable, or one whose
+  publication cannot be told, keeps its tag and the error says which.
+  The event is a plain fact: it grants and requires no authority.
+  Recording pins nothing: the revision and every change head the checkpoint
+  recorded are commits the ledger cites, so a rewrite arc performs or
+  records holds each one it replaces under
+  `refs/arc/retained/repository/<event>/<commit>` (`arc guide
+  rewrites-evidence`), with or without `--tag`. `arc doctor` advises on one
+  no ref reaches and names one this repository no longer holds.
+
+  When findings come back, `show` sorts them against the checkpoint. A
+  change open at it is integrated (whether the integrated commit is inside
+  the checkpoint revision is stated), closed otherwise, or still open with
+  its head then and now. Landed since lists every integrated change whose
+  integrated commit its target branch reaches and the checkpoint revision
+  does not, by Git ancestry, open at the checkpoint or not. Ancestry Git
+  cannot answer because a commit is not in this repository is reported as
+  unknown with its reason, never as not reached: a missing checkpoint
+  revision leaves landed since unknown, and a missing integrated commit
+  lists its change as landing unknown. Each todo open at it is consumed
+  since, with outcome and time, or still open. Filed since lists the todos
+  the checkpoint did not record as filed; they are not part of it. A
+  checkpoint recorded without that list compares filing times instead and
+  marks the answer approximate. For bound series/milestone snapshots, `show`
+  reports which items completed, transferred, or were added since the
+  checkpoint; for recorded review debts, it reports which have since been
+  discharged (`arc audit`) versus remain owed. Legacy checkpoints without
+  those fields read cleanly with those sections omitted. A finding about a change landed since is fixed since, one matching a todo
+  is already filed, and the rest are new. `arc journal checkpoint` is a
+  different record: progress on a claimed journal artifact.
+
+  A handoff stopping at the checkpoint names it with `--checkpoint`, which
+  adds one line naming the checkpoint and its revision and refuses a name
+  the repository does not record.
+

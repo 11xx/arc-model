@@ -1,0 +1,32 @@
+Built-in contracts and run-time guide topics
+
+GUIDE TOPICS
+  Built-in topics describe arc's contract and ship with the executable.
+  Run-time topics hold the operator's or project's rules and method in the
+  journal. They are labelled text owned by that scope, not arc's contract.
+    arc journal pin <file.md> --guide <topic>
+    arc journal pin --global <file.md> --guide <topic>
+  The first selects the project journal; --global selects the operator
+  journal. Topic names are lowercase alphanumeric segments separated by
+  single hyphens. Built-in topic names, families and command routes are
+  reserved, including hyphen-joined command paths such as journal-pin.
+  A name can have one pinned artifact per scope. Project text takes
+  precedence over operator text with the same name; the index and search
+  label both. `arc guide` works outside a repository for operator topics;
+  project topics appear wherever the project journal resolves.
+
+  `arc guide <topic>` prints the current body exactly as `arc journal show`
+  does, including appended corrections and blocks. The index uses the title
+  as corrected and the age of the body's last file edit. `arc guide --search
+  TEXT` searches both scopes and built-in instructions; `arc guide --all`
+  prints them all. Run-time text above 16,384 UTF-8 bytes remains readable
+  with a size notice in the index and topic header.
+
+  Repeating a pin with the same reason and guide name writes nothing.
+  `arc journal pin` without --guide preserves its existing guide name;
+  supplying a different name renames the route. `arc journal unpin` removes
+  the pin and its guide route. To keep a plain standing reference, unpin
+  then pin without --guide. Use `arc journal correct` or `arc journal
+  evidence` to append corrections or blocks with history. A successor is
+  a separate artifact: unpin the predecessor and pin the successor under
+  the topic name.

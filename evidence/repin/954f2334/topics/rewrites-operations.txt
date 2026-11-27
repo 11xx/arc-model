@@ -1,0 +1,176 @@
+Signing, trailer edits and tags
+
+HISTORY REWRITES
+    arc rewrite sign [--key <id>] [--from <rev>] [--include-shared]
+                     [--dry-run] [--retag]
+                       Recreate every commit from --from through the branch
+                       head so one key signs them all, move the branch, arc's
+                       refs and the local branches and tags that point into
+                       the range, and record the map. The commit named by
+                       --from is itself rewritten. On a tracked change branch
+                       its default is the oldest
+                       commit not signed by the key in target..head; outside
+                       a change it searches the whole history. Commits
+                       reachable from the target or another local or
+                       remote-tracking branch are
+                       refused, naming the commit and ref, including in
+                       --dry-run. A remote-tracking ref is the change
+                       branch's own work only when its fetch source is a
+                       branch with the change branch's name. The source comes
+                       from the `remote.<name>.fetch` refspecs of every
+                       remote (exact or `*` globs, `+` or not, several lines,
+                       negative `^` refspecs excluding a source), whatever
+                       the tracking ref is called: a branch fetched onto the
+                       change branch's name is that branch's. A ref no
+                       refspec writes, from an older configuration or made by
+                       hand, has no known source and stays protected, as does
+                       one written from a source outside refs/heads/. Where
+                       several refspecs write one ref, each must name the
+                       change branch, including for a configured upstream
+                       with a fetch-refspec alias. Upstream configuration
+                       grants no exemption from the all-sources check.
+                       Target refs remain
+                       protected, a remote-tracking ref fetched from a target
+                       branch among them. --include-shared
+                       grants permission without changing the default range.
+                       With a target, the default always stays in target..head;
+                       an inclusive shared range requires --from. A refusal
+                       advises --include-shared alone for a default range and
+                       retains --from only for an explicitly selected range.
+                       Its planned moves use that same range; an explicit
+                       range reaching target history names the protected
+                       target commits and refs as well as the moves.
+                       Explicit --from includes merged ancestry beyond the
+                       named commit's parents, including target history.
+                       Every moved ref is named with its old and new value.
+                       --dry-run checks map consistency and append policy,
+                       prints the map, every ref it would move, and
+                       the tags it would re-point or leave alone, and stops; --retag
+                       recreates the annotated tags whose targets were
+                       rewritten, signed like the commits. Run again to
+                       finish one that was interrupted.
+    arc rewrite trailers [--sync] [--from <rev>] [--drop <key>]
+                         [--append <line>] [--edits <file>] [--include-shared]
+                       Edit the trailer block of every commit message from
+                       --from through the branch head, and carry the result
+                       through the same map, refs and record. --sync computes
+                       the open change's projected contribution trailers and
+                       appends any missing lines across target..head via the
+                       role-addition rewrite pipeline; it is mutually
+                       exclusive with --edits and --drop, and makes --from
+                       optional (defaulting to the first commit in
+                       target..head). --drop removes every trailer with that
+                       key, matched without case; --append adds a `Key: value`
+                       line the block does not already carry; both repeat and
+                       apply to every commit in the range. --edits <file>
+                       replaces or drops one exact trailer line of one named
+                       commit (below); it repeats, and at least one of the
+                       four modes is required.
+                       Edits apply first, reading each commit's block as the
+                       commit carries it, then --drop, then --append.
+                       A role line, or an Assisted-by line read without its
+                       trailing `(role)`, whose value is no fresh
+                       coordinate (malformed, carrying a placeholder or a
+                       session id, or a person without an email) refuses
+                       before any commit is recreated, including in
+                       --dry-run.
+                       A model equal to the invoking session refuses even
+                       when the session id is not UUID-shaped.
+                       Agent harness, model and supplied effort segments
+                       must be nonempty.
+                       The commit named by --from is itself edited;
+                       it is rewritten when its message or ancestry changes.
+                       Recreating a commit reachable from the target or another
+                       local or remote-tracking branch is refused, naming that commit and ref,
+                       including in --dry-run. --include-shared permits an
+                       intentional shared-history edit. Commits the edit leaves
+                       untouched keep their IDs even inside a shared range.
+                       The same own-remote and upstream exemptions apply;
+                       permission never changes the range named by --from.
+                       Every moved ref is named with its old and new value.
+                       --key, --no-sign, --dry-run and --retag mean what they
+                       mean above.
+    arc history rewrite --map <file> --reason <why>
+                       Record a rewrite performed elsewhere, from its commit
+                       map.
+    arc history resolve <rev>     Where a recorded revision ended up.
+    arc history withdraw <event-id> --reason <why>
+                       Withdraw one history-rewritten repository event. Its
+                       map does not participate in resolution or readiness;
+                       refs are not moved back and retention refs are kept.
+                       Output names recorded ref moves and retention refs,
+                       or says when that information is absent.
+                       Other event types are refused. A withdrawal travels
+                       with the map in full and delta exports, and importing
+                       replicas honour it even when they already hold the
+                       map. A delta can carry repository events with an empty
+                       change suffix. A correct map can be recorded for the
+                       same revisions. Stored events remain intact.
+                       A falsification reference storing a rewritten failure
+                       revision, or a receipt after integration naming the
+                       integrated commit's successor, that only the withdrawn
+                       map carried is set aside: the change stays readable,
+                       `show` reports it under `Set aside`, `doctor` lists it
+                       as the advice `set-aside-reference`, and it counts for
+                       nothing. Re-record the actual mapping with
+                       `arc history rewrite --map <file> --reason <why>` to
+                       restore it without editing ledger events.
+
+  Only the signature and the commit ids change: tree, parents, author,
+  committer, dates, encoding, message and any other header the commit carries
+  — `mergetag`, on a merge of a signed tag — travel through untouched, so a
+  commit recreated without signing has the id it started with. The rewrite
+  names each commit that carried such a header. Trees are identical either
+  way, which is why tree-keyed gate evidence counts the same on both sides of
+  a signing rewrite.
+
+  An edits file is `arc-trailer-edits/1`, one edit per line, the fields
+  separated by tabs:
+
+    # arc-trailer-edits/1
+    <full commit sha>  replace|drop  <exact old trailer line>  <new trailer line, empty for drop>
+
+  Blank lines and `#` comments are skipped; a comment naming another
+  `arc-trailer-edits` version refuses, and a drop may leave out its empty
+  last field. A field beginning with a double quote is a JSON string:
+  `\t` encodes a tab, `\"` a quote and `\\` a backslash; unquoted fields keep
+  literal backslashes. For example, `"Planned-by:\tcodex:unknown"` names a
+  line with a tab after its colon. Quoted fields contain no carriage return
+  or newline; malformed quoted fields refuse with the file and line.
+  An edit applies only to the named commit, which has to be in
+  the --from range, and only to a trailer line of that commit's trailer block
+  whose trimmed text equals the old line exactly. That line occurs once in the
+  block, is not the head of a value continuing below it, and is named by no
+  other edit. `replace` puts the new line where the old one was and `drop`
+  removes it. A new line on `Planned-by`, `Implemented-by`, `Reviewed-by` or
+  `Orchestrated-by` is a fresh coordinate, and on `Assisted-by` so is its
+  value without a trailing `(role)`. Agent harness, model and supplied effort
+  segments must be nonempty. Models equal to the invoking session
+  refuse even when the id is not UUID-shaped. Any violation refuses before
+  a commit is recreated, `--dry-run` included, naming the file and line. `--dry-run`
+  lists each edit as `<short sha> <action> <old line> -> <new line>` with the
+  map. A recreated commit keeps its tree, author, committer and both dates;
+  `--key` signs it, and pins, retained commits and `--retag` tags move as for
+  any rewrite.
+
+  A trailer edit recreates a commit only when it reached that commit or its
+  ancestry moved: a message the edit leaves alone, under commits it left
+  alone, keeps the id it had and stays out of the map. So a run that names a
+  key nothing carries and a line every commit already has moves nothing. The
+  trailer block is the last paragraph when every line in it is a `Key: value`
+  line or a continuation indented with whitespace, and never the subject; a
+  message with no such paragraph grows one, separated by a blank line.
+  Messages are edited as bytes, so one that is not UTF-8 comes through
+  unchanged.
+
+  An annotated tag names its commit through a tag object of its own, so
+  moving the ref would not re-point it. Left alone it keeps naming a replaced
+  commit, and `git describe` and the changelog projection have no release
+  boundary on the branch until it is re-pointed; the rewrite says so for each
+  one. `--retag` recreates them, carrying name, message, tagger and date. A
+  tag signature covers the tag object, so none carries over: every recreated
+  tag is signed afresh by the key the commits are signed with (`--key`, or
+  Git's configured signing key), whether or not the original was signed, and
+  `--no-sign` leaves them unsigned. `--dry-run` says which tags would be
+  signed.
+

@@ -1,0 +1,17 @@
+Round endings and execution roles
+
+  - A bounded round records what it deliberately left, so the next round
+    inherits a list instead of a memory: `arc run end <dispatch> --outcome
+    <o> --reviewed-head <sha> --raised-json <path|-> --deferred-json <path|->`.
+    A deferral requires a `why` and gets a `def-<ulid>` when it names no id; a
+    later round on the same subject discharges it with `--collects <id>`.
+    `arc inbox` and `arc catchup` carry the ones still open.
+  - arc holds no routing opinion. It records the --actor and --harness
+    it is given and resolves an undeclared model from the acting session.
+    Who to delegate to is the caller's policy, not arc's.
+  - A delegated session binds its boundary with `ARC_ROLE` or `--role`. An
+    implementer may not record a verdict, an external verdict, `resolve`,
+    `hold`, `release-hold`, `audit`, `debt`, `close`, or `integrate`. A
+    reviewer may not run `debt`, `close`, or `integrate`. Recording a brief
+    or a budget suspension (`arc gates suspend`) is a lead's. An unset role is `lead`, with full access.
+

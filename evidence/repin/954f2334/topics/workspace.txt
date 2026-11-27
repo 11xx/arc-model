@@ -1,0 +1,130 @@
+Workspace orientation
+
+FROM A WORKSPACE ROOT (outside a project)
+  arc workspace backlog --here
+                       Discover work beneath this directory without crawling it.
+                       One report ends with the detail command that re-runs it
+                       as itemized JSON for that exact scope; --items selects
+                       the rows and --json selects the rendering.
+  arc workspace inbox --here
+                       Each project's count of open actionable filings untouched
+                       for more than 14 days, including projects with no ledger.
+                       `arc journal filed --stale 14` lists their fates.
+                       Each registered project's predicate buckets, observed
+                       from that project's own checkout; the same --under and
+                       --here scope selects the same set as the backlog.
+  arc workspace inventory [--storage hot|archived|all]
+                       Reconcile every registered project's stores: where each
+                       artifact sits, what resolved it, and its recorded
+                       successor. It accepts the same
+                       `--under`/`--here`/`--global` scope, reports the same
+                       collection manifest, exits 16 on a partial collection,
+                       and is versioned `arc-workspace-inventory/2`.
+  arc workspace pins [--here|--under PATH] [--json]
+                       Each project's pinned journal artifacts, grouped by
+                       project, and the operator journal's when unscoped
+                       (arc guide journal-references). Exits 16 when a
+                       journal cannot be read. `arc-workspace-pins/1`.
+  arc workspace progress [--here|--under PATH] [--plain|--json]
+                       Each project's active progress series in full, in
+                       the forms `arc progress` prints (arc guide progress).
+                       Exits 16 when a journal cannot be read.
+                       `arc-workspace-progress/1`.
+  arc workspace milestones [--here|--under PATH] [--plain|--json]
+                       Each project's active milestones in full, in the forms
+                       `arc milestone` prints (arc guide milestones). Exits
+                       16 when a journal cannot be read.
+                       `arc-workspace-milestones/1`.
+  arc workspace report [--previous FILE] [--library] [--progress] [--milestones] --json
+                       The backlog classified by named rules: each artifact's
+                       status (unresolved, delivered, claimed, ...), the
+                       sections a reader acts from, and attention facts, so
+                       any renderer draws the same page from the same ledger.
+                       --previous compares the same schema and scope. Deltas
+                       require observed facts; departures keep their recorded
+                       reasons and do not imply resolution. Each change is
+                       counted once with all its inbox predicates; questions
+                       retain who may settle them. Two or more open changes
+                       whose in-force briefs share a plan and slice, or a body
+                       digest, are one `shared-plan-slice` fact. Review-owed
+                       rows carry the effective `kind`, declared `reason`,
+                       nullable `patchset_id`, `declared_at`, and `declared_by`.
+                       `--help` lists every attention rule. Versioned
+                       `arc-workspace-report/3`. With --library, each observed
+                       project's `library` lists all hot and archived artifacts
+                       and recorded relocations, newest filename first. The
+                       library belongs to the row's `journal_dir`; project
+                       labels can repeat. Rows
+                       carry `project`, `file`, absolute `path`, corrected
+                       `title`, `kind`, `topic`, filename `timestamp`, nullable
+                       RFC 3339 `filed_at` and `changed_at`, and `storage`
+                       (hot, archived, relocated). `changed_at` is the latest
+                       understood event naming the file or superseding it;
+                       without an event it is null. `status` is present,
+                       unresolved, consumed, archived, superseded or relocated;
+                       consumption takes precedence over archiving. Optional
+                       `resolution` and `resolution_basis` retain the inventory
+                       vocabulary; `superseded_by` names a successor and
+                       `superseded_by_relocated: true` marks its relocation.
+                       `pinned: true` marks an in-force pin in the project's
+                       journal; otherwise the key is absent. Operator journal
+                       pins belong to that journal, not to project libraries.
+                       Titles use the actionable rows' heading and fallback
+                       rules; without a correction the heading lookup reads
+                       the artifact body. No inventory claims, promotions or
+                       content rendering are computed for library rows.
+                       Without --library the field is absent. Failed library
+                       reads enter the collection manifest as `library`.
+                       With --progress, a project that has active progress
+                       series carries them as `progress` (arc guide progress).
+                       With --milestones, a project that has active milestones
+                       carries them as `milestones` (arc guide milestones).
+  <ai-home>/arc/feed/events.jsonl
+                       The workspace feed: after each committed ledger or
+                       journal write, one `arc-workspace-feed/1` line. A
+                       ledger notice (`source` `ledger`) names the published
+                       `path` and, for a change event, its `change`; a journal
+                       notice (`source` `journal`) names the journal `dir`,
+                       with `binding` true when the write changed what the
+                       registry says of it. Each carries `at`. Reads append
+                       nothing. A notice
+                       follows its write: failing to append fails nothing,
+                       and a follower that missed notices reads again. Past
+                       1 MiB the file moves to `events.jsonl.1`, replacing it.
+  arc workspace watch [--previous FILE] [--library] [--progress] [--milestones]
+                       The report as one JSON line, then again each time a
+                       notice changes it: only the projects the feed names are
+                       read again, and with --progress or --milestones each
+                       project referencing a written project.
+                       Requests on stdin compare with a previous
+                       report or refresh every project; it ends when stdin
+                       closes. --library retains each project's library beside
+                       its row and reads it again only when that project is
+                       dirty; a library-only change, including a pin or unpin,
+                       emits too. --progress and --milestones retain each
+                       project's progress series and milestones the same way,
+                       so edits or linked writes emit. `--help` holds the contract.
+  cd <anchor>          Enter one project named by the report, then orient there.
+  arc workspace retire <journal-dir|slug|anchor> --reason TEXT [--dry-run]
+                       Take a registration whose project is gone (a probe,
+                       deleted worktree, or scratch directory) out of what the
+                       workspace views observe, so its missing anchor stops
+                       failing the collection. It shows what the project still
+                       holds, refuses while the anchor exists, a `data_root`
+                       ledger holds open changes or owed debts, a transition
+                       is unfinished, or a claim is active, and refuses
+                       unresolved artifacts unless --archive-unresolved
+                       shelves each in the cold archive with the reason. The
+                       `retired` binding with its reason lands in the
+                       journal's own bindings.jsonl; nothing is deleted.
+                       Views count it as `collection.retired` and list it
+                       under --retired. Read its history with
+                       `ARC_JOURNAL_DIR=<journal-dir> arc journal show <file>`.
+                       A moved project is not retired: `arc journal rebind`
+                       adopts it from the new checkout.
+  arc workspace restore <journal-dir|slug|anchor> --reason TEXT
+                       End a retirement. A journal write from a checkout at
+                       the anchor ends it too, re-registering the project.
+                       Archived artifacts stay archived until
+                       `arc journal unarchive`.
+

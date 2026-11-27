@@ -1,0 +1,89 @@
+Preparing delivered changes
+
+PREPARE A DELIVERED CHANGE
+  Fetch the delivery's Git objects and recorded branch through your transport,
+  then run `arc accept INPUT --branch LOCAL-BRANCH --publisher PRINCIPAL
+  --received-sha256 SHA256`. The branch must exist under the recorded name at
+  the delivered latest patchset head, or its recorded signature-only successor.
+  Acceptance never fetches, creates a branch alias, or overwrites another branch.
+  The receiver must be paired, hold integration authority, and act as lead.
+
+  Acceptance reads and digests the bundle once and uses import admission against
+  held history. It checks authority, objects, attribution, checkout identity,
+  and the delivered patchset's bound brief and resolved base before importing.
+  Admission revalidates under publication locks. If the authoritative target
+  moved beyond that base, acceptance stops with explicit rebase, snapshot, and
+  fresh review guidance; content replay requires the lead's own decision.
+  Provisional ancestry requires canonical prerequisites and explicit replay.
+
+  A delivery whose bundle binds an arc-custody-bundle/1 sidecar installs it
+  with --custody-dir DIR, judged exactly as `arc import --custody-dir` judges
+  it, in the import preview and before any effect; a refusal stops acceptance
+  at import-preview. Without the flag, acceptance still imports, and the
+  import-preview and import steps and next_steps say custody is unavailable,
+  name the manifest digest the bundle binds and the flag that installs it.
+
+  Acceptance reuses a clean registered checkout of the branch or allocates an
+  owned checkout under the configured worktree root. --worktree selects an
+  existing matching checkout or an absent path, never unrelated content.
+  A ChangeCheckoutBound fact binds the checkout to its recording replica.
+  Only locally allocated ownership grants cleanup rights; relayed paths and
+  tokens grant none. Local facts receive IDs after admitted change and repository
+  events, independent of the sender's timestamps. Binding, signing, snapshot,
+  and verification records retain their own observation times. Operational
+  projections choose a local binding and clear foreign paths and ownership.
+
+  In order, acceptance imports, binds the checkout, signs exclusive change
+  commits using Git's configured key (or --key), snapshots, runs required local
+  head gates, evaluates a distinct target tree when needed, and runs each bound
+  probe at baseline and final in declaration order. Baselines use scratch
+  checkouts at the bound brief's base. The snapshot preserves the delivered
+  patchset's resolved base, brief binding, and explicit contributors, including
+  when a foreign actor holds the claim. Insufficient legacy attribution requires
+  --contributors or --solo. Imported passing evidence never suppresses the local
+  head-gate run. A profile without gates evaluates nothing.
+
+  Preparation records evidence and returns readiness; it records no judgment.
+  Signature-only rewrites carry eligible existing approval through the verified
+  rewrite map. They emit no verdict. Genuine eligible verdict forks retain all
+  tip IDs and origins and refuse readiness; the local reviewer resolves them
+  through the explicit superseding verdict path after reading the signed head.
+  A configured foreign-review exception remains visible in verdict assessments.
+  Preparation commonly completes with exit 3 and local review still owed.
+  Gate failure exits 5, probe discrimination exits 12, and execution or
+  observation failure exits 1; an unavailable runner proves no discrimination.
+
+  --json emits one arc-accept/1 document containing delivery coordinates,
+  prepared head, worktree, preparation_complete, ordered operation argv/cwd,
+  outcomes, exit codes, recorded event IDs, stopping step, readiness, verdict
+  tips, local_verdict_owed, and next_steps. Each step distinguishes commands from
+  internal operations. Command argv and cwd reproduce the selected operation;
+  checkout allocation uses --no-checkout, followed by an internal owner/binding
+  record, explicit read-tree population, and the post-checkout hook.
+  A local allocation record binds repository, change, branch, expected head,
+  physical checkout and Git administrative directory to its reserved owner token.
+  A binding refusal retains this proof and reports unpublished binding state.
+  Retry revalidates registration, identity and ownership before finishing the
+  binding and population. Only an empty, index-free allocation containing its
+  own .git link can be populated; unrelated content or a displaced owner refuses
+  recovery. The record is removed only after a local binding and population
+  complete. Relayed paths and tokens supply no allocation proof.
+  Steps report observed ref changes, written object IDs and kinds, checkout
+  allocations/removals, written administrative owner records, unpublished local
+  bindings and allocation recovery, and pending rewrite intent with its map, planned refs,
+  current ref values, publication event, and continuation argv/cwd. These effects
+  include commits and ref moves preceding event publication. Observation errors
+  remain explicit and cannot turn incomplete accounting into successful
+  preparation. Human output prints the same actual constituent operations. The first failing step stops the coordinator; earlier
+  import, signing, checkout, snapshot, and evidence effects remain visible,
+  including unrecorded signing effects. Restore ledger publication access before
+  continuing a pending rewrite; the intent preserves the exact objects and ref
+  moves to reuse.
+  Retry revalidates the same delivery and reuses admission, local binding,
+  unchanged patchset, and rewrite recovery. Checks may record fresh evidence.
+
+  --dry-run performs admission and local-state preflight and prints conditional
+  steps. It imports nothing, allocates no checkout, creates no Git objects,
+  signs nothing, runs no checks, and records no evidence. Signing and future
+  verification outcomes remain conditional.
+

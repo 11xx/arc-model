@@ -1,0 +1,60 @@
+Retention, checkouts and release copy
+
+  Integration prints the integrated revision and closure event before
+  releasing retention refs. A retention cleanup failure, including a ref lock
+  or a hook rejecting deletion, warns with the ref prefixes that may still
+  hold pins; the recorded integration succeeds,
+  including as a queue member. `close` prints the closed change and closure
+  event before retention cleanup; a cleanup failure warns with the remaining
+  ref prefixes and the recorded closure succeeds, including an asserted
+  integration after an external fast-forward merge.
+
+  In-place checkout creates and switches to the change branch in the invoking
+  checkout, recording it as the change's worktree so subsequent commands infer
+  the change. Tracked edits, staged changes, untracked files, and ignored files
+  carry across when Git can preserve them. An overwrite conflict refuses with
+  a non-zero exit naming the conflict, without creating a branch or opening a
+  change.
+  An existing branch requires `--adopt`; a branch checked out elsewhere cannot
+  be switched to in place. `--adopt` records an existing worktree and creates
+  none; only explicit `--no-worktree` switches to the adopted branch.
+
+  Release copy is recorded per change and rendered at release; arc imposes
+  no file convention. While an open change has no changelog record, `arc
+  status` and `arc check` advise one under the code `no-changelog-entry`,
+  never as a blocker, and `arc integrate` prints that advice once it has
+  merged such a change. Recording `--none --reason` that the change needs
+  no entry answers the advice and projects nothing; the latest record wins.
+  A repository that keeps no changelog declares `none = "<reason>"` in
+  `.arc/changelog.toml`. The reason must be non-empty and not a placeholder;
+  `none` conflicts with every explicit `target`, `renderer`,
+  `renderer_command`, or `renderer_timeout` key. The declaration silences
+  `no-changelog-entry`, including integration advice. Like debt advisory
+  thresholds, it is read from the invoking checkout, not the change's target
+  branch. An unreadable declaration warns on stderr and declares nothing for
+  `arc status`, `arc check` and integration advice; readiness is unchanged.
+  `arc check` prints the declaration and its reason; `--json` includes
+  the optional `changelog_none` reason in `arc-check/4`. `arc changelog`
+  refuses entry recording and `--write` under the declaration. Per-change
+  `--none --reason` remains valid and is unnecessary; reads remain available.
+  Without the file, the target is `CHANGELOG.md`.
+  Text --provenance omits the session field and masks its id as [session]
+  wherever it occurs in metadata values, including derived actors. The
+  provenance prefix and field names retain their literal text.
+  --json retains full session provenance. --provenance refuses with --write.
+  The built-in renderer replaces the `## [Unreleased]` block of the target
+  `.arc/changelog.toml` names, `CHANGELOG.md` by default. Prose is refilled;
+  fenced and indented code retain their lines and container-relative columns.
+  Empty list items retain their markers.
+  A project whose file follows another convention selects `renderer =
+  "command"` with a `renderer_command` argv. That command runs from the
+  repository root without a shell, under `arc guide gate-confinement`,
+  reads an `arc-changelog-render-request/1` document on stdin,
+  and answers on stdout: the rendering for a read, and for `--write` the
+  complete replacement file, written atomically after it exits 0. It may
+  answer without reading the whole request. Its process group is killed when
+  it ends.
+  The request's projection is the text-side view: each entry's recorded
+  session is null and its id is masked as [session] in the other recorded
+  values, with or without --provenance.
+

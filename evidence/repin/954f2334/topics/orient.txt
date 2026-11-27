@@ -1,0 +1,101 @@
+Project orientation and plans
+
+ORIENT INSIDE A PROJECT (start here, in this order)
+  arc catchup --sessions 5
+                         Recent project sessions across harnesses, ordered by
+                         last recorded activity, with model, filed item count,
+                         and naming handoffs/conclusions. Activity within seven
+                         days with neither filings nor an ending artifact reads
+                         unfiled.
+                         Recordings span the primary checkout and its worktrees;
+                         ledger and journal writers remain visible without a
+                         recording. Each backend is queried once with an unrestricted
+                         candidate window; readable rows rank by recorded activity.
+                         A backend scan bound carries a one-line warning that hidden
+                         sessions may rank inside --sessions. Failures are reported.
+                         Pending transitions carry diagnostics and supply neither
+                         filings nor naming handoffs/conclusions.
+  arc journal filed [--session ID] [--stale 14] [--json]
+                         Filed artifacts grouped by writing session, retaining
+                         distillation sources and superseded origins. Direct writes
+                         and published transition successors count, including imported
+                         and spool-promoted artifacts with their original writers.
+                         A transition requires its supersedes link and a complete
+                         staged body match or its source's recorded retirement,
+                         in hot or archived storage. Unverified pending intents
+                         are omitted; journal doctor reports pending transitions.
+                         --session matches the writing or source session id.
+                         Fates are open, taken (with change ids), done, superseded,
+                         discarded, relocated, or stale. Staleness
+                         measures recorded inactivity on open actionable items;
+                         active claims and evidence suppress it. Plain reads
+                         record no activity.
+                         JSON includes fate counts for mining and renderers,
+                         and each item's count of evidence blocks.
+                         Catchup and workspace inbox surface the same stale count.
+  arc catchup            Text warns when the build commit differs from HEAD
+                         in an arc-ledger checkout: older for an ancestor,
+                         differs otherwise, and dirty if built with tracked
+                         edits. Unknown revisions and other projects have no
+                         build warning.
+                         Live state: ledger queue, deferrals delegated rounds
+                         left open, journal backlog, forks, unowned branches
+                         and worktrees, and what the change and fork
+                         worktrees occupy — apparent size, with the mount's
+                         free space, measured at the configured worktree root
+                         or, when the configuration cannot be loaded, at the
+                         current checkout, which a stderr warning says. A path
+                         several changes record names them all, and a change
+                         not checked out there carries the command that would
+                         let it gate.
+  arc fork adopt <slug> [--branch B]
+                         Record a branch the operator made by hand as a fork;
+                         any local branch, keeping the name it carries.
+  arc fork <slug>        Fork this repository: a worktree on fork/<slug>,
+                         outside the change lifecycle — unintegrated by
+                         intent; the operator decides what to merge, rebase,
+                         or discard. A fork's work is unintegrable: a change
+                         whose branch is a fork's is refused by `integrate`
+                         and `check` from every directory, and `begin`
+                         refuses to open one. `arc fork retire <slug>
+                         <outcome>` records the
+                         disposition and removes the worktree. `arc fork
+                         thread <slug>` names the harness, session, and model
+                         that opened it, and how to resume that session.
+  arc fork list --json   `arc-forks/3`; base_branch is null when no recorded
+                         or safely discovered integration branch is available.
+                         Text renders that missing base as unknown.
+  arc journal open       The actionable backlog — work waiting for a session.
+                         Incomplete successors appear under `pending`, with
+                         availability `pending-transition`, outside actionable
+                         counts. Retry the source transition before promotion;
+                         transition and claim refuse a pending successor too.
+                         Inventory and workspace backlog retain that status.
+                         A row occupied by somebody reads `[claimed by <actor>
+                         via <harness>: active|expired]`; `--json` carries the
+                         same as `availability` and the claims themselves.
+  arc journal inventory --json
+                         Shared artifact facts, claims, questions, promotions,
+                         and explicit ledger coverage. --archived selects cold
+                         storage; a filename inspects one exact artifact. A
+                         plan whose every promotion has closed reads
+                         `promotions: closed` while staying listed, and
+                         `integrate`/`close` name the `journal consume` that
+                         makes closing the loop a decision.
+
+  Plans carry portable planned-by metadata: `--planned-by` takes a JSON
+  object of `actor`, `harness`, `session`, and `model`, with effort riding in
+  the model as `<model>#<effort>`. A brief selecting --plan-ref and
+  --plan-slice captures the body digest and declared planners; reading the
+  brief prints available credit suggestions. Conflicting or malformed
+  metadata grants no credit, and corrections leave existing briefs unchanged.
+  Headers, event metadata, corrections and captured brief coordinates must
+  satisfy the coordinate rules before granting credit. Forbidden nonempty
+  coordinates read as malformed, including placeholders and session-id models.
+  A planner correction that fails validation when read, as one imported from
+  another build can, is not dropped: `arc journal show --json` reads
+  `planner_status: malformed` with its amendment ID in
+  `planner_correction_event`, and no planner is credited until a later
+  correction replaces it. `planner_correction_event` also names the correction
+  in force when the status is `corrected`, and is null when none was recorded.
+

@@ -1,0 +1,21 @@
+--- evidence/repin/35f9501d/overview.txt	2026-11-27 01:22:17.736967467 -0300
++++ evidence/repin/954f2334/overview.txt	2026-11-27 01:22:57.855259924 -0300
+@@ -54,10 +54,11 @@
+ 
+ KEEP WHAT YOU LEARN
+   arc keep                       a checked premise or rejected approach, as it arises
+-  arc journal todo, arc fr       separate work, filed when you notice it
++  arc journal todo, arc fr       separate work; arc feedback <project> for tool friction
+   arc journal memory             project facts; --global for operator practices
+   arc journal workbench <slug>   working material a later session or lane reads;
+                                  a cache directory holds only what can be rebuilt
++  arc progress, arc milestone    series and multi-track milestones, on request
+ 
+ END A SESSION
+   arc journal handoff <topic> --derive   for unfinished work
+@@ -76,4 +77,4 @@
+   Topics: overview identity workspace orient sandbox questions change delivery
+   replicas journal ending profiles forge debt assurance repair contributions
+   rewrites history candidates context rules cost probes cleanup exit-codes files
+-  gates gates-together base-passes slots schemas boundaries
++  gates gates-together base-passes slots progress milestones schemas boundaries

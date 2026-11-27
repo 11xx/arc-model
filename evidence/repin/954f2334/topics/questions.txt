@@ -1,0 +1,223 @@
+Discussions, questions and decisions
+
+SETTLE A QUESTION (before it is work)
+  arc journal note <topic> --kind discussion --body-file -
+  arc journal position <file> --body-file - [--stance <for|against|amend>]
+  arc journal question <file> --placement opening|closing --option <a> --option <b> --body-file -
+  arc journal questions                Every question waiting on a person.
+  arc journal delivered <file> --question <id> --to person|anyone|delegate:<name>
+    --handle <opaque>                  Record that you asked somebody.
+  arc journal scaffolds [--show <n>]   What a write adds, before it does.
+  arc journal answer <file> --question <id> --option <choice> --body-file -
+    --other "<answer>"                 Settle it outside the options offered.
+  arc journal discussion <file>        Read stances, branches, and open questions.
+                                       The file is read hot or cold from the project
+                                       journal; ORIENT shows how to find one.
+  arc journal suggest <file> --question <id> --option <opt> --body-file -
+                         Suggest an option without settling the question;
+                         every question view shows it beside the options.
+  arc journal latest <topic> [--kind <k>]
+                         One topic's newest artifact, hot before cold; inside
+                         one second the successor relation and recording order
+                         decide, never the filename suffix.
+  arc journal correct <file> --target <t> --field <f> --value <v> [--note]
+                         Model corrections are checked against the target's
+                         recorded session and the invoking session. An answer
+                         target names its latest settlement. Evidence IDs
+                         accept actor and model corrections; retraction marks
+                         their evidence withdrawn in `journal show --json`.
+  arc journal show <file> --json
+                         Positions and evidence list IDs, headings, bodies,
+                         recorded identities, corrected fields, and withdrawal
+                         status. Recorded identity models retain raw values with
+                         `model_recorded: false` when missing, placeholders or
+                         session ids; valid models omit the flag.
+                         Unrecorded blocks have null recorded identity;
+                         detached events have null heading and body. Corrections
+                         and retractions list typed events in log order.
+                         Headings and fence markers permit up to three columns
+                         of indentation; indented code is prose. Unrecorded
+                         fenced entry, question, and answer examples are prose;
+                         recorded position, evidence, question, and answer
+                         markers terminate an open fence, and a heading that
+                         repeats an entry ID already met is a quotation.
+                         Entry bodies keep their indentation. Question readers,
+                         `show --json`, discussion tallies, and doctor share
+                         quotation and stance rules.
+  arc journal doctor
+                         Matches position and evidence blocks with typed events
+                         for every artifact kind in hot and cold storage. Either
+                         missing half is a problem.
+  arc journal retract <file> --target <t> --body-file -
+  arc journal reattribute <file> --set-actor <a> --set-harness <h>
+    --set-session <s> --set-model <m> [--dry-run]
+                         Repair one artifact's recorded creation authorship
+                         in place; other event kinds and delegated records
+                         refuse by name. Repair and every event append share
+                         an event-write lock, so an append cannot be lost when
+                         the repaired log is published. Model replacements are
+                         flag declarations compared with the retained observation;
+                         changing harness or session clears that observation.
+                         The effective model must not equal the effective
+                         recorded session, including a supplied --set-session.
+                         Unnamed model fields otherwise keep their historical values.
+                         Legacy placeholder harnesses and sessions read as absent
+                         and do not identify sibling references during repair.
+  arc journal decision <topic> --body-file -        Write the verdict first.
+  arc journal consume <file> --outcome done --decision <decision>
+  arc journal transition <file> --to discussion [--dry-run]
+    Change a live artifact's kind as one guarded operation: a typed successor
+    with a `supersedes` link, the source retired. Promotion to a code change
+    stays with `begin --from-journal`, never a kind conversion.
+    Complete Markdown is staged durably under `.transitions/` before the
+    relation event, then published exclusively and verified before retirement.
+    Reusing a matching preparation syncs its file and directory before the
+    relation is recorded. Retry uses the prepared bytes, including a supplied body and title. A
+    legacy pending successor is verified against the original body and title;
+    a mismatch preserves the artifact and refuses retirement. A readable
+    supersedes prefix alone supplies no publication evidence.
+  arc journal <kind> <topic> --body-file -   One verb per kind; `arc journal
+                                       --help` is the registry. `arc fr` is
+                                       the top-level alias for one of them.
+  arc journal <kind> <topic> --source 'harness=<h> session=<id> ts=<rfc3339>'
+    --item-key <k>                     Where a distilled item came from; a
+                                       repeat reports the existing item.
+  arc journal <kind> <topic> --source 'intake=<name> item=<id>' --item-key <k>
+                                       The same for an intake item.
+  arc journal source --harness <h> --session <id> [--item-key <k>] [--json]
+                                       What one recording already produced.
+  arc journal source --intake <name> --item <id> [--item-key <k>] [--json]
+  arc journal source-attach <file> --source '<spec>' [--item-key <k>]
+  arc begin <slug> --from-journal <file>
+
+  The ledger records what happened and what is allowed; the journal records
+  what people think. A question with more than one defensible answer belongs in
+  a discussion before it belongs in a change — positions carry the model and
+  harness that argued them, so a decision can be read later by who reached it
+  and on what grounds, rather than surviving only in one session's transcript.
+  Every journal event records the `--on-behalf-of` subject beside the identity
+  that ran the command, so ceremony a lead performs for an executor is legible
+  as both rather than as the lead alone.
+
+  A proposal with one defensible answer is not a discussion, it is a feature
+  request: `arc fr` files it, `arc journal open` lists it back, and `begin
+  --from-journal` turns it into work when its turn comes.
+
+  Every kind is a verb under `arc journal`, so the closed set is legible from
+  `--help` rather than from a flag's values; `note --kind <k>` remains the
+  same write underneath. `discussion` has no write verb on purpose — one is
+  argued and read far more often than created, so `position`, `question`,
+  `answer` and the `discussion` summary are its surface, and `note --kind
+  discussion` opens one.
+
+  Below its heading, a discussion holds its conventions, then the opening
+  body under `## The question`, then `## Positions`. `position` appends at
+  the end of the file, so what follows `## Positions` is the argument and
+  nothing else. Any scaffold places the body at its `{{body}}` line, and a
+  template without one is followed by the body. A heading the body opens
+  with, on its first non-blank line, stays the artifact's first line, above
+  the template, and the rest of the body takes the template's place.
+
+  Every artifact opens on a heading, because a queue row reads its description
+  from there and a row that names nothing is a row nobody picks up. `--title`
+  sets it; a body that already opens on a heading keeps its own; a body that
+  opens on prose is headed from its topic slug and the write says so, leaving
+  a name worth correcting rather than a blank one to discover later.
+
+  An item distilled out of a recorded session carries where it came from.
+  Every write verb and `journal log` take `--source 'harness=<h>
+  session=<id> ts=<rfc3339>'`, with optional `turn=`, `schema=`, and
+  `coverage=` recorded only when an emitter supplies them, plus
+  `--item-key <k>` naming one item inside that recording. The coordinate is
+  all that is kept: no transcript text, credential, or digest enters the
+  journal, and arc never opens the recording to infer a project or a body.
+
+  That reference is what makes rescanning the same endings cheap. A write
+  whose recording and key were already recorded writes nothing and prints
+  the existing entry with its disposition — `open`, `no-action`, or
+  `consumed:<outcome>`. `journal log <topic> "<message>"
+  --source .. --item-key .. --outcome no-action` records the judgment that
+  an item needs no work at all, so a later scan is answered without an
+  artifact entering any queue. `journal source --harness <h> --session
+  <id>` lists everything one recording produced here; `journal
+  source-attach <file> --source ..` records a further recording as
+  evidence behind an artifact, since one item can be evidenced by several
+  sessions. Which project the item lands in stays the caller's choice
+  through ordinary anchor resolution: a recorded session directory is
+  evidence, never authority to write there.
+
+  An item a person left in an intake outside arc, such as `tray`, is a
+  source too: `--source 'intake=<name> item=<id>'`, exactly those two
+  fields, the name matching `[a-z][a-z0-9-]{0,31}` and the ID one token of
+  at most 128 bytes. Its identity is the intake and the item alone, so a
+  keyed repeat by any session, harness or model writes nothing and prints the
+  existing entry; the session that writes is still recorded as the writer.
+  `journal source --intake <name> --item <id>` lists what the item produced,
+  `source-attach` accepts the same spec, and views keyed by session never
+  read an intake item as one. `arc catchup` counts open intake items: `arc
+  catchup --help`.
+
+  An entry filed wrong is amended, never rewritten. `correct` replaces one
+  field of one entry — the artifact's `title`, a position's `stance`,
+  `option`, `ref`, `actor` or `model`, an answer's `option` — and `retract`
+  withdraws a position or an answer with a reason. Both append a block naming
+  what changed and leave the original where it was filed, so the artifact
+  still reads as the argument that happened while the tally, the branches,
+  the question queue, and the open queue read the value in force. A retracted
+  position leaves the tally; a retracted answer reopens its question, and a
+  question answered again is settled by its latest answer: an amendment of
+  `answer:<question id>` names the answer it was made against
+  (`settlement`), and one recorded without it binds to the answer standing at
+  its place in the log. Both are
+  open on a consumed artifact, which is closed to new work but not to being
+  wrong. A row for a filed claim carries `[amended ×N]` for the positions
+  standing on it, so a claim amended three times is not read as one filed
+  once.
+
+  Consuming a discussion names what it shows: every position from one
+  participant, or a last position nobody answered. Warnings, never refusals —
+  one voice is a legitimate way to settle something, and the point is that
+  whoever resolves it is told which they are resolving.
+
+  Resolve a discussion as done, or promote the still-open discussion to work —
+  never both. `consume --outcome done` cites a terminal decision; `begin
+  --from-journal` consumes the open discussion as superseded by the change.
+
+  A question outlives the work that raised it. `consume` refuses while a typed
+  question is unanswered, because disposal would drop it into a file no queue
+  lists; `begin --from-journal` warns instead, since supersession claims
+  nothing was settled and the body travels onto the change. Both name the ids,
+  and a question worth keeping past either is worth its own artifact.
+
+  A question says what this session should not settle alone. arc records that
+  one is waiting, and who may settle it: a person by default, `anyone` with
+  `--settle-by anyone`, or a named delegate with `--settle-by delegate
+  --delegate <name>` — an operator who handed the call to a stronger model
+  records exactly that, instead of a question holding open against a person
+  who was never the only possible answerer. Raising it is still the agent's
+  job, through whatever prompt its harness offers — `arc journal questions
+  --json` carries the settle-by, the options, and the branches already
+  argued, which is everything a prompt needs — and `answer` is where the
+  reply comes back. Once you have raised it, `delivered <file> --question
+  <id> --to person|anyone|delegate:<name>` records that you did; arc keeps
+  the fact and sends nothing. Every question view then reports `delivery`:
+  `unasked` means prompting work remains, `delivered` means the reply is
+  merely pending, `answered` ends it, and `unknown` marks a question older
+  than the record itself — posing marks the facility, so only questions
+  predating that reach it. Asking again records
+  again — nothing is erased, because a question asked twice and still
+  unanswered is the more urgent one — and a question waiting on one named
+  delegate accepts only that delegate. When the answer is none of
+  the options, `--other "<answer>"` records it in the answerer's own words
+  and marks that the menu was stepped outside, because a menu somebody had to
+  leave was framed wrong and the next one should know. Placement decides when:
+  `--placement opening` before anyone argues, so every participant starts from
+  the same premise, or `closing` once the argument is in — never mid-argument,
+  which would make you watch a run you delegated. Argue a closing question on
+  both sides first (`position <file> --body-file - --question <id> --option <opt>`)
+  and the answer picks between explored branches instead of labels. Advice, not
+  a condition: an answer over a branch nobody argued records and says which
+  branch was skipped. Refusing it would measure the typed binding rather than
+  the arguing, and is satisfied most cheaply by a thin position under each
+  losing branch — the labels this exists to avoid.
+

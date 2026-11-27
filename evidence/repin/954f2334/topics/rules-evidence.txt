@@ -1,0 +1,158 @@
+Trees, attribution and acceptance evidence
+
+  - Gate evidence binds to a tree, not to a commit. A change sitting behind
+    its target merges to content neither branch committed, and evidence at the
+    head says nothing about it: `check` refuses with `merged-tree-unevaluated`
+    until `arc verify --against <target>` runs the required gates on that
+    merge, in a scratch checkout it removes afterwards. The result is spent
+    the moment the target moves, because that is a different merge. A head
+    already on the target tip merges to the tree it already has and needs
+    nothing new: a rebase that moves the base without touching the diff lands
+    on the tree that was evaluated, and the evidence carries over to it. The
+    gate line reads `inherited from <revision>` wherever the run that answered
+    was against another commit holding that tree, and `verify`, `snapshot
+    --verify`, `done` and an integration queue reuse that run instead of
+    repeating it, recording `verification-reused`, unless `--rerun` is
+    given. Reuse claims content alone. A gate whose command reads commit
+    messages or history declares `binds = "commit"`, which no other
+    declaration of that gate withdraws: a run answers for its recorded commit
+    (or its merge into the named target), and follows only `signature_only`
+    and `role_additions` rewrites (`arc guide rewrites-evidence`) when the
+    destination is unchanged (including synthesized `--against` merges whose
+    source parent followed an approved rewrite against the same target); any
+    target move, content-changing edit, or non-role message edit leaves it
+    stale and forces a fresh run; `publication --skip-green` reuses its pass
+    only at the target revision it ran on. An arc that predates the key ignores it and treats the
+    gate as tree-bound. A single `integrate` runs no
+    gate; it checks that the merge it made carries the tree that was
+    evaluated, and undoes it otherwise. A queue runs the ones with no answer
+    at that tree, because it moves the target itself and every member behind
+    the one it just landed is now evaluating a different merge.
+    The rule names no integration shape: under `ff-only`, where no merge
+    ships, a change behind its target still lists `merged-tree-unevaluated`
+    beside `needs-rebase` in `check --json`, and `check` exits 11 for the
+    rebase before it would exit 14.
+  - At unchanged content, an explicit snapshot subject (`--on-behalf-of`,
+    including `ARC_ON_BEHALF_OF`) that differs from the latest patchset's
+    effective author records a fresh patchset. An equal or omitted subject
+    preserves the existing patchset and its attribution; omission never
+    reverts a represented subject to the invoker. The output names the
+    effective subject. Earlier verdicts stay bound to their own patchsets;
+    gate evidence at an unchanged tree follows its ordinary reuse rules.
+  - A snapshot records the context that framed the work. Each journal link
+    names an artifact by filename with the body digest read at record time,
+    and a `via` saying where it came from. With no `--journal-ref`, a
+    snapshot (`snapshot`, `done`, `rebase`, and the ones `squash` and `review
+    --snapshot` take) links the artifact the change was opened from (`via: begin`,
+    whose digest `begin --from-journal` also records on the change) and the
+    plan its brief names (`via: brief`), one link per file; a file named by
+    both is linked once as `begin`. A default that no longer resolves in the
+    journal or its cold archive is left out with one stderr line naming the
+    file and its source, and the snapshot still succeeds. Any `--journal-ref`
+    replaces the defaults: only the flagged artifacts are linked, `via:
+    flag`, and a name that resolves to no artifact refuses the snapshot.
+    `--thread <scheme:id>` records an opaque external thread reference. A
+    rerun at an unchanged head that supplies neither flag keeps the
+    patchset's existing links. `arc show`, `arc log`, and `arc status
+    --json` render them, bundles carry them, and `arc journal inventory`
+    names the patchsets that cite an artifact. Arc records identifiers only,
+    never transcript text: retaining a recording is not arc's promise, and a
+    remote recording is read on the machine that holds it.
+  - A journal artifact named for promotion or framing (`begin
+    --from-journal`, `brief --plan-ref`, `snapshot --journal-ref`) is a
+    filename in this project's journal, or `<journal-dir>::<file>` for one
+    another project's journal holds, `<journal-dir>` being the absolute path
+    that project's `arc journal dir` prints; the file is read hot, then cold.
+    A directory that is not a journal, or a file it does not hold, is refused
+    naming both. These references and a `brief --must-read` artifact refuse a
+    path by naming the reference that resolves it, and a filename this
+    project's journal does not hold by naming each other known journal that
+    holds it as `<journal-dir>::<file>`, or that form when none does; when
+    the known journals cannot be listed the refusal says why instead. The
+    change records the reference as given, with digests read from the owning
+    journal. A cross-project `begin --from-journal` or `brief
+    --plan-ref` appends a `promoted` event to the owning journal naming this
+    repository id, change, and checkout, and a non-plan source is consumed
+    there as superseded by that change. The owning journal's `inventory`,
+    `open`, and workspace views list the promotion with its `repository_id`,
+    its status read from the promoting ledger: `unknown` when that ledger
+    cannot be read, which never counts as closed. Only the owning project
+    consumes, archives, unarchives, transitions, appends to, amends, or
+    reattributes an artifact. A qualified reference to one is refused naming
+    the owning journal, and so is a bare filename neither this project's
+    journal nor its cold archive holds but another known journal's hot or
+    cold storage does: the refusal names each such journal and its project,
+    where the write runs with the bare filename.
+  - A gate may declare an environment probe: a command whose output
+    identifies the environment the gate's evidence applies to. `verify` runs
+    the probe beside the gate and records its identity on the evidence. The
+    identity is a digest of the probe's stdout, and only a successful run
+    that prints something yields one; a failed, empty, or overrunning probe
+    yields none, so two environments in which it fails do not share one.
+    Readiness runs the probe the target's declarations select against the
+    content the evidence is looked up at: the merged tree when the change is
+    behind its target, else the head's. It runs in the invoking checkout when
+    that holds the content clean, else in the change's worktree when that
+    does, so a change editing a probe's script, or adding a gate with the
+    script its probe runs, is judged by its own copy. With neither, a report
+    that only observes, such as `status`, `check` or `integrate --dry-run`,
+    runs the probe nowhere and counts no receipt: the gate reports
+    `needs_evaluation`. `integrate` runs it in a checkout made for the
+    content, without build preparation, and removes that before merging or
+    refusing. Readiness counts
+    the evidence only when the two identities agree; a receipt from another
+    environment is reported inapplicable, naming both identities, and a
+    receipt with no identity is reported unknown. A probe that yields no
+    identity leaves every receipt for the gate not-green. Evidence that
+    records no environment identity satisfies only gates that declare no
+    probe, and a gate that declares none takes evidence from any
+    environment. A probe is bounded by the gate's declared timeout, or
+    thirty seconds when the gate declares none, and its process group is
+    stopped before arc uses its answer, so nothing a probe starts outlives
+    it. The newest run at the
+    evaluated tree under the declared gate and applicable environment
+    decides; other runs cannot hide it. An attested run happened where arc
+    observes nothing, so `--attest` takes the identity with
+    `--environment <IDENTITY>`.
+  - A hostname arc could not read is recorded as `unknown`, a host fact
+    on verification and candidate-evaluation events.
+  - Executed verification and candidate gates retain combined stdout and
+    stderr under the producing ledger's private `gate-output/` directory.
+    Files have mode 0600 and the directory 0700. Each capture keeps its first
+    16 MiB; publication retains 16 completed files, expiring the oldest
+    captures, while active captures are separate. Events carry
+    `output_artifact`: the producing store, relative path, retained SHA-256
+    and byte length, full observed stream SHA-256 and byte length, and
+    explicit truncation or capture errors. Capturing a truncated prefix does
+    not prove the absence of diagnostics in the omitted bytes. A capture
+    error does not change the command's observed result or prevent its tail
+    from being recorded. Status carries the metadata even for a passing gate;
+    ordinary output retains only a short tail. Attestations carry no capture.
+    An output reader unfinished at its deadline supplies no artifact: its
+    diagnostics have unknown capture coverage, never an invented empty stream.
+    These files are local diagnostics: exports contain their metadata alone,
+    and a path naming an expired or another store's file is unavailable. The
+    verification event binds the capture to its command, revision, tree,
+    environment and result; retention never changes those evidence facts.
+  - A gate that passed is not evidence that it could have failed. Watch it
+    fail first, then record the pass with `--falsified-by <failing-event>
+    --predicted "<why it should fail>"`; the gate line then reads
+    `discriminating` instead of `undiscriminated`. Advisory: it changes no
+    result and no exit code, and only the declaration makes a row
+    `discriminating`. Separately, a pass that follows a failure of the same
+    gate (or command, when unnamed) on the change records the newest such
+    failure as `falsification_inferred`, declared or not: an inference,
+    labelled as one, that decides nothing. Acceptance-probe evidence neither
+    records one nor serves as the failure one names.
+    The reference stores the failure event's original revision; projections
+    follow active recorded rewrites. A stored rewritten reference is accepted
+    only when an active rewrite chain carries that same failure revision to
+    the exact stored successor. Unrelated revisions, including ones sharing
+    an eventual successor, are refused. Withdrawn maps supply no proof: a
+    reference only a withdrawn map carried is set aside and reported, and
+    re-recording the actual map with `arc history rewrite` recovers it.
+    Verification replays its candidate event before appending or pinning
+    its tree, refusing evidence that would make the change unreadable.
+    A passing gate row is `discriminating` when any passing evidence for that
+    gate at the counted tree (or revision when the tree is unresolved) names
+    a falsification. A later pass without one does not retract it.

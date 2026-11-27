@@ -1,0 +1,20 @@
+Arc and Git ownership
+
+arc — persistent context and guarded workflow state over plain Git for agentic coding arcs.
+
+arc is a local context and workflow-state manager for agentic coding. It
+keeps a shared account of what is being worked on, what has been learned or
+decided, what remains to be done, and what is actually safe to integrate.
+A cold session reconstructs project and workflow context from the journal
+and change ledger shared across worktrees and harnesses.
+
+Git owns content, branches, and history. arc owns changes, patchsets, briefs,
+handoffs, findings, verdicts, verification evidence, holds, and guarded
+integration. Review verdicts bind to exact patchsets; integration checks
+findings, holds, and required verification gates before merging.
+Run `arc catchup` for live project state and `arc journal open` for work
+waiting for a session.
+Run `arc guide` for indexed topics, `arc guide <topic>` for depth, or
+`arc guide --search <text>` to find a topic or command-help route.
+`arc guide guide-topics` explains editable operator and project guide topics.
+

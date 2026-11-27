@@ -1,0 +1,105 @@
+Budget raises and trusted growth counting
+
+GATE RAISES
+  `arc gates raise GATE --reason TEXT` records a proposed gate increase.
+  `arc gates raise --total --reason TEXT` raises only the integration total;
+  GATE with --total requests both transitions atomically. A reason says what
+  was tried first. Higher numbers must be committed in .arc/gates.toml at the
+  clean change head.
+
+  Removing a gate is reviewed like any diff and needs no raise record. The
+  change still owes the destination's gate under its destination budget.
+  Keeping a gate while removing only its budget is refused; restore its budget
+  or remove the gate. Removing [budget] total or its table while any gate
+  remains is refused; restore the total or remove every gate. Removing
+  every gate and the table together needs no raise. Lowering a gate
+  budget or the total needs no raise.
+
+  The newest direct execution of that gate at the exact head must pass, be
+  observed clean and stable on that head's tree, match the destination check
+  and current environment, be unexcused and recorded under no suspension
+  (`arc guide gates`), exceed the destination budget and fit the proposed
+  one. Reuse, rewritten execution coordinates, attestation, bypass and measurement
+  output cannot establish this need. Later evidence remains subject to ordinary
+  newest-evidence judgement; a raise never masks a failure.
+
+  The allowed increment is old_budget * raise * min(1, added / raise_per),
+  rounded down to milliseconds with checked integer arithmetic. [budget] raise
+  defaults to "20%" and raise_per to 500; raise_per must be positive. Percentages
+  accept up to four decimal places. JSON budget_rules.raise uses millionths;
+  raise_per uses lines. Destination and operator rules supply the
+  trusted allowance; head rules may tighten it. Repeated requests spend from
+  the same destination budget and final delta, without compounding.
+
+  Counting requires the destination revision to be an ancestor of the head
+  and to contain the change's declared base. Unintegrated prerequisites provide
+  no credit to another member.
+  arc-budget-growth/2 compares those endpoint trees once per subject, with
+  pinned 50% rename/copy detection, unlimited rename candidates, NUL-delimited
+  UTF-8 paths, no external diff or text conversion. Eligible nonblank growth
+  is the sum of logical-file growth minus shrinkage and deletions in the same
+  counted scope, floored at zero. Records retain growing and shrinking files
+  with their before/after counts. Moves between files and file splits earn
+  nothing without net scope growth. Whitespace-only changes, pure moves,
+  copies without growth, binary and non-UTF-8 content,
+  symlinks and gitlinks earn nothing. Binary/custom diff attributes from either
+  committed endpoint exclude a file; isolated Git metadata prevents host attributes
+  or driver configuration from granting credit. Uncertain input refuses a raise.
+  Cross-scope moves earn nothing; modified moves inside scope earn only growth.
+  Overlapping patterns count a file once; intermediate commit churn earns nothing.
+
+  A gate's destination paths bound counting; operator paths may narrow the scope.
+  A gate without paths and the total count every path outside trusted inert.
+  Destination and operator inert exclusions restrict growth and shrinkage.
+  Head paths and inert exclusions may remove growth credit; trusted shrinkage
+  remains a debit. Moving a file out of scope debits its counted source.
+  Selection's unnamed-path fallback grants no extra allowance. [budget] exclude
+  in operator policy names generated/vendor paths, independently of inert and
+  gate selection.
+  A repository's exclude list cannot authorize counting exclusions. Administration
+  of operator policy is trusted authority; raise never edits that file.
+
+  This allowance is a per-change brake, not a cumulative growth bound or a
+  judgement of whether added text is valuable. Operator [budget] total is the
+  fixed ceiling for repeated raises. Doctor and gates warn when budgets have no
+  operator ceiling. Review must still assess padding, relevance and the reason.
+
+  Every raised total needs its own explicit transition and allowance, counting
+  all qualifying files. Its required declaration sum, across every profile and
+  the unqualified case, must exceed the old total and fit the new one and the
+  operator ceiling. A new gate can justify a total-only raise without an old
+  gate exceeding its budget. All other effective total rules remain binding.
+
+  The immutable gate-budget-raised event records change, destination revision,
+  exact head/tree, counting algorithm and rule digest, per-file counts, old/new
+  budgets, allowance, cited direct execution or total declaration sum, and reason.
+  Head matching follows `signature_only` and `role_additions` rewrites when the
+  tree, diff, and destination are unchanged (`arc guide rewrites-evidence`).
+  Every content, destination, or non-role rewrite — including amend, rebase,
+  squash, and `--drop`/`--edits` trailer rewrites — requires re-establishing
+  the record. Current applicability is rederived from retained objects and
+  receiver policy; missing objects or changed counting, execution or policy
+  inputs refuse it.
+
+  Snapshot captures the complete immutable raise set. Appending a record requires
+  a fresh snapshot even at the same Git head, and fresh review or recorded debt
+  under the ordinary policy. Status and check expose budget_raises; show JSON
+  retains budget_raises as facts and adds budget_raise_status. Show's budget review
+  checklist names old/new values, scope, allowance, execution, reason, total and
+  ceiling. A debt-backed raise is evidence with review owed, never reviewed.
+
+  Integrate, accept, both landing forms, candidate selection/promotion and fresh
+  or cached publication refuse an unrecorded or stale declaration increase even
+  when every run fits the old budgets. Each landing member owns its allowance;
+  records and line credit are never pooled. An associated publication change uses
+  its validated record; an arbitrary branch cannot authorize its own increase.
+  After integration the destination declaration supplies the higher ordinary
+  budget for later changes. The record and authorization remain historical facts.
+
+  Export/import and replicas transport raises as factual evidence with cited
+  executions and retained head/destination objects. Receiver constraints decide
+  applicability; a producer's acceptance grants no receiver authority. Historical
+  replay does not consult current budgets. Budget-bearing writes/imports adopt
+  store format 9 before publishing evidence; executables through format 8 refuse.
+  Change bundles require the exporter's store-format capability; import checks
+  the reader's supported store format. Export does not adopt the local ledger.

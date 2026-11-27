@@ -1,0 +1,91 @@
+Concurrent claims, lanes and recovery
+
+RULES THAT CHANGE WHAT YOU DO
+  - A verdict binds to the exact approved patchset head. Any new commit makes
+    the approval stale until a fresh verdict on a new snapshot.
+  - The ledger gates; claims, stages, and lanes are advisory signals, never locks.
+  - Integration warns about an active foreign claim unless the caller
+    supplies the complete matching actor, harness, and session. An absent or
+    empty coordinate cannot match a recorded owner. Integration remains lead-owned.
+  - A lane's owner is a harness and a session together. Harnesses mint session
+    strings independently, so neither half names an owner on its own.
+  - Owned journal lifecycle events require complete identity. Claim renewal,
+    progress, checkpoints, and release match the claim's actor, harness, and
+    session; lane renewal and closure match its harness and session. A stale
+    lane can be closed by another complete identity with outcome `expired`.
+    Established identity strings retain their whitespace on writes and reads.
+    Lane renewal checks existence and ownership before reading status input
+    and again under the transition lock. Lane opening and closure share that
+    lock, so the check and append observe one lane state.
+  - A lane is occupancy of a topic; a claim on a journal artifact is occupancy
+    of that file. Both render on a row and neither becomes the other: work with
+    no artifact still takes a lane.
+  - An artifact claim expires by its lease alone. A change's stages are
+    budgeted and a stage over budget reads `stale`; an artifact's claim takes
+    `arc stage <file>` progress in the same vocabulary but no stage carries a
+    budget, so `expired` is when it becomes reclaimable, and `--takeover` is
+    what displaces it.
+  - A claim that is not yet reclaimable is displaced only by `--takeover
+    --because <reason>`, and the reason is recorded on the displaced claim,
+    printed wherever it is rendered, and verified by nobody. The evidence a
+    holder is gone — `agent-status-absent`, `delegate-exit:<handle>` — is
+    observed outside the ledger, and the record is what makes a lease cut
+    short auditable afterwards. Without a reason the refusal stands, because
+    a live lease and a dead one read alike from inside arc.
+  - `arc journal consume` and `arc journal transition` refuse while any claim
+    on the artifact is open, and take `--acknowledge-claim <id>` for each.
+    Those claims then end with `ended_by` naming the event and no owner
+    outcome: how somebody's work stopped is theirs to say. `arc begin
+    --from-journal` closes the invoker's own claim as `promoted` citing the
+    change it opened.
+  - Give every concurrent writer its own branch and worktree. Integration and
+    shared refs belong to the lead alone. The stash is one of those refs:
+    every worktree of a repository shares `refs/stash`, so a concurrent
+    writer never runs `git stash` — another worktree's pop applies it there.
+    It commits work in progress and amends it, or copies files aside.
+  - Worktrees of a repository share one ledger, so a write can find a lock
+    another worktree's command holds. Ledger, journal and operator policy
+    publication locks are waited for up to 15 seconds, and a wait past one
+    second prints a stderr line naming the lock. A lock still held after that
+    refuses the command, naming the lock and asking for a retry. An integration
+    target lock, and the replica-state lock an integration holds around it,
+    wait up to 30 seconds. A verification whose gates ran but whose
+    evidence could not be recorded prints each such result as `not recorded:`
+    and exits non-zero; that result is not evidence until a rerun records it.
+  - An executor's first act is `arc config --check-writable`; a nonzero exit
+    means stop, not work around. Only writability decides that exit: the
+    `commit` line says whether a commit can be made at all, while the
+    `signing` line reports whether a signed one can be and never gates the
+    exit, because whoever lands the work signs it. A project whose
+    `commit.gpgsign` is on still needs signing working somewhere before its
+    commits can land. It releases its claim whenever it stops, for any
+    reason, so a live claim always means live work.
+  - An executor that hangs never reaches its own release. Before leaving a
+    delegated run unattended, arm `arc watch <change> --until stalled`; silence
+    is unknown, not healthy. `stalled` is a stage clock, not an activity
+    check: it holds once a live claim has sat in one stage longer than that
+    stage's budget, counted from its last `arc stage`, or from the claim while
+    it is still at `launch`. Only `arc stage`, re-reporting the current stage
+    included, or a snapshot under the claim restarts the clock; output, logs,
+    and claim renewals do not, so an executor that works without reporting a
+    stage reads as stalled exactly like a hung one. The reached line names the
+    stage, its age, and its budget. `arc rescue <change> --take` recovers it,
+    and `arc rescue <change> --transcript` reads the exact claimed session's
+    latest operator turns through the linked tapes library, taking the newest
+    4 MiB of a recording file as its window. It names the reader and the read
+    bound, or the cause and reason when lookup or reading cannot finish; the
+    reason is one bounded line, as an identity lookup's is.
+  - `arc watch <file.md> --until stalled` arms the wait over an artifact
+    claim, whose stages carry no budget, so it stalls when its lease runs out,
+    and `arc rescue <file.md> [--take]` reports where the work stopped and
+    takes it over. An artifact answers only `stalled`; the rest of the
+    vocabulary asks about patchsets and verdicts.
+  - `arc watch <change> --until` accepts `snapshot`, `stalled`, `reviewed`,
+    `approved`, `gates-green`, `ready`, `blocked`, `brief-recorded`,
+    `integrated`, and `closed`. `approved` returns on the latest approving
+    verdict, including a provisional approval and its recorded reason;
+    `gates-green` checks every required gate at the current head; `blocked`
+    and `brief-recorded` name the events that recorded those facts.
+    --timeout bounds Git probes and their pipe cleanup. At the deadline,
+    the probe process group is terminated and unfinished pipe workers are
+    detached.

@@ -1,0 +1,53 @@
+Attribution and model evidence
+
+SAY WHO YOU ARE (before the first write)
+  eval "$(arc env)"                    Detect harness, session, model, and session link.
+  export ARC_ACTOR=<name> ARC_HARNESS=<antigravity|claude|codex|opencode|pi> \
+         ARC_SESSION=<id> ARC_SESSION_LINK=<url>
+
+  `arc env` prints a build comment naming the compiled commit and whether
+  tracked files differed at build time (clean or dirty). Builds outside Git
+  report unknown. `arc --version` prints the release version alone on its
+  first line and `build: <commit> (clean|dirty)`, or `build: unknown`, on its
+  second; `-V` prints the release line alone.
+
+  `arc env` leaves ARC_MODEL and ARC_ACTOR unset. Each write resolves the acting
+  session's model. ARC_ACTOR stays undeclared by default so an inferred session
+  cannot silently satisfy declared-actor or independent-review policies; set
+  `export ARC_ACTOR=<name>` or pass `--actor <name>` when acting as a declared
+  author or reviewer. Declare a model with `--model` or export ARC_MODEL; the
+  declaration is recorded with any observed disagreement. `arc show --json` and
+  `arc log` show the model evidence.
+
+  A Codex model selection outside the transcript tail is sought through at
+  most sixteen 1 MiB metadata pages per invocation, in addition to the normal
+  store and transcript reads. Private checkpoints under
+  `<ai-home>/arc/cache/model-lookups` retain the selection or backward cursor
+  bound to the recording's session, source and stat revision. An unchanged
+  recording resumes; changed recordings restart. Rerun `arc env` after a
+  bounded lookup to continue. Missing selections, skipped records and source
+  changes remain explicit rather than attributing an older cached model.
+
+  Omit a value nobody established; never declare a placeholder. A write
+  refuses a harness, session, actor or on-behalf-of subject that is one
+  (unknown, unset, none, null, n/a, na, tbd, undefined, ?, -, <synthetic>,
+  synthetic), an actor of the form harness:model carrying one, and a model
+  that is one or is a session id. Reads and Git hooks never refuse.
+  Agent harness, model and supplied effort segments must be nonempty.
+  An actor written as harness:session requires a nonempty session.
+
+  Text views validate recorded producer models. A missing model, a placeholder
+  or a session id prints as `<harness> (model not recorded)`, or
+  `model not recorded` when no harness is established. Valid model and effort
+  spellings retain their coordinates. JSON production identities, journal
+  artifact and entry writers, filed and recent sessions, suggestions,
+  verification stamps, review coverage, and audit and verdict details retain
+  the raw model value with `model_recorded: false` when it names no model;
+  valid models omit that flag.
+  Workspace report debt rows retain the raw implementer value with the same
+  optional flag. Review coverage retains the originating session and validates
+  the model against it; coverage a debt declaration captured before it carried
+  a session reads that session from the verdict it was captured from. Audit
+  and verdict details validate models against their recorded sessions in text
+  and JSON.
+
