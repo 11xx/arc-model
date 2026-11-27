@@ -1,0 +1,12 @@
+cabal v2-build --enable-tests -j1 +RTS -M1g -RTS: exit 0
+cabal v2-test --test-show-details=direct -j1 +RTS -M1g -RTS: exit 0
+spec: 570/570 checks passed
+candidate-spec: 102/102 checks passed
+Every test/executable imports heap-cap (-M1g); builds use one job.
+Eight source mutants: each exits 1 for the predicted semantic assertion.
+Differential against 954f2334, all four channels: exit 0, 0 disagreed, 0 failed to replay.
+Modeled-change replay (954f2334): 22/22 claims agreed, 3 observations, sandbox exit 0.
+Actor replay (actor-replay.sh): check exit 0, integrate exit 1 (unestablished actor), sandbox exit 0.
+Retained publication replay: 6/6 claims agreed, sandbox exit 0.
+Retained 35f9501d modeled-change replay: 15/15 claims agreed, sandbox exit 0.
+Retained b405104a modeled-change replay: 8/8 claims agreed, sandbox exit 0.

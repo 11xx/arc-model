@@ -1184,21 +1184,25 @@ under unsettled design would have to be settled first.
 ## Comparison revision
 
 comparisonRevision names source revision
-35f9501d9c17d1fcd46a3b49bec19310aa55c179. The clean installed
-executable has build revision `35f9501d9c17d1fcd46a3b49bec19310aa55c179`.
-Its SHA-256 is `85edecfeefc5ba8239bcad5248aff7e890036551bac9ad1d83b593cd8aaac884`.
+954f23340cec1a7b96130fceb1ec311eb5f5cf9b. The clean installed
+executable has build revision `954f23340cec1a7b96130fceb1ec311eb5f5cf9b`.
+Its SHA-256 is `33f0e0c93d785cfbedc3e850c5e6d65134fcf75c594be9f5f196839aa8a82153`.
 The public interface capture is retained under
-[evidence/repin/35f9501d](evidence/repin/35f9501d); no arc source or build
-checkout was used. The re-pin began against the installed clean build
-`510e3f0a680bbc5252a28bbd23fee268f7bff4ab`, SHA-256
-`47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`, and
-continued against `12dd52f5d003434fa07eb77908ea26af3c39af9d`, SHA-256
-`ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a`, whose
-public text is byte-identical to the pin's; the comparisons run against each
-are retained under [at-510e3f0a](evidence/repin/35f9501d/at-510e3f0a) and
-[at-12dd52f5](evidence/repin/35f9501d/at-12dd52f5).
+[evidence/repin/954f2334](evidence/repin/954f2334); no arc source or build
+checkout was used.
 
 The prior pin is source/build revision
+35f9501d9c17d1fcd46a3b49bec19310aa55c179, clean, with SHA-256
+`85edecfeefc5ba8239bcad5248aff7e890036551bac9ad1d83b593cd8aaac884`; its
+capture is retained under [evidence/repin/35f9501d](evidence/repin/35f9501d)
+(including its earlier comparisons at `510e3f0a680bbc5252a28bbd23fee268f7bff4ab`,
+SHA-256 `47bdf645e5c1e3d5cf776f8a171c506d9c8b8bff7ed43e0e55b4ce882d179e70`, and
+`12dd52f5d003434fa07eb77908ea26af3c39af9d`, SHA-256
+`ac51e4b124db738bd4f4112921a3738d99fc35814e3fbd535de6670b911f358a`, under
+[at-510e3f0a](evidence/repin/35f9501d/at-510e3f0a) and
+[at-12dd52f5](evidence/repin/35f9501d/at-12dd52f5)).
+
+The pin before it is source/build revision
 b405104a7fc6758afa0ffd9ff0fc538eb6c02b9b, clean, with SHA-256
 `1b16bfcd7e1d923e063b1928b939faad4cef0bc1e7a2aa0106778d204ff3ef42`; its
 capture is retained under [evidence/repin/b405104a](evidence/repin/b405104a).
@@ -2116,16 +2120,22 @@ not a proof of equivalence.
 
 ## Known unsupported semantics
 
-- **Current external authorization requirements.** C14 documents commit binding;
-  C31-C44 state budget/raise/total checks and the busy-host excuse, baseline
-  retention and full publication audits, coverage acquisition, host
-  locks/batches, bound-run attribution, eligible rewrite acquisition,
+- **Current external authorization requirements.** C14 documents commit binding
+  (and `signature_only`/`role_additions` carry); C10 documents finding
+  `resolved --commit` ancestry/patch-id survival and default fast-forward
+  auto-stamping shared-history refusals; C31-C45 state budget/raise/total
+  timing checks and the busy-host rule (Version 2), baseline retention and full
+  publication audits, coverage acquisition, host locks/batches and `--parallel`
+  isolated worktrees, bound-run attribution, eligible rewrite acquisition,
   observed/dated review clearance, extents, receipts, atomic landing,
-  acceptance execution, write-confinement scope and enforcement, and the
-  reserved commit-identity guard. They remain absent from the pure input
-  vocabulary except the C22/C29/C35/C36 decisions and C43's declaration
-  identity explicitly realized. Model permissions assume those independent
-  requirements succeeded.
+  acceptance execution, write-confinement scope and kernel enforcement, the
+  reserved commit-identity guard (`reserved-identity`, exit 21), and Git
+  trailer/invariant file reading. They remain absent from the pure input
+  vocabulary except the C6/C22/C27/C29/C35/C36 decisions, C31-C33's pure
+  budget-suspension and `[budget]` enforcement-key rules (`Arc.Model.Budget`),
+  C43's open-change confinement resolution and identity, and C45's gate-trailer
+  validation and `invariants`/trailer identity explicitly realized. Model
+  permissions assume those independent requirements succeeded.
 
 - **Planning with `--debt`, and `--expect-basis`.** The model realizes both
   (`planDeclaring`, `executeDeclaring`; C28), pinned by fixtures. No channel
@@ -3065,3 +3075,174 @@ requirements succeeded. Nothing was filed into arc's repository or journal.
 This episode completes local implementation and comparison only. The change
 remains on its branch in its retained worktree for the lead's review; it was
 not pushed, integrated or installed.
+
+## Re-pin at 954f2334
+
+The comparison source is the clean installed build
+`954f23340cec1a7b96130fceb1ec311eb5f5cf9b` (SHA-256
+`33f0e0c93d785cfbedc3e850c5e6d65134fcf75c594be9f5f196839aa8a82153`). Its guide,
+every route (including new `progress` and `milestones` routes), and all 291
+recursive help surfaces are retained in
+[evidence/repin/954f2334](evidence/repin/954f2334), with their complete
+difference from the retained `35f9501d` capture (66 guide hunks across 34
+topics). No arc implementation or checkout was read or rebuilt; the current
+README is not exposed by the installed binary.
+
+### Contract classification before implementation
+
+Every changed sentence that states what integration, landing, promotion,
+publication, or acceptance permits or refuses is classified hunk by hunk in
+[authorization-index.md](evidence/repin/954f2334/authorization-index.md). By
+family:
+
+| family | clauses | boundary |
+| --- | --- | --- |
+| gate budget suspensions (`arc gates suspend` / `resume`, format 13) and `[budget]` enforcement keys (closes E1) | C31, C32, C33, C42 | modeled in `Arc.Model.Budget`: bounded <= 24h admission, store-local scope, early resume, integration-only acceptance of over-budget passes while active, strict refusal of failures/not-admitted/unmeasured/declaration errors/publication, exclusion of runs recorded under suspension from work references / raise evidence / base-pass seeds, and `[budget]` enforcement keys; outside: wall clocks, durations, store format 13, role enforcement |
+| canonical busy-host rule Version 2 / Version 1 (closes E6) | C31 | settled in `CONTRACT.md` from `gate-costs`; outside the pure model (perf counters, host CPU shares, durations) |
+| open-change `[confine]` resolution (closes E2) | C43, C12 | modeled (`resolveOpenConfinement`): destination + operator roots; head governs only when neither declares a table, else head roots are ignored (never refused) and `required = true` on any side enforces; outside: kernel enforcement, fallback, closed-change revision resolution (F4) |
+| earlier-patchset waiver retirement | C6, C22, C27 | modeled (`waiverRetiredBy`, `StandingRetired`): guarded integration authorized by an independent, non-denied approval of the shipped patchset retires earlier-patchset waivers so they create no shipped obligation; a waiver used to authorize remains owed |
+| gate trailers (`arc-gate-trailers/1`: `Witness:`, `Change-size: interface`) and `invariants` | C12, C14, C31, C45 | modeled (`validateGateTrailers`, `DeclarationShape.invariants`, `DeclarationShape.gateTrailers`): syntax validation, refusal of invalid/empty/multiline/mixed/>3 witnesses and invalid change-size, and reuse-identity binding; outside: Git commit trailer reading, `ARC_WITNESSES`/`ARC_CHANGE_SIZE`/`ARC_INVARIANTS` env vars, `interface_budget` timing |
+| reserved commit identities (`reserved-identity`, exit 21, shipped patchset scope; closes E3) | C44 | settled in `CONTRACT.md`; unrealized in the pure model (commit addresses are Git object bytes) |
+| verdict vs audit clearing of `ineligible-review` (closes E4) | C22 | settled in `CONTRACT.md`: `arc review` is open-only and `arc audit` is integrated-only, so `integrate --debt` clears only with an audit |
+| integration readiness target/merge-tree check (closes E5) | C20 | settled in `CONTRACT.md` (exit 1, writing nothing); observation race remains outside the pure model |
+| commit-bound gate passes and raises following `signature_only`/`role_additions` rewrites; bundle rewrite conflict filtering | C14, C32, C39 | settled in `CONTRACT.md`; unrealized (no rewrite maps in the pure model) |
+| finding `resolved --commit` ancestry / patch-id / survival rule | C10 | settled in `CONTRACT.md`; unrealized (commit ancestry, Git patch-ids, and revert detection are Git effects) |
+| `--parallel` isolated temporary worktrees producing green gating evidence | C16, C37 | settled in `CONTRACT.md`; unrealized (worktree execution is external) |
+| default role-trailer auto-stamping (`[trailers] auto = true`, `--no-trailers`), shared-history refusal, `Reviewed-by` projection, and squash/derived asserted correspondence | C10, C39, C41 | settled in `CONTRACT.md`; unrealized (Git rewrites and correspondence verification are external) |
+| snapshot `--contributors` `on_behalf_of` fallback, `arc env` leaving `ARC_ACTOR` unset, Antigravity harness | C1, C18, C38, C40 | settled in `CONTRACT.md`; unrealized (identity acquisition is external) |
+| `progress`, `milestone`, `feedback`, `journal reopen`, journal raster attachments, offline `forge ingest`, `stats --by-model`, landing-time stamps, `CACHEDIR.TAG`, `cat-file --batch-command` | none | outside: pull-only tracking, journal records, offline observation ingestion, diagnostics, and timing reports conferring no authorization |
+
+### Findings for arc's public documentation
+
+All six findings from `35f9501d` (E1 to E6) are closed by the `954f2334`
+captured text; the settling sentences and new findings F1 to F6 are retained in
+[documentation-findings.md](evidence/repin/954f2334/documentation-findings.md):
+
+1. **F1 (C31, C42).** `arc verify --help` still omits budget suspensions from
+   its over-budget exit sentence (in the sandbox replay, `arc verify` exited 0
+   with `accepted over budget` under an active suspension); `rules-rounds`
+   restricts `arc gates suspend` to lead without stating whether `arc gates
+   resume` is also lead-only; and `gates` vs `candidate verify --help` leave
+   open whether candidate verification/selection/promotion honour an active
+   suspension.
+2. **F2 (C31, C45).** Neither `arc check --help` nor `exit-codes` names a
+   blocker or exit code for invalid gate trailers (the sandbox replay observed
+   exit 5, blocker `gates-not-green`, and `gate_declaration_errors` in
+   `arc-check/4`); and `interface_budget`'s interaction with `[budget] total`
+   and absent `interface_budget` under `Change-size: interface` is unstated.
+3. **F3 (C6, C27).** Earlier-patchset waiver retirement says the waiver "stays
+   in the event history and creates no shipped obligation" without naming its
+   JSON `debt_standing` representation (the sandbox replay observed `debt: null`
+   in `arc show --json` and absent from `arc query --debt`).
+4. **F4 (C12, C43).** `gate-confinement` states "A closed change uses its
+   destination branch's current table", whereas C12 (`change-integration`) pins a
+   closed change's project gate declarations to the closure's recorded
+   `target_before` revision.
+5. **F5 (C10, C39).** The top paragraph of `arc integrate --help` still says
+   "Review credit stays in the ledger" and "Contribution trailers are advisory
+   only", contradicting `--no-trailers` in the same help text (default
+   auto-stamping of `Reviewed-by` and fast-forward shared-history refusal) and
+   `topics/contributions.txt`; `arc check --help` also omits `--sync` and
+   `Reviewed-by`.
+6. **F6 (C10).** `arc resolve --help` omits the `--commit` ancestry, patch-id,
+   and revert-survival rule stated in `topics/change-commands.txt`.
+
+### Modeled changes and negative controls
+
+- `Arc.Model.Budget` models budget suspension admission (`admitSuspension`,
+  local-only, nonempty reason, positive window <= 24h), early termination
+  (`resumeSuspensions`), coverage (`suspensionCovers`), budget judgment
+  (`judgeGateBudget`, integration-only, never lifting failures, not-admitted,
+  unmeasured runs, declaration errors, or publication), non-seeding of runs
+  recorded under a suspension (`eligibleAsWorkReference`,
+  `eligibleAsRaiseEvidence`, `eligibleAsBasePassSeed`), and E1's `[budget]`
+  enforcement-key rule (`budgetTableEnforces`).
+- `Arc.Model.Declaration` adds `resolveOpenConfinement` (E2), C45 gate-trailer
+  validation (`validateGateTrailers`, `GateTrailers`, `WitnessDeclaration`,
+  `ChangeSize`, `GateTrailerRefusal`), and binds `invariants` and
+  `gateTrailers` into `Declaration` and `DeclarationShape` so changing either
+  invalidates prior passes at an unchanged tree.
+- `Arc.Model.Coverage` adds `waiverRetiredBy` and `StandingRetired EventId` in
+  `DebtStanding` so a guarded integration shipping a later patchset under an
+  independent, non-denied approval retires earlier-patchset waivers.
+
+Forty-seven targeted checks and four QuickCheck properties in
+`test/RepinChecks.hs` (total 82 repin checks and 11 repin properties) pin these
+claims, bringing `spec` to **570/570** passing checks (`candidate-spec` stays
+**102/102**). Eight source mutants in
+[model-mutants.py](evidence/repin/954f2334/model-mutants.py) each fail for
+their predicted semantic assertion before restoration
+([model-mutants.txt](evidence/repin/954f2334/model-mutants.txt)):
+`suspension-ignores-locality`, `suspension-permits-publication`,
+`suspension-lifts-failure`, `suspension-seeds-reference`,
+`budget-table-landing-enforces`, `confinement-admits-head-roots`,
+`earlier-waiver-not-retired`, and `gate-trailers-outside-identity`.
+
+### Replay encoding findings
+
+[actor-replay.sh](evidence/repin/actor-replay.sh) still committed as
+`tester@example.invalid`, which C44 refuses at snapshot; updating its address
+to `tester@arc-model.internal` lets the sandboxed actor replay pass (`check`
+exit 0, `integrate --dry-run` exit 1 for unestablished actor). No other
+differential encoding change was needed for `954f2334`.
+
+### Results at 954f2334
+
+Seed `20260907`, each channel at its defaults (60 generated histories, all
+named histories, and 60 check-time histories on `decision`, `execution`, and
+`coverage`). Every `arc` and `git` subprocess ran inside `Differential.Sandbox`
+with scratch under `$XDG_CACHE_HOME/arc-model/repin/954f2334`. Each channel
+exited 0.
+
+| channel | cases | agreed | adjudicated | skipped | disagreed | failed replay |
+| --- | --- | --- | --- | --- | --- | --- |
+| decision | 181 | 158 | 10 | 13 | 0 | 0 |
+| execution | 187 | 154 | 20 | 13 | 0 | 0 |
+| coverage | 222 | 204 | 5 | 13 | 0 | 0 |
+| candidate | 73 | 47 | 3 | 23 | 0 | 0 |
+
+Decision, execution, and coverage rows equal the retained `35f9501d` rows case
+for case; candidate rows differ only in replay-created identifiers. Every
+mismatch keeps its classification in
+[classified-rows.txt](evidence/repin/954f2334/classified-rows.txt):
+
+| mismatch | classification | decision | execution | coverage | candidate |
+| --- | --- | --- | --- | --- | --- |
+| committing target declarations/policy also moves the target | encoding/model replay representation, C12/C3; inherited | 6 | 13 | 0 | 0 |
+| no clean evaluated-content checkout can supply the assumed probe observation | encoding/observation boundary, C15/C42; inherited | 4 | 4 | 0 | 0 |
+| external approval retained beside a witnessed approval | unsettled authorization consumption, C9; inherited | 0 | 3 | 4 | 0 |
+| declared-actor policy refuses the model's assumed reviewer event | encoding/model replay representation, C18; inherited | 0 | 0 | 1 | 0 |
+| selection roots a reuse-only evaluation supplier in the candidate model | candidate model defect, inherited | 0 | 0 | 0 | 2 |
+| candidate model demands an environment even with no probe | unsettled candidate contract, inherited | 0 | 0 | 0 | 1 |
+
+The targeted sandboxed replay
+([repin-replay.py](evidence/repin/954f2334/repin-replay.py),
+[result](evidence/repin/954f2334/repin-replay.json)) agreed on **22/22 claims**
+and recorded **3 observations** (F1 `verify` exit 0 during suspension, F2
+`arc-check/4` exit 5 + `gate_declaration_errors`, F3 `debt: null` after
+retirement): 9 budget-suspension claims, 2 E1 enforcement-key claims, 2 E2
+open-change confinement claims, 2 C6/C27 earlier-patchset waiver retirement
+claims, 3 C45 gate-trailer & identity claims, 1 C37 `--parallel` clean
+isolated-worktree claim, 2 C10 `resolved --commit` survival/revert claims, and
+1 C44 reserved-identity snapshot refusal claim. The retained replays also
+passed in `arc-model-sandbox`: `actor-replay.sh` (exit 0), `gate-tier-replay.py`
+(6/6, [result](evidence/repin/954f2334/publication-replay.json)),
+`35f9501d/repin-replay.py` (15/15, [result](evidence/repin/954f2334/35f9501d-replay.json)),
+and `b405104a/repin-replay.py` (8/8, [result](evidence/repin/954f2334/b405104a-replay.json)).
+Exact gate commands and summaries are in
+[gate-results.txt](evidence/repin/954f2334/gate-results.txt) and
+[comparison-results.txt](evidence/repin/954f2334/comparison-results.txt).
+
+### Documentation findings and acceptance boundary
+
+`CONTRACT.md` settles E1 to E6 and every newly documented `954f2334` rule from
+the captured text, leaving F1 to F4's open questions explicitly marked
+unsettled and recording F5 and F6 as documentation drift/placement findings.
+The pure model realizes budget-suspension judgment and non-seeding, `[budget]`
+enforcement keys, open-change confinement layering, earlier-patchset waiver
+retirement, and gate-trailer validation and reuse identity; wall clocks,
+durations, busy-host counters, store formats, commit-bound and raise rewrite
+carry, `--commit` finding survival, trailer auto-stamping, and reserved
+commit-address checking remain external, and a model permission assumes those
+external requirements succeeded. Nothing was filed into arc's repository or
+journal.

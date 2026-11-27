@@ -1,0 +1,233 @@
+arc-model differential: comparison revision 954f23340cec1a7b96130fceb1ec311eb5f5cf9b
+channel coverage, seed 20260907, 102 named + 60 generated + 60 check-time cases, arc = arc
+
+[0] approved agreed
+[1] contributor-reviewer agreed
+[2] assumed-reviewer agreed
+[3] assumed-reviewer-open agreed
+[4] self-approval-open agreed
+[5] changes-requested agreed
+[6] comment-only agreed
+[7] unreviewed agreed
+[8] waived agreed
+[9] waiver-expired agreed
+[10] waived-contributor agreed
+[11] stale-approval agreed
+[12] finding-open agreed
+[13] finding-resolved agreed
+[14] head-moved agreed
+[15] gate-omitted agreed
+[16] gate-failed agreed
+[17] gate-other-tree agreed
+[18] gate-declaration-changed agreed
+[19] gate-other-environment agreed
+[20] gate-environment-unrecorded agreed
+[21] gate-probe-failed agreed
+[22] external-approved-open agreed
+[23] external-approved-danger agreed
+[24] external-beside-local agreed
+[25] external-changes-requested agreed
+[26] external-over-waiver agreed
+[27] external-rejected agreed
+[28] external-approved-danger-self-permitted agreed
+[29] external-beside-local-danger-self-permitted agreed
+[30] external-approved-danger-undeclared agreed
+[31] external-approved-danger-undeclared-self-forbidden agreed
+[32] external-approved-beside-debt agreed
+[33] extra-contributor agreed
+[34] gate-dirty agreed
+[35] gate-dirty-waived agreed
+[36] gate-dirty-waived-elsewhere agreed
+[37] target-behind agreed
+[38] target-behind-evaluated agreed
+[39] target-conflicting agreed
+[40] ff-only-contained agreed
+[41] ff-only-behind agreed
+[42] ff-only-behind-evaluated agreed
+[43] ff-only-conflicting agreed
+[44] probe-discharged agreed
+[45] probe-baseline-passed agreed
+[46] probe-final-missing agreed
+[47] probe-final-failed agreed
+[48] probe-undischargeable agreed
+[49] branch-missing agreed
+[50] conflicting-gates agreed
+[51] gate-older-pass-same-tree agreed
+[52] gate-older-pass-newer-other-environment agreed
+[53] gate-older-pass-newer-unrecorded-environment agreed
+[54] waivers-per-patchset agreed
+[55] iterating-unreviewed agreed
+[56] iterating-gate-failed agreed
+[57] iterating-refusing-verdict agreed
+[58] implementer-model-trailer agreed
+[59] implementer-model-ledger agreed
+[60] implementer-model-ledger-other-effort agreed
+[61] cover-ineligible-open agreed
+[62] cover-ineligible-negative-audit agreed
+[63] cover-ineligible-audit-unassessed agreed
+[64] cover-ineligible-audit-bound agreed
+[65] cover-ineligible-audit-bound-implemented agreed
+[66] cover-ineligible-audit-ineligible agreed
+[67] cover-ineligible-audit-other-model agreed
+[68] cover-ineligible-audit-other-effort agreed
+[69] cover-ineligible-audit-no-identities agreed
+[70] cover-ineligible-audit-model-unrecorded agreed
+[71] cover-ineligible-audit-authors-omitted agreed
+[72] cover-ineligible-audit-by-author agreed
+[73] cover-ineligible-audit-implementer-model agreed
+[74] cover-ineligible-assessed agreed
+[75] cover-ineligible-eligible-refused agreed
+[76] cover-ineligible-no-verdict agreed
+[77] cover-implementer-model-approval agreed
+[78] cover-implementer-model-approval-other-effort agreed
+[79] cover-implementer-model-waived agreed
+[80] cover-implementer-model-permitted agreed
+[81] cover-implementer-model-audit agreed
+[82] cover-implementer-model-audit-negative agreed
+[83] cover-distinct-model-audit agreed
+[84] cover-ledger-model-waived agreed
+[85] cover-ledger-model-permitted agreed
+[86] cover-ledger-model-audit agreed
+[87] cover-ledger-model-audit-negative agreed
+[88] cover-ledger-model-audit-distinct agreed
+[89] cover-approved agreed
+[90] cover-approved-negative-audit agreed
+[91] cover-approved-approving-audit agreed
+[92] cover-waived agreed
+[93] cover-waived-negative-audit agreed
+[94] cover-waived-author-audit agreed
+[95] cover-self-under-waiver agreed
+[96] cover-external-only agreed
+[97] cover-external-beside-local adjudicated unsettled: expected {basis verdict; audit none; open audit findings 0}, arc {basis external verdict; audit none; open audit findings 0} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[98] cover-external-beside-local-danger agreed
+[99] cover-external-danger-undeclared agreed
+[100] cover-debt-beside-external agreed
+[101] cover-undeclared-reviewer-waived adjudicated encoding: expected {basis debt verdict; audit none; open audit findings 0; review owed}, arc {basis debt; audit none; open audit findings 0; review owed} — undeclared reviewer: arc refuses to record a verdict nobody declared where policy requires a declared actor; the model's ledger holds it
+[102] generated-0 agreed
+[103] generated-1 agreed
+[104] generated-2 agreed
+[105] generated-3 agreed
+[106] generated-4 agreed
+[107] generated-5 agreed
+[108] generated-6 agreed
+[109] generated-7 skipped: unreadable evidence cannot be recorded through the CLI
+[110] generated-8 skipped: unreadable evidence cannot be recorded through the CLI
+[111] generated-9 agreed
+[112] generated-10 agreed
+[113] generated-11 adjudicated unsettled: expected {basis verdict; audit none; open audit findings 0}, arc {basis external verdict; audit none; open audit findings 0} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[114] generated-12 agreed
+[115] generated-13 agreed
+[116] generated-14 agreed
+[117] generated-15 agreed
+[118] generated-16 agreed
+[119] generated-17 agreed
+[120] generated-18 skipped: a finding is recorded only with a verdict
+[121] generated-19 agreed
+[122] generated-20 agreed
+[123] generated-21 adjudicated unsettled: expected {basis verdict; audit none; open audit findings 0}, arc {basis external verdict; audit none; open audit findings 0} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[124] generated-22 agreed
+[125] generated-23 agreed
+[126] generated-24 agreed
+[127] generated-25 agreed
+[128] generated-26 agreed
+[129] generated-27 agreed
+[130] generated-28 agreed
+[131] generated-29 agreed
+[132] generated-30 agreed
+[133] generated-31 agreed
+[134] generated-32 agreed
+[135] generated-33 agreed
+[136] generated-34 agreed
+[137] generated-35 agreed
+[138] generated-36 agreed
+[139] generated-37 agreed
+[140] generated-38 agreed
+[141] generated-39 agreed
+[142] generated-40 agreed
+[143] generated-41 agreed
+[144] generated-42 agreed
+[145] generated-43 agreed
+[146] generated-44 agreed
+[147] generated-45 agreed
+[148] generated-46 agreed
+[149] generated-47 agreed
+[150] generated-48 skipped: unreadable evidence cannot be recorded through the CLI
+[151] generated-49 agreed
+[152] generated-50 agreed
+[153] generated-51 agreed
+[154] generated-52 agreed
+[155] generated-53 agreed
+[156] generated-54 skipped: a finding is recorded only with a verdict
+[157] generated-55 agreed
+[158] generated-56 skipped: a finding is recorded only with a verdict
+[159] generated-57 agreed
+[160] generated-58 agreed
+[161] generated-59 agreed
+[162] check-time-0 agreed
+[163] check-time-1 agreed
+[164] check-time-2 agreed
+[165] check-time-3 agreed
+[166] check-time-4 agreed
+[167] check-time-5 agreed
+[168] check-time-6 agreed
+[169] check-time-7 skipped: unreadable evidence cannot be recorded through the CLI
+[170] check-time-8 skipped: unreadable evidence cannot be recorded through the CLI
+[171] check-time-9 agreed
+[172] check-time-10 agreed
+[173] check-time-11 agreed
+[174] check-time-12 agreed
+[175] check-time-13 agreed
+[176] check-time-14 agreed
+[177] check-time-15 agreed
+[178] check-time-16 agreed
+[179] check-time-17 agreed
+[180] check-time-18 skipped: a finding is recorded only with a verdict
+[181] check-time-19 agreed
+[182] check-time-20 agreed
+[183] check-time-21 adjudicated unsettled: expected {basis verdict; audit none; open audit findings 0}, arc {basis external verdict; audit none; open audit findings 0} — external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+[184] check-time-22 agreed
+[185] check-time-23 agreed
+[186] check-time-24 agreed
+[187] check-time-25 agreed
+[188] check-time-26 agreed
+[189] check-time-27 agreed
+[190] check-time-28 agreed
+[191] check-time-29 agreed
+[192] check-time-30 agreed
+[193] check-time-31 agreed
+[194] check-time-32 agreed
+[195] check-time-33 agreed
+[196] check-time-34 agreed
+[197] check-time-35 agreed
+[198] check-time-36 agreed
+[199] check-time-37 agreed
+[200] check-time-38 agreed
+[201] check-time-39 agreed
+[202] check-time-40 agreed
+[203] check-time-41 agreed
+[204] check-time-42 agreed
+[205] check-time-43 agreed
+[206] check-time-44 agreed
+[207] check-time-45 agreed
+[208] check-time-46 agreed
+[209] check-time-47 agreed
+[210] check-time-48 skipped: unreadable evidence cannot be recorded through the CLI
+[211] check-time-49 agreed
+[212] check-time-50 agreed
+[213] check-time-51 agreed
+[214] check-time-52 agreed
+[215] check-time-53 agreed
+[216] check-time-54 skipped: a finding is recorded only with a verdict
+[217] check-time-55 agreed
+[218] check-time-56 skipped: a finding is recorded only with a verdict
+[219] check-time-57 agreed
+[220] check-time-58 agreed
+[221] check-time-59 skipped: a run against the merge uses a clean checkout of its own, so it records no dirt
+
+channel coverage: 222 cases: 204 agreed, 5 adjudicated, 13 skipped, 0 disagreed, 0 failed to replay
+  adjudicated 4: external beside local: arc records the external approval beside the witnessed verdict; the model's basis names the witnessed verdict alone
+  adjudicated 1: undeclared reviewer: arc refuses to record a verdict nobody declared where policy requires a declared actor; the model's ledger holds it
+  skipped 6: a finding is recorded only with a verdict
+  skipped 1: a run against the merge uses a clean checkout of its own, so it records no dirt
+  skipped 6: unreadable evidence cannot be recorded through the CLI
+a quiet run is supporting evidence, not proof of equivalence

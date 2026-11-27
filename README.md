@@ -42,16 +42,24 @@ A debt
 declared as `ineligible-review` is cleared only by an audit, or a verdict on
 the shipped patchset, whose own routing assessment is eligible, bound to its
 reader and covering the `Implemented-by` projection of the shipped range, and
-a debt stands as declared, owed or discharged.
+a debt stands as declared, owed, discharged, or retired (when a guarded
+integration ships a later patchset under an independent, non-denied approval).
 
 Gate declarations select integration, publication or both. A project's write
-confinement is part of each gate's declaration identity, so a pass under
-another confinement does not answer it. Evidence keeps its
-event, so a publication pass cannot authorize integration. Delta selectors
-can offer reuse only from matching green source evidence, with complete known
-selections and retained provenance. `publicationEvidence` answers the local
-publication tier without requiring a change or a review verdict. Selector
-execution, publication receipts and build preparation remain external effects.
+confinement (layered from destination, operator, and change head for open
+changes), optional `invariants` file, and validated gate trailers (`Witness:`,
+`Change-size: interface`) are part of each gate's declaration identity, so a
+pass under another confinement, invariant list, or trailer set does not answer
+it. Evidence keeps its event, so a publication pass cannot authorize
+integration. `Arc.Model.Budget` models bounded store-local gate budget
+suspensions (up to 24h, integration-only, never lifting failures, declaration
+errors, unmeasured runs, or publication, and excluding suspended runs from
+work references, raise evidence, and base-pass seeds) and `[budget]`
+enforcement keys. Delta selectors can offer reuse only from matching green
+source evidence, with complete known selections and retained provenance.
+`publicationEvidence` answers the local publication tier without requiring a
+change or a review verdict. Selector execution, publication receipts, timing
+measurement, and build preparation remain external effects.
 
 The package also models the candidate protocol — alternative answers to one
 brief, registered, evaluated, selected, and promoted — and the differential's

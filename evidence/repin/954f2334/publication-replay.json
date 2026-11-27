@@ -1,0 +1,26 @@
+[
+  {
+    "claim": "publication standalone without a change",
+    "agreed": true
+  },
+  {
+    "claim": "publication queued revision refuses a moved same-tree branch",
+    "agreed": true
+  },
+  {
+    "claim": "publication evidence does not satisfy integration",
+    "agreed": true
+  },
+  {
+    "claim": "integration tier passes independently of publication-only requirements",
+    "agreed": true
+  },
+  {
+    "claim": "newer publication failure does not hide integration pass",
+    "agreed": true
+  },
+  {
+    "claim": "standalone publication fails when a required gate fails",
+    "agreed": true
+  }
+]

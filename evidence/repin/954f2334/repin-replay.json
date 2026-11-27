@@ -1,0 +1,361 @@
+[
+  {
+    "kind": "model",
+    "claim": "C31: over-budget pass is refused without suspension",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "ap7\",\n  \"ready\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: suspension exceeding 24h is refused",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: a budget suspension lasts at most 86400s; record another when this one ends"
+  },
+  {
+    "kind": "contract",
+    "claim": "C31: non-lead role cannot record a budget suspension",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "role refusal: implementer may not gates suspend (requires lead)\nRead: arc guide identity"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: suspension scoped to another gate does not lift refusal",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "ap7\",\n  \"ready\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: active local suspension accepts earlier over-budget pass for integration",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "N2CJ0FBW2X21KDVF3ED\",\n  \"schema\": \"arc-check/4\",\n  \"change_id\": \"susp-ntgap7\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: publication judges strictly despite active budget suspension",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "01s; excess 0.039s; budget source .arc/gates.toml at 7af980c728d4647d6d48b32b931d3bdfc533badd (0.01s); host ak; load Some([11.6630859375, 8.4912109375, 8.87939453125]); cores Some(16); CPU user Some(0)ms system Some(2)ms; excluded wait Some(0)ms preparation Some(0)ms; inspect arc gates over, make it faster, remove checks worth less, then arc gates raise GATE; allowance unavailable for this subject"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: failing gate still fails under active suspension",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "ap7\",\n  \"ready\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "observation",
+    "claim": "F1 observation: arc verify exit status on over-budget pass during active suspension",
+    "arc": 0,
+    "detail": "ow (declared by .arc/gates.toml)\nverification: Pass (accepted over budget, ran 0.049s of 0.01s: budgets suspended until 2026-11-27T05:49:32Z by suspension 01M8DNCNGCD2YC87PJBR5F4TZ2: loaded host) at be940d170f853166f8e2637da19c40ad5a2d94ee\nevent: 01M8DNCP2ZRF1T6XHRCV1NNPZB\ngates: 1/1 pass\nrunning: sleep 0.04; test -z \"$FORCE_FAIL\"\ngate slow: recent command median 0.049s exceeds 80% of budget 0.01s"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: over-budget pass recorded under suspension is accepted while active",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "N2CJ0FBW2X21KDVF3ED\",\n  \"schema\": \"arc-check/4\",\n  \"change_id\": \"susp-ntgap7\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31: resuming suspension refuses the same earlier receipt again",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "ap7\",\n  \"ready\": false,\n  \"exit_code\": 5,\n  \"blockers\": [\n    {\n      \"blocker\": \"gates-not-green\",\n      \"exit_code\": 5\n    }\n  ],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on susp-ntgap7; record one with `arc changelog susp --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog susp --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31/E1: landing-only [budget] table requires no individual gate budgets",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": ",\n  \"schema\": \"arc-check/4\",\n  \"change_id\": \"budget-e1-f90j49\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on budget-e1-f90j49; record one with `arc changelog budget-e1 --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog budget-e1 --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C31/E1: [budget] with non-default raise beside landing requires gate budgets",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "[\"budget: integration gate check needs a budget (profile unqualified)\"]"
+  },
+  {
+    "kind": "model",
+    "claim": "C43/E2: change head adopts confinement when neither destination nor operator declares one",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "\"schema\": \"arc-check/4\",\n  \"change_id\": \"confine-e2-j6010r\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confine-e2-j6010r; record one with `arc changelog confine-e2 --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confine-e2 --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C43/E2: widening head roots are ignored (never refused) while head required=true applies",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "\"schema\": \"arc-check/4\",\n  \"change_id\": \"confine-e2-j6010r\",\n  \"ready\": true,\n  \"exit_code\": 0,\n  \"blockers\": [],\n  \"advisories\": [\n    {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on confine-e2-j6010r; record one with `arc changelog confine-e2 --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog confine-e2 --none --reason TEXT`\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C6/C27: independent approval of shipped ps-02 retires ps-01 ineligible-review waiver",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "null"
+  },
+  {
+    "kind": "observation",
+    "claim": "F3 observation: debt field on show --json after earlier-patchset waiver retirement",
+    "arc": null,
+    "detail": ""
+  },
+  {
+    "kind": "model",
+    "claim": "C6/C27: approval with ineligible assessment cannot retire earlier-patchset waiver",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "N5R9BBAGMSZMDEBT\", \"patchset_id\": \"ps-01\", \"production\": {\"following_brief\": false, \"implementer\": {\"actor\": \"author\", \"harness\": \"test\", \"model_recorded\": false, \"session\": \"session-a\"}, \"integrator\": {\"actor\": \"author\", \"harness\": \"test\", \"model_recorded\": false, \"session\": \"session-a\"}, \"trailer_implementers\": []}, \"reason\": \"ps-01 was self-reviewed\", \"session\": \"session-a\", \"standing\": \"owed\"}"
+  },
+  {
+    "kind": "model",
+    "claim": "C45: valid Witness and Change-size: interface trailers pass verify and check",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "  {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on trailers-maqqjd; record one with `arc changelog trailers --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog trailers --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 0s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C45: changing Witness trailer at unchanged tree invalidates prior pass",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "  {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on trailers-maqqjd; record one with `arc changelog trailers --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog trailers --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 1s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "model",
+    "claim": "C45: more than three distinct Witness trailers refuses verify and check",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "  {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on trailers-maqqjd; record one with `arc changelog trailers --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog trailers --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 1s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "observation",
+    "claim": "F2 observation: arc check --json exit and output for invalid gate trailers",
+    "arc": {
+      "exit": 5,
+      "parsed": {
+        "gates": [
+          {
+            "budget": {
+              "verdict": "undeclared",
+              "budget_ms": null,
+              "run_ms": 9,
+              "excess_ms": null,
+              "sources": []
+            },
+            "execution_host": "ak",
+            "name": "check",
+            "duration_ms": 15,
+            "tree_cpu_ms": 1,
+            "work_conditions": {
+              "rule": {
+                "version": 2,
+                "instruction_ceiling_basis_points": 10300,
+                "minimum_instruction_rate_basis_points": 1000,
+                "minimum_other_basis_points": 2500,
+                "wall_slack_basis_points": 12500,
+                "minimum_prior_window_ms": 100,
+                "clock_coverage_slack_basis_points": 500
+              },
+              "prior": {
+                "busy_ms": 210,
+                "capacity_ms": 934,
+                "arc_cpu_ms": 37,
+                "elapsed_ms": 58
+              },
+              "concurrent_unattributed": false,
+              "invocation_cpu_ms": 5
+            },
+            "work_tree": {
+              "tree": "89ae18a00fef9acc24cf08360f7b256c49d395f2",
+              "revision": "b25e927fda12cda5c4625c5067f4284864e1677e",
+              "clean": true,
+              "unmoved": true,
+              "parallel_probe": false
+            },
+            "host_cpu": {
+              "logical_cpus": 16,
+              "cpu_model": "AMD Ryzen 7 5800X3D 8-Core Processor",
+              "unrestricted": true
+            },
+            "instructions": 1825599,
+            "host_busy_ms": 20,
+            "host_capacity_ms": 145,
+            "work_identity": {
+              "gate": "check",
+              "declaration": "sha256:b754c30c85f5bd1490a3439d20b8b17e5035266a90305f989b1a5d654d8c8f0c",
+              "hostname": "ak",
+              "host": {
+                "logical_cpus": 16,
+                "cpu_model": "AMD Ryzen 7 5800X3D 8-Core Processor",
+                "unrestricted": true
+              }
+            },
+            "wait_ms": 0,
+            "prepare_ms": 0,
+            "run_ms": 9,
+            "cpu_user_ms": 0,
+            "cpu_system_ms": 1,
+            "load_average": [
+              11.04931640625,
+              8.41650390625,
+              8.85302734375
+            ],
+            "core_count": 16,
+            "command": "true",
+            "declared_by": [
+              ".arc/gates.toml"
+            ],
+            "result": "pass",
+            "green_at_head": false,
+            "declaration_changed": true,
+            "attested": false,
+            "inherited_from": "b25e927fda12cda5c4625c5067f4284864e1677e",
+            "tested_tree": "89ae18a00fef9acc24cf08360f7b256c49d395f2",
+            "worktree_dirty": false,
+            "worktree_dirty_tracked": false,
+            "worktree_dirty_untracked": false,
+            "evidence_event_id": "01M8DNCSKM6PM1ETAXDSZX436G",
+            "revision": "b25e927fda12cda5c4625c5067f4284864e1677e",
+            "hostname": "ak",
+            "output_artifact": {
+              "producing_store": "01M8DNCMXZN5R9BBAGMSZMDEBT",
+              "path": "gate-output/01M8DNCSJ33XJ6V6EECE198BE3.log",
+              "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "byte_length": 0,
+              "observed_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "observed_bytes": 0,
+              "truncated": false
+            },
+            "discrimination": "undiscriminated"
+          }
+        ],
+        "budget_raises": [],
+        "budget_errors": [],
+        "gate_declaration_errors": [
+          "gate trailers: declared 4 distinct Witness: values (maximum is 3): w1, w2, w3, w4"
+        ],
+        "budget_rules": null,
+        "verdict_assessments": [
+          {
+            "event_id": "01M8DNCSED5E3VF7TNSW26ANSC",
+            "origin_replica_id": "01M8DNCMXZN5R9BBAGMSZMDEBT",
+            "origin_name": null,
+            "actor": "reviewer",
+            "on_behalf_of": null,
+            "admission_provenance": "legacy-unknown",
+            "covers_current_head": false,
+            "gating_eligible": true,
+            "selected_authorizing_event": false,
+            "rejection_reason": null
+          },
+          {
+            "event_id": "01M8DNCSS31NKHCYVW2VH0FBMW",
+            "origin_replica_id": "01M8DNCMXZN5R9BBAGMSZMDEBT",
+            "origin_name": null,
+            "actor": "reviewer",
+            "on_behalf_of": null,
+            "admission_provenance": "legacy-unknown",
+            "covers_current_head": false,
+            "gating_eligible": true,
+            "selected_authorizing_event": false,
+            "rejection_reason": null
+          },
+          {
+            "event_id": "01M8DNCSZ02VSAZRXE7YGCT5DM",
+            "origin_replica_id": "01M8DNCMXZN5R9BBAGMSZMDEBT",
+            "origin_name": null,
+            "actor": "reviewer",
+            "on_behalf_of": null,
+            "admission_provenance": "legacy-unknown",
+            "covers_current_head": true,
+            "gating_eligible": true,
+            "selected_authorizing_event": true,
+            "rejection_reason": null
+          }
+        ],
+        "selected_authorizing_event": "01M8DNCSZ02VSAZRXE7YGCT5DM",
+        "schema": "arc-check/4",
+        "change_id": "trailers-maqqjd",
+        "ready": false,
+        "exit_code": 5,
+        "blockers": [
+          {
+            "blocker": "gates-not-green",
+            "exit_code": 5
+          }
+        ],
+        "advisories": [
+          {
+            "code": "no-changelog-entry",
+            "detail": "no changelog entry on trailers-maqqjd; record one with `arc changelog trailers --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog trailers --none --reason TEXT`"
+          },
+          {
+            "code": "debt-summary",
+            "detail": "1 outstanding (ineligible-review 1); oldest 1s; surfaces (2): rd1.txt, rd2.txt"
+          }
+        ]
+      }
+    },
+    "detail": "  {\n      \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on trailers-maqqjd; record one with `arc changelog trailers --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog trailers --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 1s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "contract",
+    "claim": "C37: --parallel on clean worktree produces green gating evidence",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": " \"code\": \"no-changelog-entry\",\n      \"detail\": \"no changelog entry on parallel-ok-78hx3a; record one with `arc changelog parallel-ok --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog parallel-ok --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 1s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "contract",
+    "claim": "C10: resolved --commit stands while fix survives at head",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "-changelog-entry\",\n      \"detail\": \"no changelog entry on finding-survive-3pbrxh; record one with `arc changelog finding-survive --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog finding-survive --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 2s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "contract",
+    "claim": "C10: reverting commit cited by resolved --commit reopens blocking finding",
+    "expected": false,
+    "arc": false,
+    "agreed": true,
+    "detail": "-changelog-entry\",\n      \"detail\": \"no changelog entry on finding-survive-3pbrxh; record one with `arc changelog finding-survive --category CATEGORY --body-file FILE`, or that it needs none with `arc changelog finding-survive --none --reason TEXT`\"\n    },\n    {\n      \"code\": \"debt-summary\",\n      \"detail\": \"1 outstanding (ineligible-review 1); oldest 2s; surfaces (2): rd1.txt, rd2.txt\"\n    }\n  ]\n}"
+  },
+  {
+    "kind": "contract",
+    "claim": "C44: snapshot refuses reserved commit address",
+    "expected": true,
+    "arc": true,
+    "agreed": true,
+    "detail": "error: commit 62c997a789a51f61bd9a53760bb531c4730c77da has reserved-domain author address \"tester@example.invalid\"; re-author it with a real identity (for HEAD: git -c user.name='<name>' -c user.email='<email>' commit --amend --reset-author --no-edit; for earlier commits use git rebase -i), then take a fresh arc snapshot"
+  }
+]
