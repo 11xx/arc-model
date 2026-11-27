@@ -1,0 +1,20 @@
+suspension-ignores-locality: exit 1; predicted rejection: suspension/locality: imported suspension accepts nothing
+[FAIL] suspension/locality: imported suspension accepts nothing  expected BudgetRefused BudgetRefusedOverBudget, got BudgetSuspended (SuspensionId 1)
+suspension-permits-publication: exit 1; predicted rejection: suspension/publication: publication judges strictly despite active suspension
+[FAIL] suspension/publication: publication judges strictly despite active suspension  expected BudgetRefused BudgetRefusedOverBudget, got BudgetSuspended (SuspensionId 1)
+[FAIL] suspension: never accepts publication, failures, unmeasured runs, or declaration errors  *** Failed! Falsified (after 49 tests): (Publication,GatePass,BudgetDeclarationValid,RunOverBudget)
+suspension-lifts-failure: exit 1; predicted rejection: suspension/strict: failing gate still fails under active suspension
+[FAIL] suspension/strict: failing gate still fails under active suspension  expected BudgetRefused (BudgetRefusedGateOutcome GateFail), got BudgetSuspended (SuspensionId 1)
+[FAIL] suspension: never accepts publication, failures, unmeasured runs, or declaration errors  *** Failed! Falsified (after 14 tests): (Integration,GateFail,BudgetDeclarationValid,RunOverBudget)
+suspension-seeds-reference: exit 1; predicted rejection: suspension/seed: run recorded under suspension never becomes a work reference
+[FAIL] suspension/seed: run recorded under suspension never becomes a work reference  a suspended pass must not seed a busy-host reference
+budget-table-landing-enforces: exit 1; predicted rejection: budget-table/E1: landing-only table does not enforce
+[FAIL] budget-table/E1: landing-only table does not enforce  expected False, got True
+confinement-admits-head-roots: exit 1; predicted rejection: confinement/E2: head widening roots are ignored while head required=true enforces
+[FAIL] confinement/E2: head widening roots are ignored while head required=true enforces  expected Just (Confinement {writes = fromList ["target"], required = True}), got Just (Confinement {writes = fromList ["outside","target"], required = True})
+[FAIL] confinement/E2: head narrowing roots are ignored and required=false cannot lift enforcement  expected Just (Confinement {writes = fromList ["target"], required = True}), got Just (Confinement {writes = fromList ["sub","target"], required = True})
+[FAIL] confinement: open-change resolution never admits head roots when destination or operator declares a table  *** Failed! Falsified (after 5 tests): (Nothing,Just (Confinement {writes = fromList ["cache"], required = True}),Just (Confinement {writes = fromList ["target"], required = False}))
+earlier-waiver-not-retired: exit 1; predicted rejection: debt/retire: independent approval of shipped ps-02 retires ps-01 ineligible-review waiver
+[FAIL] debt/retire: independent approval of shipped ps-02 retires ps-01 ineligible-review waiver  expected [StandingRetired (EventId 5)], got [StandingOwed]
+gate-trailers-outside-identity: exit 1; predicted rejection: gate-trailers/identity: changing Witness or Change-size trailer invalidates pass at same tree
+[FAIL] gate-trailers/identity: changing Witness or Change-size trailer invalidates pass at same tree  expected Left (GateDeclarationChanged (GateName "build")), got Right (GateReading {gate = GateName "build", result = Observed GatePass, coverage = Covered (EventId 90), availability = Recorded RanLocally, falsified = Omitted})

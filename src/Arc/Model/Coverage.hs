@@ -18,6 +18,7 @@ module Arc.Model.Coverage
     , auditClears
     , verdictClears
     , DebtStanding(..)
+    , waiverRetiredBy
     , debtStanding
     ) where
 
@@ -253,22 +254,53 @@ clearingRead state debt = newest . sortOn readEvent $
   [ ReadByVerdict v.event | v <- state.verdicts, verdictClears state debt v ]
   <> [ ReadByAudit a.event | a <- state.audits, auditClears state debt a ]
 
--- | Where a debt stands: nothing is owed before the change integrates.
+-- | Where a debt stands: nothing is owed before the change integrates, and an
+-- earlier-patchset waiver retired by an independent approval of the shipped
+-- patchset creates no shipped obligation.
 data DebtStanding = StandingDeclared
                   | StandingOwed
                   | StandingDischarged ReadEvidence
+                  | StandingRetired EventId
   deriving stock (Eq, Ord, Show)
+
+-- C6, C27
+{- | Whether a guarded integration retired this waiver because it bound to an
+earlier patchset and integration shipped a later patchset under an independent
+approval carrying no assessment that denies clearance.
+-}
+waiverRetiredBy :: ChangeState -> Debt -> Maybe EventId
+waiverRetiredBy state debt = do
+  record    <- latestIntegration state
+  debtPsId  <- debt.patchset
+  debtPs    <- patchsetById state debtPsId
+  shippedPs <- patchsetById state record.patchset
+  if debtPs.ordinal >= shippedPs.ordinal || waiverUsed record.authorization debt.debtId
+    then Nothing
+    else case record.authorization of
+      AuthorizedByVerdict event -> do
+        verdict <- verdictByEvent state event
+        if verdict.patchset == record.patchset
+          && verdict.kind == Approved
+          && verdictIsIndependent state verdict == Just ()
+          && assessmentAllows verdict.assessment
+          then Just event
+          else Nothing
+      _otherAuthorization -> Nothing
 
 -- C27
 {- | The one standing every reading of a debt shares. An integrated change's
-debt is discharged by the read the integration's coverage names: an
-independent read of the shipped revision that no ineligible assessment
-qualifies, or for @ineligible-review@ an audit or verdict that clears it.
+earlier-patchset waiver retired by an independent shipped approval creates no
+shipped obligation; otherwise a debt is discharged by the read the
+integration's coverage names: an independent read of the shipped revision that
+no ineligible assessment qualifies, or for @ineligible-review@ an audit or
+verdict that clears it.
 -}
 debtStanding :: ChangeState -> Debt -> DebtStanding
 debtStanding state debt = case latestIntegration state of
   Nothing     -> StandingDeclared
-  Just record -> maybe StandingOwed StandingDischarged (answering record)
+  Just record -> case waiverRetiredBy state debt of
+    Just event -> StandingRetired event
+    Nothing    -> maybe StandingOwed StandingDischarged (answering record)
   where
     answering record
       | debt.declaredKind == Just IneligibleReview = clearingRead state debt

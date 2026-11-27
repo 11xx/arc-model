@@ -71,6 +71,8 @@ buildDeclaration = Declaration
   , events         = Nothing
   , selector       = Nothing
   , confinement    = Nothing
+  , invariants     = Nothing
+  , gateTrailers   = Nothing
   }
 
 probe :: ProbeCommand
@@ -251,7 +253,7 @@ build scenario = Built
       | scenario.gateMode == EvidenceOtherTree, (earlier : _) <- reverse (NE.init patchsets) = earlier
       | otherwise = latest
     shapeFor = \case
-      EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60 Nothing
+      EvidenceShapeMoved -> DeclarationShape "cargo build --locked" 60 Nothing Nothing Nothing
       _unchanged     -> declarationShape buildDeclaration
     -- a run against the merge records the merge's tree
     treeFor = \case

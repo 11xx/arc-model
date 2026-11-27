@@ -42,6 +42,7 @@ library
   exposed-modules:
       Arc.Model
     , Arc.Model.Basis
+    , Arc.Model.Budget
     , Arc.Model.Coverage
     , Arc.Model.Decision
     , Arc.Model.DebtDeclaration

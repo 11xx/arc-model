@@ -22,6 +22,7 @@ module Arc.Model
     , module Arc.Model.Probe
     , module Arc.Model.State
     , module Arc.Model.Basis
+    , module Arc.Model.Budget
     , module Arc.Model.Decision
     , module Arc.Model.Coverage
     , module Arc.Model.Discharge
@@ -29,6 +30,7 @@ module Arc.Model
     ) where
 
 import Arc.Model.Basis
+import Arc.Model.Budget
 import Arc.Model.Coverage
 import Arc.Model.Decision
 import Arc.Model.DebtDeclaration
@@ -52,4 +54,4 @@ rather than a moving branch. Historical executable build revisions and
 digests are recorded separately in @REPORT.md@.
 -}
 comparisonRevision :: String
-comparisonRevision = "35f9501d9c17d1fcd46a3b49bec19310aa55c179"
+comparisonRevision = "954f23340cec1a7b96130fceb1ec311eb5f5cf9b"
